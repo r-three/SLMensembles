@@ -5,12 +5,8 @@ import datasets
 from transformers import AutoTokenizer
 from config import seed, dataset_name, tokenizer_name
 
-# load dataset from disk
-# load tokenizer
-# verify
-# ipython
 
-def create_response_labels(input_ids, tokenizer):
+def create_response_labels(input_ids):
     """
     Creates labels for causal language modeling that masks everything except the assistant's response.
     
@@ -74,15 +70,15 @@ def add_labels(sample):
     """
     Adds properly masked labels for assistant responses.
     """
-    sample["labels"] = create_response_labels(sample["input_ids"], tokenizer)
+    sample["labels"] = create_response_labels(sample["input_ids"])
     return sample
 
 
 # Path to your saved dataset
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
+tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
 # Load the tulu-3-sft-mixture dataset (a SFT dataset from Allen AI), shuffles it, selects 200,000 examples, and splits it into train/test sets
-tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
 print("\n=== LOADING DATASET ===")
 dataset = datasets.load_dataset(dataset_name, split="train")
