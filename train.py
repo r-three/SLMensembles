@@ -29,6 +29,7 @@ eval_batch_size = config.eval_batch_size
 
 # TODO: add langauge modeling loss logging during the training loop
 
+
 def format_time_elapsed(seconds):
     """Convert seconds to a readable format with minutes and seconds."""
     minutes, seconds = divmod(seconds, 60)
@@ -43,39 +44,39 @@ def get_round_path(output_path, round_num):
 def evaluate_model(model, eval_dataset, collator, round_num, end=False):
     if end == True:
         model.eval()
-        
+
     eval_dataloader = DataLoader(eval_dataset, eval_batch_size, collate_fn=collator)
-    
+
     total_loss = 0
     total_tokens = 0
     total_examples = 0
-    
+
     start_time = time.time()
-       
+
     # TODO: add KL div to teacher and to ensemble evaluation metric
-    
+
     with torch.no_grad():
         for batch in eval_dataloader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
-            
+
             outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-            
+
             # Count non-masked tokens for proper averaging
             valid_tokens = (labels != -100).sum().item()
             total_loss += outputs.loss.item() * valid_tokens
             total_tokens += valid_tokens
             total_examples += input_ids.size(0)
-    
+
     runtime = time.time() - start_time
-    avg_loss = total_loss / total_tokens if total_tokens > 0 else float('inf')
+    avg_loss = total_loss / total_tokens if total_tokens > 0 else float("inf")
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
     num_steps = len(eval_dataloader)
     steps_per_sec = num_steps / runtime
     tokens_per_sec = total_tokens / runtime
     samples_per_sec = total_examples / runtime
-    
+
     return {
         "eval_loss": avg_loss,
         "perplexity": perplexity,
@@ -130,10 +131,10 @@ class DistillationTrainer(SFTTrainer):
         input_ids = inputs["input_ids"].to(device)
         attention_mask = inputs["attention_mask"].to(device)
         labels = inputs["labels"].to(device)
-        
+
         with torch.no_grad():
             student_logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-            
+
             if ensemble_model is not None:
                 num_models = len(ensemble_model.models)
                 ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.detach()
@@ -169,27 +170,22 @@ class DistillationTrainer(SFTTrainer):
 class WandbEvalsCallback(TrainerCallback):
     """Custom WandbCallback to log model predictions during training."""
 
-    def __init__(self, round_num, steps_per_round, teacher_eval_results, ensemble_model, eval_dataset, collator):
+    def __init__(self, round_num, steps_per_round, teacher_eval_results, ensemble_eval_results, eval_dataset, collator):
         self.round_num = round_num
         self.steps_per_round = steps_per_round
         self.teacher_eval_results = teacher_eval_results
-        self.ensemble_model = ensemble_model 
+        self.ensemble_eval_results = ensemble_eval_results
         self.eval_dataset = eval_dataset
         self.collator = collator
 
     def on_evaluate(self, args, state, control, metrics=None, **kwargs):
         """Called after evaluation."""
-        
+
         print(f"\n\nOriginal Eval Metrics Keys (Round {self.round_num}, Step {state.global_step}): {list(metrics.keys())}\n\n")
         adjusted_step = state.global_step + (self.round_num * args.max_steps)
-        
-        ensemble_eval_results = {}
-        current_model = kwargs['model']
-        
+        current_model = kwargs["model"]
         student_eval_results = evaluate_model(current_model, self.eval_dataset, self.collator, self.round_num)
-        if self.ensemble_model is not None:
-            ensemble_eval_results = evaluate_model(ensemble_model, self.eval_dataset, self.collator, self.round_num)
-        
+
         # custom_logs = {f"on_evaluate_round_{self.round_num}/eval/{k}": v for k, v in metrics.items()}
 
         combined_eval_logs = {}
@@ -197,20 +193,20 @@ class WandbEvalsCallback(TrainerCallback):
             combined_eval_logs[f"on_eval_round_{self.round_num}/eval_student/{k}"] = v
         for k, v in self.teacher_eval_results.items():
             combined_eval_logs[f"on_eval_round_{self.round_num}/eval_teacher/{k}"] = v
-        if self.ensemble_model is not None:
-            for k, v in ensemble_eval_results.items():
+        if self.ensemble_eval_results is not None:
+            for k, v in self.ensemble_eval_results.items():
                 combined_eval_logs[f"on_eval_round_{self.round_num}/eval_ensemble/{k}"] = v
-        
+
         wandb.log(combined_eval_logs, step=adjusted_step)
-        
-            
+
     def on_log(self, args, state, control, logs=None, **kwargs):
         """Called every logging step."""
-        print(f"\n\nOriginal Train Logs Keys (Round {self.round_num}, Step {state.global_step}): {list(logs.keys())}\n\n")
-        
-        custom_logs = {f"on_log_round_{self.round_num}/train/{k}": v for k, v in logs.items()}
-        adjusted_step = state.global_step + (self.round_num * args.max_steps)
-        wandb.log(custom_logs, step=adjusted_step)
+        # lods the same thing as the on_evaluate method
+        pass
+        # print(f"\n\nOriginal Train Logs Keys (Round {self.round_num}, Step {state.global_step}): {list(logs.keys())}\n\n")
+        # custom_logs = {f"on_log_round_{self.round_num}/train/{k}": v for k, v in logs.items()}
+        # adjusted_step = state.global_step + (self.round_num * args.max_steps)
+        # wandb.log(custom_logs, step=adjusted_step)
 
 
 def main():
@@ -223,7 +219,7 @@ def main():
     output_path = config.get_run_directory()
     run_name = f"{os.path.basename(output_path)}"
     print(f"Run: {run_name}")
-    
+
     print(f"Models stored in: {output_path}\n")
 
     # Setup wandb
@@ -231,15 +227,15 @@ def main():
 
     # Load tokenizer and models
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    teacher_model = AutoModelForCausalLM.from_pretrained(
-        config.teacher_model_name, torch_dtype=torch.bfloat16, device_map=device)
+    teacher_model = AutoModelForCausalLM.from_pretrained(config.teacher_model_name, torch_dtype=torch.bfloat16, device_map=device)
     teacher_model.requires_grad_(False)
-    
+
     # Load dataset and setup data collator
     dataset = datasets.load_from_disk(config.dataset_path)
     collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
-    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, 0, eval_batch_size, True)
+    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, 0, True)
+    ensemble_eval_results = None
 
     for round_num in range(0, config.total_rounds):
         round_start_time = time.time()
@@ -252,9 +248,8 @@ def main():
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
         round_output_dir = get_round_path(output_path, round_num)
         print(f"Round '{round_num}' model stored in: {round_output_dir}")
-        
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name, torch_dtype=torch.bfloat16, device_map=device)
+
+        student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=device)
 
         # Disable sliding window
         if hasattr(student_model.config, "use_sliding_window"):
@@ -270,9 +265,9 @@ def main():
             eval_dataset=dataset["test"],
             data_collator=collator,
             args=training_args,
-            callbacks=[WandbEvalsCallback(round_num, config.steps_per_round, teacher_eval_results, ensemble_model, dataset["train"], collator)],
+            callbacks=[WandbEvalsCallback(round_num, config.steps_per_round, teacher_eval_results, ensemble_eval_results, dataset["train"], collator)],
         )
-        
+
         trainer.train()
         trainer.model.save_pretrained(round_output_dir)
 
@@ -291,7 +286,7 @@ def main():
         # Evaluate
         student_eval_results = evaluate_model(trainer.model, dataset["test"], collator, round_num, eval_batch_size, end=True)
         ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator, round_num, eval_batch_size, end=True)
-    
+
         print(f"\n{'-'*25}")
         print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
         print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
@@ -329,6 +324,7 @@ def main():
     print(f"Training completed at: {end_datetime}")
     print(f"Total training time: {overall_duration_str}")
     print(f"{'='*50}")
+
 
 if __name__ == "__main__":
     main()

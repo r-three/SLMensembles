@@ -9,35 +9,35 @@ from config import seed, dataset_name, tokenizer_name
 def create_response_labels(input_ids):
     """
     Creates labels for causal language modeling that masks everything except the assistant's response.
-    
+
     Args:
         input_ids: Tensor containing token IDs
         tokenizer: The tokenizer used to identify assistant template markers
-        
+
     Returns:
         Tensor of same shape as input_ids with -100 for masked tokens
     """
     if not isinstance(input_ids, torch.Tensor):
         input_ids = torch.tensor(input_ids)
-    
-    labels = input_ids.clone() # Clone input_ids to create labels
-    response_ids = tokenizer("<|im_start|>assistant\n")["input_ids"] # Get the assistant response template IDs
-    
+
+    labels = input_ids.clone()  # Clone input_ids to create labels
+    response_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]  # Get the assistant response template IDs
+
     # By default, mask everything with -100
     labels.fill_(-100)
-    
+
     # Find where the assistant response starts
     start_pos = -1
     for i in range(len(input_ids) - len(response_ids) + 1):
-        if input_ids[i:i+len(response_ids)].tolist() == response_ids:
+        if input_ids[i : i + len(response_ids)].tolist() == response_ids:
             # We want tokens after the template marker
             start_pos = i + len(response_ids)
             break
-    
+
     # If we found the start position, unmask those tokens
-    if start_pos != -1: 
+    if start_pos != -1:
         labels[start_pos:] = input_ids[start_pos:]
-    
+
     return labels
 
 
@@ -52,18 +52,9 @@ def tokenize_text(sample):
     """
     Tokenizes text data with appropriate padding and truncation.
     """
-    tokenized = tokenizer(
-        sample["chat_text"], 
-        truncation=True, 
-        padding="max_length", 
-        max_length=1024, 
-        return_tensors="pt"
-    )
-    
-    return {
-        "input_ids": tokenized["input_ids"].squeeze(0),
-        "attention_mask": tokenized["attention_mask"].squeeze(0)
-    }
+    tokenized = tokenizer(sample["chat_text"], truncation=True, padding="max_length", max_length=1024, return_tensors="pt")
+
+    return {"input_ids": tokenized["input_ids"].squeeze(0), "attention_mask": tokenized["attention_mask"].squeeze(0)}
 
 
 def add_labels(sample):
@@ -85,11 +76,11 @@ dataset = datasets.load_dataset(dataset_name, split="train")
 print(f"Original dataset size: {len(dataset)}")
 print(f"Original dataset features: {dataset.features}")
 print(f"Example raw message format:")
-random_idx = random.randint(0, len(dataset)-1)
-print(dataset[random_idx]['messages'])
+random_idx = random.randint(0, len(dataset) - 1)
+print(dataset[random_idx]["messages"])
 print(f"Another example raw message format:")
-random_idx = random.randint(0, len(dataset)-1)
-print(dataset[random_idx]['messages'])
+random_idx = random.randint(0, len(dataset) - 1)
+print(dataset[random_idx]["messages"])
 
 # Shuffle and sample the dataset
 dataset = dataset.shuffle(seed)
@@ -123,20 +114,21 @@ labeled_dataset.set_format(type="torch", columns=["input_ids", "attention_mask",
 
 # Filter out samples which were truncated
 print("\n=== FILTERING EXAMPLES ===")
+
+
 def contains_complete_response_template(sample):
     """Check if the example contains the complete assistant response template."""
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
-    
+
     for start_idx in range(len(sample["input_ids"]) - len(response_template_ids) + 1):
-        if (sample["input_ids"][start_idx:start_idx + len(response_template_ids)].tolist() 
-            == response_template_ids):
+        if sample["input_ids"][start_idx : start_idx + len(response_template_ids)].tolist() == response_template_ids:
             return True
     return False
 
+
 # Check how many examples will be filtered out
-num_train_before = len(labeled_dataset['train'])
-train_keep_count = sum(1 for _ in filter(lambda x: contains_complete_response_template(x), 
-                                        (labeled_dataset['train'][i] for i in range(min(1000, num_train_before)))))
+num_train_before = len(labeled_dataset["train"])
+train_keep_count = sum(1 for _ in filter(lambda x: contains_complete_response_template(x), (labeled_dataset["train"][i] for i in range(min(1000, num_train_before)))))
 print(f"Estimated percentage of train examples to keep: {train_keep_count/min(1000, num_train_before)*100:.2f}% (based on 1000 samples)")
 
 # Apply the filter

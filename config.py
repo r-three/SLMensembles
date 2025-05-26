@@ -17,9 +17,7 @@ dataset_name = "allenai/tulu-3-sft-mixture"
 ensemble_model_names = []
 
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
-base_output_dir = (
-    "/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging"
-)
+base_output_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging"
 
 # Training parameters
 total_rounds = 4  # number of ensemble models
@@ -72,7 +70,7 @@ def get_training_args(output_dir):
         # warmup_steps=50,
         per_device_train_batch_size=2,
         per_device_eval_batch_size=eval_batch_size,
-        gradient_accumulation_steps=1, #8
+        gradient_accumulation_steps=1,  # 8
         gradient_checkpointing=False,
         bf16=True,
         max_steps=steps_per_round,

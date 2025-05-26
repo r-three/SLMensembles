@@ -30,12 +30,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         self.loss_fn = nn.CrossEntropyLoss()
 
         # Loads models from the provided paths/names
-        self.models = nn.ModuleList(
-            [
-                AutoModelForCausalLM.from_pretrained(name, torch_dtype=self.torch_dtype, device_map=self.device_map)
-                for name in model_names
-            ]
-        )
+        self.models = nn.ModuleList([AutoModelForCausalLM.from_pretrained(name, torch_dtype=self.torch_dtype, device_map=self.device_map) for name in model_names])
 
         for model in self.models:
             if self.vocab_size is not None:
@@ -54,16 +49,14 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
                 logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
             else:
                 logits = logits + outputs.logits.to(device)
-                            # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
+                # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
         logits = logits / len(self.models)  # averages the logits
 
         # Optionally computes the loss if labels are provided
-        # TODO: does the AutoModelForCausalLM have loss_function? 
+        # TODO: does the AutoModelForCausalLM have loss_function?
         loss = None
         if labels is not None:
-            loss = self.models[0].loss_function(
-                logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs
-            )
+            loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
 
         # Returns a standard output format compatible with HuggingFace models
         return CausalLMOutputWithPast(logits=logits, loss=loss)
@@ -81,9 +74,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         """
         Add a new model to the ensemble.
         """
-        new_model = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=self.torch_dtype, device_map=self.device_map
-        )
+        new_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.torch_dtype, device_map=self.device_map)
         if self.vocab_size is not None:
             new_model.resize_token_embeddings(new_num_tokens=self.vocab_size)
         self.models.append(new_model)
