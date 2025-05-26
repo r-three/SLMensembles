@@ -4,7 +4,7 @@
 #SBATCH --output=/scratch/ssd004/scratch/klambert/slm_ensembles/logs/%x_%j.out                
 #SBATCH --error=/scratch/ssd004/scratch/klambert/slm_ensembles/logs/%x_%j.err 
 #SBATCH --partition=a40                                                                       
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4                                                                     
 #SBATCH --mem=16GB                                                  
 #SBATCH --time=08:00:00 
@@ -39,7 +39,7 @@
     # neurips, iclr, icml, (nlp: emnlp, acl, etc.), colm (on language modeling)
     # how do you start a conference?
 
-# Note: need to run `srun -c 4 --gres=gpu:2 --partition a40 --mem=10GB --pty --time=8:00:00 bash`
+# Note: need to run `srun -c 4 --gres=gpu:1 --partition a40 --mem=10GB --pty --time=8:00:00 bash`
 
 # Set up terminal output mirroring
 # SLURM_JOB_ID=16262193

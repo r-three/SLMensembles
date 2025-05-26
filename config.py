@@ -22,8 +22,8 @@ base_output_dir = (
 )
 
 # Training parameters
-total_rounds = 10  # number of ensemble models
-steps_per_round = 80
+total_rounds = 4  # number of ensemble models
+steps_per_round = 10
 kl_temperature = 1.0
 eval_batch_size = 8
 
@@ -65,20 +65,19 @@ def get_training_args(output_dir):
     return SFTConfig(
         output_dir=output_dir,
         overwrite_output_dir=False,
-        report_to="wandb",
+        report_to="none",
         hub_model_id=None,
         # learning_rate=3e-5,
         # lr_scheduler_type="constant",
-        warmup_steps=50,
+        # warmup_steps=50,
         per_device_train_batch_size=2,
         per_device_eval_batch_size=eval_batch_size,
-        gradient_accumulation_steps=8,
+        gradient_accumulation_steps=1, #8
         gradient_checkpointing=False,
         bf16=True,
         max_steps=steps_per_round,
         eval_strategy="steps",
         eval_steps=int(steps_per_round / 10),
-        eval_start=True,
         logging_strategy="steps",
         logging_steps=10,
         # save_strategy="true",
