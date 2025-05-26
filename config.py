@@ -20,8 +20,8 @@ dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixtur
 base_output_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging"
 
 # Training parameters
-total_rounds = 4  # number of ensemble models
-steps_per_round = 10
+total_rounds = 10  # number of ensemble models
+steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 8
 
@@ -65,12 +65,12 @@ def get_training_args(output_dir):
         overwrite_output_dir=False,
         report_to="none",
         hub_model_id=None,
-        # learning_rate=3e-5,
+        learning_rate=1e-6,
         # lr_scheduler_type="constant",
-        # warmup_steps=50,
-        per_device_train_batch_size=2,
+        warmup_steps=50,
+        per_device_train_batch_size=4,
         per_device_eval_batch_size=eval_batch_size,
-        gradient_accumulation_steps=1,  # 8
+        gradient_accumulation_steps=8,
         gradient_checkpointing=False,
         bf16=True,
         max_steps=steps_per_round,

@@ -41,10 +41,12 @@ def get_round_path(output_path, round_num):
     return os.path.join(output_path, f"round_{round_num}")
 
 
-def evaluate_model(model, eval_dataset, collator, round_num, end=False):
+def evaluate_model(model, eval_dataset, collator, round_num, max_eval_samples=None, end=False):
     if end == True:
         model.eval()
-
+    if max_eval_samples:
+        eval_dataset = torch.utils.data.Subset(eval_dataset, range(max_eval_samples))
+    
     eval_dataloader = DataLoader(eval_dataset, eval_batch_size, collate_fn=collator)
 
     total_loss = 0
@@ -181,10 +183,10 @@ class WandbEvalsCallback(TrainerCallback):
     def on_evaluate(self, args, state, control, metrics=None, **kwargs):
         """Called after evaluation."""
 
-        print(f"\n\nOriginal Eval Metrics Keys (Round {self.round_num}, Step {state.global_step}): {list(metrics.keys())}\n\n")
+        # print(f"\n\nOriginal Eval Metrics Keys (Round {self.round_num}, Step {state.global_step}): {list(metrics.keys())}\n\n")
         adjusted_step = state.global_step + (self.round_num * args.max_steps)
         current_model = kwargs["model"]
-        student_eval_results = evaluate_model(current_model, self.eval_dataset, self.collator, self.round_num)
+        student_eval_results = evaluate_model(current_model, self.eval_dataset, self.collator, self.round_num, max_eval_samples=200)
 
         # custom_logs = {f"on_evaluate_round_{self.round_num}/eval/{k}": v for k, v in metrics.items()}
 
