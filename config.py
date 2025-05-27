@@ -17,17 +17,15 @@ dataset_name = "allenai/tulu-3-sft-mixture"
 ensemble_model_names = []
 
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
-base_output_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging"
+base_output_dir = "/projects/distilling_llms/model_log"
 
 # Training parameters
 total_rounds = 10  # number of ensemble models
-steps_per_round = 1000
+steps_per_round = 20 # 1000
 kl_temperature = 1.0
 eval_batch_size = 8
 
-
 def get_run_directory():
-    # Get current date in YYYY-MM-DD format
     current_date = datetime.now().strftime("%Y-%m-%d")
 
     # Create a date-specific directory path

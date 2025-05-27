@@ -27,8 +27,6 @@ ensemble_model = None
 device = config.device
 eval_batch_size = config.eval_batch_size
 
-# TODO: add langauge modeling loss logging during the training loop
-
 
 def format_time_elapsed(seconds):
     """Convert seconds to a readable format with minutes and seconds."""
@@ -171,7 +169,6 @@ class DistillationTrainer(SFTTrainer):
 
 class WandbEvalsCallback(TrainerCallback):
     """Custom WandbCallback to log model predictions during training."""
-
     def __init__(self, round_num, steps_per_round, teacher_eval_results, ensemble_eval_results, eval_dataset, collator):
         self.round_num = round_num
         self.steps_per_round = steps_per_round
@@ -191,6 +188,8 @@ class WandbEvalsCallback(TrainerCallback):
         # custom_logs = {f"on_evaluate_round_{self.round_num}/eval/{k}": v for k, v in metrics.items()}
 
         combined_eval_logs = {}
+        # combined_eval_logs["round"] = self.round_num
+        
         for k, v in student_eval_results.items():
             combined_eval_logs[f"on_eval_round_{self.round_num}/eval_student/{k}"] = v
         for k, v in self.teacher_eval_results.items():
@@ -202,13 +201,59 @@ class WandbEvalsCallback(TrainerCallback):
         wandb.log(combined_eval_logs, step=adjusted_step)
 
     def on_log(self, args, state, control, logs=None, **kwargs):
-        """Called every logging step."""
-        # lods the same thing as the on_evaluate method
-        pass
-        # print(f"\n\nOriginal Train Logs Keys (Round {self.round_num}, Step {state.global_step}): {list(logs.keys())}\n\n")
-        # custom_logs = {f"on_log_round_{self.round_num}/train/{k}": v for k, v in logs.items()}
-        # adjusted_step = state.global_step + (self.round_num * args.max_steps)
-        # wandb.log(custom_logs, step=adjusted_step)
+        """Log training loss, learning rate, and gradient norm during training."""
+        if logs is None:
+            return
+
+        adjusted_step = state.global_step + (self.round_num * self.steps_per_round)
+
+        custom_logs = {}
+        if "loss" in logs:
+            custom_logs[f"on_log_round_{self.round_num}/train/loss"] = logs["loss"]
+        if "learning_rate" in logs:
+            custom_logs[f"on_log_round_{self.round_num}/train/learning_rate"] = logs["learning_rate"]
+        if "grad_norm" in logs:
+            custom_logs[f"on_log_round_{self.round_num}/train/grad_norm"] = logs["grad_norm"]
+
+        # Optional: include raw logs for debugging
+        # for k, v in logs.items():
+        #     custom_logs[f"on_log_round_{self.round_num}/train/{k}"] = v
+
+        wandb.log(custom_logs, step=adjusted_step)
+
+        
+    def on_step_end(self, args, state, control, **kwargs):
+        """Log training metrics like loss, lr, and gradient norm during training."""
+
+        logs = {}
+        trainer = kwargs.get("trainer", None)
+
+        # Step-aligned logging
+        adjusted_step = state.global_step + (self.round_num * self.steps_per_round)
+
+        # 1. Learning Rate
+        if trainer is not None and hasattr(trainer, "optimizer"):
+            lr = trainer.optimizer.param_groups[0]["lr"]
+            logs[f"on_step_round_{self.round_num}/train/learning_rate"] = lr
+
+        # 2. Loss (might need to extract manually if not in state)
+        if hasattr(state, "log_history") and state.log_history:
+            recent = state.log_history[-1]
+            if "loss" in recent:
+                logs[f"on_step_round_{self.round_num}/train/loss"] = recent["loss"]
+
+        # 3. Gradient Norm
+        if trainer is not None and hasattr(trainer.model, "parameters"):
+            total_norm = 0.0
+            for p in trainer.model.parameters():
+                if p.grad is not None:
+                    param_norm = p.grad.data.norm(2)
+                    total_norm += param_norm.item() ** 2
+            total_norm = total_norm ** 0.5
+            logs[f"on_step_round_{self.round_num}/train/grad_norm"] = total_norm
+
+        wandb.log(logs, step=adjusted_step)
+
 
 
 def main():
@@ -272,6 +317,8 @@ def main():
 
         trainer.train()
         trainer.model.save_pretrained(round_output_dir)
+        log_dict = {"round": round_num}
+        wandb.log(log_dict, step=(round_num + 1) * config.steps_per_round)
 
         # Add model to the ensemble
         if ensemble_model is None:
