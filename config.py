@@ -17,15 +17,17 @@ dataset_name = "allenai/tulu-3-sft-mixture"
 ensemble_model_names = []
 
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
-base_output_dir = "/projects/distilling_llms/model_log"
+base_output_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging"
 
 # Training parameters
 total_rounds = 10  # number of ensemble models
-steps_per_round = 20 # 1000
+steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 8
 
+
 def get_run_directory():
+    # Get current date in YYYY-MM-DD format
     current_date = datetime.now().strftime("%Y-%m-%d")
 
     # Create a date-specific directory path
@@ -64,7 +66,6 @@ def get_training_args(output_dir):
         report_to="wandb",
         hub_model_id=None,
         learning_rate=1e-6,
-        # lr_scheduler_type="constant",
         warmup_steps=50,
         per_device_train_batch_size=4,
         per_device_eval_batch_size=eval_batch_size,
@@ -74,6 +75,7 @@ def get_training_args(output_dir):
         max_steps=steps_per_round,
         eval_strategy="steps",
         eval_steps=int(steps_per_round / 10),
+        eval_on_start=True,
         logging_strategy="steps",
         logging_steps=1,
         # save_strategy="true",

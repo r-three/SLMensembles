@@ -99,6 +99,9 @@ class DistillationTrainer(SFTTrainer):
         attention_mask = inputs["attention_mask"].to(device)
         labels = inputs["labels"].to(device)
 
+        num_unmasked = (labels != -100).sum().item()
+        print(f"[DEBUG] Unmasked tokens this batch: {num_unmasked}")    
+        
         # Get the teacher and ensemble predictions
         with torch.no_grad():
             teacher_logits = teacher_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
@@ -128,6 +131,7 @@ class DistillationTrainer(SFTTrainer):
         return kl_loss[mask].mean()
 
     def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+        """Model eval"""
         input_ids = inputs["input_ids"].to(device)
         attention_mask = inputs["attention_mask"].to(device)
         labels = inputs["labels"].to(device)
@@ -163,9 +167,16 @@ class DistillationTrainer(SFTTrainer):
         self.state.log_history.append(output)
         self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
 
+# TODO:
+    # Readme wandb
+    # compute the training gpu costs and metrics and runtime
+    # log more metrics
+    # log the final eval loss of the model (as points)
+    # log the number of valid tokens, labels != 100, during training
 
 class WandbEvalsCallback(TrainerCallback):
     """Custom WandbCallback to log model predictions during training."""
+
     def __init__(self, round_num, steps_per_round, teacher_eval_results, ensemble_eval_results, eval_dataset, collator):
         self.round_num = round_num
         self.steps_per_round = steps_per_round
@@ -268,7 +279,7 @@ def main():
     print(f"Models stored in: {output_path}\n")
 
     # Setup wandb
-    wandb.init(project="<slm_ensembles>", name=run_name)
+    run = wandb.init(project="<slm_ensembles>", name=run_name)
 
     # Load tokenizer and models
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
@@ -296,10 +307,6 @@ def main():
 
         student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=device)
 
-        # Disable sliding window
-        if hasattr(student_model.config, "use_sliding_window"):
-            student_model.config.use_sliding_window = False
-
         training_args = config.get_training_args(round_output_dir)
 
         trainer = DistillationTrainer(
@@ -310,13 +317,11 @@ def main():
             eval_dataset=dataset["test"],
             data_collator=collator,
             args=training_args,
-            callbacks=[WandbEvalsCallback(round_num, config.steps_per_round, teacher_eval_results, ensemble_eval_results, dataset["train"], collator)],
+            # callbacks=[WandbEvalsCallback(round_num, config.steps_per_round, teacher_eval_results, ensemble_eval_results, dataset["train"], collator)],
         )
 
         trainer.train()
         trainer.model.save_pretrained(round_output_dir)
-        log_dict = {"round": round_num}
-        wandb.log(log_dict, step=(round_num + 1) * config.steps_per_round)
 
         # Add model to the ensemble
         if ensemble_model is None:
