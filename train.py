@@ -159,10 +159,7 @@ class DistillationTrainer(SFTTrainer):
             if start_time is not None:
                 speed_metrics("train", start_time, num_tokens=self.state.num_input_tokens_seen)
 
-        output = {
-            **logs,
-            **{"step": self.state.global_step + (self.round_num * self.steps_per_round)},
-        }
+        output = {**logs}
         self.state.log_history.append(output)
         self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
 
@@ -179,16 +176,15 @@ class WandbEvalsCallback(TrainerCallback):
 
     def on_evaluate(self, args, state, control, metrics=None, **kwargs):
         """Called after evaluation."""
-
-        # print(f"\n\nOriginal Eval Metrics Keys (Round {self.round_num}, Step {state.global_step}): {list(metrics.keys())}\n\n")
-        adjusted_step = state.global_step + (self.round_num * args.max_steps)
+        
+        # adjusted_step = state.global_step + (self.round_num * args.max_steps)
         current_model = kwargs["model"]
         student_eval_results = evaluate_model(current_model, self.eval_dataset, self.collator, self.round_num, max_eval_samples=200)
 
         # custom_logs = {f"on_evaluate_round_{self.round_num}/eval/{k}": v for k, v in metrics.items()}
 
         combined_eval_logs = {}
-        # combined_eval_logs["round"] = self.round_num
+        combined_eval_logs[f"round_{self.round_num}"] = self.round_num
         
         for k, v in student_eval_results.items():
             combined_eval_logs[f"on_eval_round_{self.round_num}/eval_student/{k}"] = v
@@ -198,14 +194,14 @@ class WandbEvalsCallback(TrainerCallback):
             for k, v in self.ensemble_eval_results.items():
                 combined_eval_logs[f"on_eval_round_{self.round_num}/eval_ensemble/{k}"] = v
 
-        wandb.log(combined_eval_logs, step=adjusted_step)
+        wandb.log(combined_eval_logs, step=state.global_step)
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         """Log training loss, learning rate, and gradient norm during training."""
         if logs is None:
             return
 
-        adjusted_step = state.global_step + (self.round_num * self.steps_per_round)
+        # adjusted_step = state.global_step + (self.round_num * self.steps_per_round)
 
         custom_logs = {}
         if "loss" in logs:
@@ -215,13 +211,14 @@ class WandbEvalsCallback(TrainerCallback):
         if "grad_norm" in logs:
             custom_logs[f"on_log_round_{self.round_num}/train/grad_norm"] = logs["grad_norm"]
 
-        print(f"\n\n[on_log] step={state.global_step}, adjusted_step={adjusted_step}, logs keys={list(logs.keys())}\n\n")
+        print(f"\n\n[on_log] step={state.global_step}, logs keys={list(logs.keys())}, custom_values={list(logs.values())}\n\n")
+        print(f"\n\n[on_log] step={state.global_step}, logs keys={list(custom_logs.keys())}, custom_values={list(custom_logs.values())}\n\n")
 
         # Optional: include raw logs for debugging
         # for k, v in logs.items():
         #     custom_logs[f"on_log_round_{self.round_num}/train/{k}"] = v
-
-        wandb.log(custom_logs, step=adjusted_step)
+        print(f"DEBUG: wands_log called on round_{self.round_num}")
+        wandb.log(custom_logs, step=state.global_step)
 
         
     def on_train_batch_end(self, args, state, control, **kwargs):
@@ -236,7 +233,6 @@ class WandbEvalsCallback(TrainerCallback):
         if trainer is not None and hasattr(trainer, "optimizer"):
             lr = trainer.optimizer.param_groups[0]["lr"]
             logs[f"on_batch_round_{self.round_num}/train/learning_rate"] = lr
-
 
         # 2. Loss (might need to extract manually if not in state)
         if hasattr(state, "log_history") and state.log_history:
