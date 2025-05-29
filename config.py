@@ -61,7 +61,7 @@ def get_training_args(output_dir):
     return SFTConfig(
         output_dir=output_dir,
         overwrite_output_dir=False,
-        report_to="none",
+        report_to="wandb",
         hub_model_id=None,
         learning_rate=1e-6,
         # lr_scheduler_type="constant",
@@ -75,7 +75,7 @@ def get_training_args(output_dir):
         eval_strategy="steps",
         eval_steps=int(steps_per_round / 10),
         logging_strategy="steps",
-        logging_steps=10,
+        logging_steps=1,
         # save_strategy="true",
         # save_steps=500,
         # save_total_limit=3,

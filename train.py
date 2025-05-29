@@ -215,6 +215,8 @@ class WandbEvalsCallback(TrainerCallback):
         if "grad_norm" in logs:
             custom_logs[f"on_log_round_{self.round_num}/train/grad_norm"] = logs["grad_norm"]
 
+        print(f"\n\n[on_log] step={state.global_step}, adjusted_step={adjusted_step}, logs keys={list(logs.keys())}\n\n")
+
         # Optional: include raw logs for debugging
         # for k, v in logs.items():
         #     custom_logs[f"on_log_round_{self.round_num}/train/{k}"] = v
@@ -222,19 +224,19 @@ class WandbEvalsCallback(TrainerCallback):
         wandb.log(custom_logs, step=adjusted_step)
 
         
-    def on_step_end(self, args, state, control, **kwargs):
+    def on_train_batch_end(self, args, state, control, **kwargs):
         """Log training metrics like loss, lr, and gradient norm during training."""
 
         logs = {}
         trainer = kwargs.get("trainer", None)
 
-        # Step-aligned logging
         adjusted_step = state.global_step + (self.round_num * self.steps_per_round)
 
         # 1. Learning Rate
         if trainer is not None and hasattr(trainer, "optimizer"):
             lr = trainer.optimizer.param_groups[0]["lr"]
-            logs[f"on_step_round_{self.round_num}/train/learning_rate"] = lr
+            logs[f"on_batch_round_{self.round_num}/train/learning_rate"] = lr
+
 
         # 2. Loss (might need to extract manually if not in state)
         if hasattr(state, "log_history") and state.log_history:
@@ -250,7 +252,7 @@ class WandbEvalsCallback(TrainerCallback):
                     param_norm = p.grad.data.norm(2)
                     total_norm += param_norm.item() ** 2
             total_norm = total_norm ** 0.5
-            logs[f"on_step_round_{self.round_num}/train/grad_norm"] = total_norm
+            logs[f"on_batch_round_{self.round_num}/train/grad_norm"] = total_norm
 
         wandb.log(logs, step=adjusted_step)
 

@@ -11,6 +11,7 @@
 
 # srun -c 4 --gres=gpu:1 --partition a40 --mem=10GB --pty --time=8:00:00 bash
 # cd /scratch/ssd004/scratch/klambert/slm_ensembles/logs/
+# cd /projects/distilling_llms/model_log
 
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"

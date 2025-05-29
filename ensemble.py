@@ -36,7 +36,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
             if self.vocab_size is not None:
                 model.resize_token_embeddings(new_num_tokens=self.vocab_size)
 
-    def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
+    def forward(self, input_ids, kl_loss, attention_mask=None, labels=None, **kwargs):
         """
         Computes the averaged logits over ensemble members.
         """
@@ -54,7 +54,9 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
 
         # Optionally computes the loss if labels are provided
         # TODO: does the AutoModelForCausalLM have loss_function?
+        
         loss = None
+        loss = kl_loss
         if labels is not None:
             loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
 
@@ -64,10 +66,10 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
     #     def gradient_checkpointing_enable(self, *args, **kwargs):
     #         for model in self.models:
     #             model.gradient_checkpointing_enable(*args, **kwargs)
-    #
     #     def gradient_checkpointing_disable(self, *args, **kwargs):
     #         for model in self.models:
     #             model.gradient_checkpointing_disable(*args, **kwargs)
+    model.gradient_checkpointing_disable(*args, **kwargs)
 
     # utility methods for adding or removing a model from the ensemble
     def add_model(self, model_name):
