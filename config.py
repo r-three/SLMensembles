@@ -21,7 +21,7 @@ base_output_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distil
 
 # Training parameters
 total_rounds = 10  # number of ensemble models
-steps_per_round = 1000
+steps_per_round = 10
 kl_temperature = 1.0
 eval_batch_size = 8
 
@@ -63,7 +63,7 @@ def get_training_args(output_dir):
     return SFTConfig(
         output_dir=output_dir,
         overwrite_output_dir=False,
-        report_to="wandb",
+        report_to="none",
         hub_model_id=None,
         learning_rate=1e-6,
         warmup_steps=50,
