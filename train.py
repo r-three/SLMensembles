@@ -114,8 +114,8 @@ class DistillationTrainer(SFTTrainer):
         loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
         
         # print(f"logging loss")
-        # self.run.log({"lossssssssss": loss})
-        # self.run.log({f"round_{self.round_num}/roundssssss": self.round_num}, step=self.state.global_step)
+        self.run.log({"lossssssssss": loss})
+        self.run.log({f"round_{self.round_num}/roundssssss": self.round_num}, step=self.state.global_step)
         
         return (loss, current_model_logits) if return_outputs else loss
 

@@ -6,6 +6,7 @@ from transformers import AutoTokenizer
 from config import seed, dataset_name, tokenizer_name
 
 
+# TODO: need to fix this since hte collator is different
 def create_response_labels(input_ids):
     """
     Creates labels for causal language modeling that masks everything except the assistant's response.
