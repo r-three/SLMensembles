@@ -3,6 +3,7 @@ import os
 import time
 import wandb
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -93,6 +94,7 @@ class DistillationTrainer(SFTTrainer):
         self.round_num = kwargs.pop("round_num")
         self.steps_per_round = kwargs.pop("steps_per_round")
         self.run = kwargs.pop("run")
+        self.extra_logging_info = {}
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
@@ -112,10 +114,7 @@ class DistillationTrainer(SFTTrainer):
 
         # Distill teacher into current model
         loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
-        
-        # print(f"logging loss")
-        self.run.log({"lossssssssss": loss})
-        self.run.log({f"round_{self.round_num}/roundssssss": self.round_num}, step=self.state.global_step)
+        self.run.log({f"round_{self.round_num}/train/kl_loss": loss})
         
         return (loss, current_model_logits) if return_outputs else loss
 
@@ -141,11 +140,15 @@ class DistillationTrainer(SFTTrainer):
 
         with torch.no_grad():
             student_logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
+            teacher_logits = teacher_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
 
             if ensemble_model is not None:
                 num_models = len(ensemble_model.models)
                 ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.detach()
-                student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
+                total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
+            else:
+                ensemble_logits = None
+                total_ensemble_logits = student_logits
 
         # Handle potential model wrapping (DataParallel/DistributedDataParallel)
         if hasattr(model, "module"):
@@ -156,7 +159,21 @@ class DistillationTrainer(SFTTrainer):
             labels=labels,
             vocab_size=model.config.vocab_size,
         )
+
+        kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
+        if "kl_losses" not in self.extra_logging_info:
+            self.extra_logging_info["kl_losses"] = []
+        self.extra_logging_info["kl_losses"].append(kl_loss.item())
+
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
+    
+    def evaluation_loop(self, dataloader, description, prediction_loss_only=None, ignore_keys=None, metric_key_prefix="eval"):
+        output = super().evaluation_loop(dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix)
+        self.run.log({
+            f"round_{self.round_num}/eval/lm_loss": output.metrics["eval_loss"],
+            f"round_{self.round_num}/eval/kl_loss": np.mean(self.extra_logging_info["kl_losses"])
+        })
+        return output
 
     def log(self, logs, start_time=None):
         if self.state.epoch is not None:
