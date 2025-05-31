@@ -54,8 +54,6 @@ def evaluate_model(model, eval_dataset, collator, round_num, max_eval_samples=No
 
     start_time = time.time()
 
-    # TODO: add KL div to teacher and to ensemble evaluation metric
-
     with torch.no_grad():
         for batch in eval_dataloader:
             input_ids = batch["input_ids"].to(device)
@@ -202,7 +200,7 @@ def main():
     print(f"Models stored in: {output_path}\n")
 
     # Setup wandb
-    run = wandb.init(project="<slm_ensembles>", name=run_name)
+    run = wandb.init(project="<slm_ensembles>", name=f"test_{run_name}")
     global_step = 0
 
     # Load tokenizer and models
@@ -212,7 +210,9 @@ def main():
 
     # Load dataset and setup data collator
     dataset = datasets.load_from_disk(config.dataset_path)
-    collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+    # collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, 0, True)
     wandb.log({"eval/teacher_loss": teacher_eval_results["eval_loss"]}, step=global_step)

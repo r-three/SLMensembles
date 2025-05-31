@@ -17,7 +17,7 @@ dataset_name = "allenai/tulu-3-sft-mixture"
 ensemble_model_names = []
 
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
-base_output_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging"
+base_output_dir = "/projects/distilling_llms/model_log"
 
 # Training parameters
 total_rounds = 10  # number of ensemble models
@@ -63,7 +63,7 @@ def get_training_args(output_dir):
     return SFTConfig(
         output_dir=output_dir,
         overwrite_output_dir=False,
-        report_to="none",
+        report_to="wandb",
         hub_model_id=None,
         learning_rate=1e-6,
         warmup_steps=50,
@@ -78,10 +78,5 @@ def get_training_args(output_dir):
         eval_on_start=True,
         logging_strategy="steps",
         logging_steps=1,
-        # save_strategy="true",
-        # save_steps=500,
-        # save_total_limit=3,
-        # load_best_model_at_end=True,
-        # metric_for_best_model="eval_loss",
-        # greater_is_better=False,
+        save_strategy="no",
     )
