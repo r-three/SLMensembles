@@ -1,8 +1,0 @@
-{"time":"2025-05-09T00:32:05.332749697-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/offline-run-20250509_003205-c7bqa0uq/logs/debug-core.log"}
-{"time":"2025-05-09T00:32:05.443656797-04:00","level":"WARN","msg":"GraphQL client is nil, skipping feature loading"}
-{"time":"2025-05-09T00:32:05.444111291-04:00","level":"INFO","msg":"created new stream","id":"c7bqa0uq"}
-{"time":"2025-05-09T00:32:05.444149622-04:00","level":"INFO","msg":"stream: started","id":"c7bqa0uq"}
-{"time":"2025-05-09T00:32:05.444163032-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"c7bqa0uq"}
-{"time":"2025-05-09T00:32:05.444226205-04:00","level":"INFO","msg":"handler: started","stream_id":"c7bqa0uq"}
-{"time":"2025-05-09T00:32:05.444175738-04:00","level":"INFO","msg":"sender: started","stream_id":"c7bqa0uq"}
-{"time":"2025-05-09T00:32:05.447786941-04:00","level":"INFO","msg":"Starting system monitor"}

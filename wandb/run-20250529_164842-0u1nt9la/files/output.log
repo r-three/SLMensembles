@@ -1,7 +1,0 @@
-Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
-Traceback (most recent call last):
-  File "/h/klambert/slm_ensembles/collator_train.py", line 394, in <module>
-    main()
-  File "/h/klambert/slm_ensembles/collator_train.py", line 303, in main
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids=response_template_ids, tokenizer=tokenizer)
-TypeError: DataCollatorForCompletionOnlyLM.__init__() missing 1 required positional argument: 'response_template'

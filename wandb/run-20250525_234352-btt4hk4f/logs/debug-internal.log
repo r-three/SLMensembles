@@ -1,7 +1,0 @@
-{"time":"2025-05-25T23:43:52.345266064-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/run-20250525_234352-btt4hk4f/logs/debug-core.log"}
-{"time":"2025-05-25T23:43:52.511855716-04:00","level":"INFO","msg":"created new stream","id":"btt4hk4f"}
-{"time":"2025-05-25T23:43:52.511926719-04:00","level":"INFO","msg":"stream: started","id":"btt4hk4f"}
-{"time":"2025-05-25T23:43:52.511974321-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"btt4hk4f"}
-{"time":"2025-05-25T23:43:52.511985208-04:00","level":"INFO","msg":"handler: started","stream_id":"btt4hk4f"}
-{"time":"2025-05-25T23:43:52.51199336-04:00","level":"INFO","msg":"sender: started","stream_id":"btt4hk4f"}
-{"time":"2025-05-25T23:43:52.616821824-04:00","level":"INFO","msg":"Starting system monitor"}

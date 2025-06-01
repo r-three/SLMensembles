@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "/h/klambert/slm_ensembles/train.py", line 283, in <module>
-    trainer = DistillationTrainer(
-  File "/h/klambert/slm_ensembles/train.py", line 128, in __init__
-    super().__init__(*args, **kwargs)
-TypeError: SFTTrainer.__init__() got an unexpected keyword argument 'tokenizer'

@@ -1,7 +1,0 @@
-Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
-Traceback (most recent call last):
-  File "/h/klambert/slm_ensembles/train.py", line 334, in <module>
-    main()
-  File "/h/klambert/slm_ensembles/train.py", line 242, in main
-    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, 0, eval_batch_size, True)
-TypeError: evaluate_model() takes from 4 to 5 positional arguments but 6 were given
