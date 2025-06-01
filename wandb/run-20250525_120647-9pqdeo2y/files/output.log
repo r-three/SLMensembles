@@ -1,0 +1,99 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+
+==================================================
+Starting Round 0 at: 2025-05-25 12:06:52
+==================================================
+Round '0' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-25/run_2/round_0
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+[34m[1mwandb[0m: [33mWARNING[0m The `run_name` is currently set to the same value as `TrainingArguments.output_dir`. If this was not intended, please specify a different run name by setting the `TrainingArguments.run_name` parameter.
+[34m[1mwandb[0m: [33mWARNING[0m The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+ 70%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▎                                                                    | 14/20 [05:47<02:21, 23.61s/it]                                    
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 244/244 [00:51<00:00,  4.91it/s]                                    
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.4571582078933716, 'eval_runtime': 50.7343, 'eval_samples_per_second': 38.357, 'eval_steps_per_second': 4.809, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.4513027667999268, 'eval_runtime': 51.1749, 'eval_samples_per_second': 38.026, 'eval_steps_per_second': 4.768, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.439378261566162, 'eval_runtime': 51.2077, 'eval_samples_per_second': 38.002, 'eval_steps_per_second': 4.765, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.4193952083587646, 'eval_runtime': 51.3604, 'eval_samples_per_second': 37.889, 'eval_steps_per_second': 4.751, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.4107197523117065, 'eval_runtime': 51.2961, 'eval_samples_per_second': 37.937, 'eval_steps_per_second': 4.757, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.3982648849487305, 'eval_runtime': 51.3635, 'eval_samples_per_second': 37.887, 'eval_steps_per_second': 4.75, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.387568473815918, 'eval_runtime': 51.3456, 'eval_samples_per_second': 37.9, 'eval_steps_per_second': 4.752, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.3870279788970947, 'eval_runtime': 51.2819, 'eval_samples_per_second': 37.947, 'eval_steps_per_second': 4.758, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.388805627822876, 'eval_runtime': 51.3458, 'eval_samples_per_second': 37.9, 'eval_steps_per_second': 4.752, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb979344c80>
+{'eval_loss': 1.392559289932251, 'eval_runtime': 51.2646, 'eval_samples_per_second': 37.96, 'eval_steps_per_second': 4.76, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7fb96c20fed0>
+on_log metrics logged:
+<generator object WandbEvalsCallback.on_log.<locals>.<genexpr> at 0x7fb96498c6d0>
+{'train_runtime': 584.0297, 'train_samples_per_second': 0.548, 'train_steps_per_second': 0.034, 'train_loss': 3.3839275360107424, 'epoch': 0.0}
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [10:17<00:00, 30.86s/it]
+
+-------------------------
+Student evaluation for 0: 1.357757860727791, perplexity: 3.8874671459198, tokens: 1024012
+Ensemble evaluation for 0: 1.357757860727791, perplexity: 3.8874671459198, tokens: 1024012
+Teacher evaluation for 0: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 0 at: 2025-05-25 12:20:46
+Completed in: 13m 53s
+Total training time: 13m 59s
+==================================================
+
+
+==================================================
+Starting Round 1 at: 2025-05-25 12:20:47
+==================================================
+Round '1' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-25/run_2/round_1
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 318, in <module>
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 248, in main
+    trainer = DistillationTrainer(
+  File "/h/klambert/slm_ensembles/train.py", line 92, in __init__
+    super().__init__(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/trl/trainer/sft_trainer.py", line 358, in __init__
+    super().__init__(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+    return func(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 692, in __init__
+    os.makedirs(self.args.output_dir, exist_ok=True)
+  File "/pkgs/python-3.10.12/lib/python3.10/os.py", line 225, in makedirs
+    mkdir(name, mode)
+OSError: [Errno 122] Disk quota exceeded: '/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-25/run_2/round_1'

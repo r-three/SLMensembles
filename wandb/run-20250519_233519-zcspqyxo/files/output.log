@@ -1,0 +1,188 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Teacher model evaluation: {'eval_loss': 1.3539468194424984}
+No prior ensemble loaded
+
+==================================================
+Starting Round 0 at: 2025-05-19 23:37:58
+==================================================
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+wandb: WARNING The `run_name` is currently set to the same value as `TrainingArguments.output_dir`. If this was not intended, please specify a different run name by setting the `TrainingArguments.run_name` parameter.
+wandb: WARNING The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+  0%|          | 0/1000 [00:00<?, ?it/s]`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+                                                    
+{'loss': 3.8162, 'grad_norm': 114.0, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.0}
+{'loss': 2.949, 'grad_norm': 41.75, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.0}
+{'loss': 2.4527, 'grad_norm': 45.25, 'learning_rate': 1.16e-05, 'epoch': 0.0}
+{'loss': 2.3388, 'grad_norm': 28.625, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.0}
+{'loss': 2.1869, 'grad_norm': 20.75, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.0}
+{'loss': 2.2362, 'grad_norm': 29.875, 'learning_rate': 1.9810526315789476e-05, 'epoch': 0.0}
+{'loss': 2.1508, 'grad_norm': 38.25, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.01}
+{'loss': 1.9649, 'grad_norm': 30.75, 'learning_rate': 1.9389473684210525e-05, 'epoch': 0.01}
+{'loss': 2.3861, 'grad_norm': 21.625, 'learning_rate': 1.9178947368421055e-05, 'epoch': 0.01}
+{'loss': 2.2134, 'grad_norm': 20.375, 'learning_rate': 1.8968421052631582e-05, 'epoch': 0.01}
+                                                 
+{'eval_loss': 1.3905344009399414, 'eval_runtime': 70.8901, 'eval_samples_per_second': 27.451, 'eval_steps_per_second': 3.442, 'epoch': 0.01}
+{'loss': 1.8842, 'grad_norm': 23.25, 'learning_rate': 1.8757894736842105e-05, 'epoch': 0.01}
+{'loss': 1.9211, 'grad_norm': 20.0, 'learning_rate': 1.8547368421052635e-05, 'epoch': 0.01}
+{'loss': 2.0951, 'grad_norm': 39.75, 'learning_rate': 1.8336842105263158e-05, 'epoch': 0.01}
+{'loss': 2.312, 'grad_norm': 26.25, 'learning_rate': 1.8126315789473685e-05, 'epoch': 0.01}
+{'loss': 2.1068, 'grad_norm': 11.9375, 'learning_rate': 1.7915789473684214e-05, 'epoch': 0.01}
+{'loss': 2.4531, 'grad_norm': 16.875, 'learning_rate': 1.7705263157894738e-05, 'epoch': 0.01}
+{'loss': 1.9215, 'grad_norm': 18.625, 'learning_rate': 1.7494736842105264e-05, 'epoch': 0.01}
+{'loss': 2.0692, 'grad_norm': 17.0, 'learning_rate': 1.728421052631579e-05, 'epoch': 0.01}
+{'loss': 1.9764, 'grad_norm': 16.625, 'learning_rate': 1.7073684210526317e-05, 'epoch': 0.02}
+{'loss': 2.051, 'grad_norm': 15.5625, 'learning_rate': 1.6863157894736844e-05, 'epoch': 0.02}
+{'eval_loss': 1.3845326900482178, 'eval_runtime': 70.9149, 'eval_samples_per_second': 27.441, 'eval_steps_per_second': 3.441, 'epoch': 0.02}
+{'loss': 1.9947, 'grad_norm': 15.125, 'learning_rate': 1.665263157894737e-05, 'epoch': 0.02}
+{'loss': 2.2699, 'grad_norm': 21.75, 'learning_rate': 1.6442105263157897e-05, 'epoch': 0.02}
+{'loss': 1.9128, 'grad_norm': 18.375, 'learning_rate': 1.6231578947368423e-05, 'epoch': 0.02}
+{'loss': 1.9392, 'grad_norm': 23.625, 'learning_rate': 1.6021052631578947e-05, 'epoch': 0.02}
+{'loss': 2.2544, 'grad_norm': 21.625, 'learning_rate': 1.5810526315789473e-05, 'epoch': 0.02}
+{'loss': 1.9679, 'grad_norm': 26.75, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.02}
+{'loss': 2.2575, 'grad_norm': 22.5, 'learning_rate': 1.5389473684210526e-05, 'epoch': 0.02}
+{'loss': 1.9983, 'grad_norm': 22.75, 'learning_rate': 1.5178947368421053e-05, 'epoch': 0.02}
+{'loss': 2.0532, 'grad_norm': 18.625, 'learning_rate': 1.4968421052631581e-05, 'epoch': 0.02}
+{'loss': 2.009, 'grad_norm': 24.75, 'learning_rate': 1.4757894736842106e-05, 'epoch': 0.02}
+{'eval_loss': 1.3860130310058594, 'eval_runtime': 70.9256, 'eval_samples_per_second': 27.437, 'eval_steps_per_second': 3.44, 'epoch': 0.02}
+{'loss': 2.0233, 'grad_norm': 17.5, 'learning_rate': 1.4547368421052632e-05, 'epoch': 0.03}
+{'loss': 1.979, 'grad_norm': 18.75, 'learning_rate': 1.433684210526316e-05, 'epoch': 0.03}
+{'loss': 1.9164, 'grad_norm': 16.125, 'learning_rate': 1.4126315789473686e-05, 'epoch': 0.03}
+{'loss': 1.8054, 'grad_norm': 16.125, 'learning_rate': 1.3915789473684212e-05, 'epoch': 0.03}
+{'loss': 1.9933, 'grad_norm': 22.375, 'learning_rate': 1.3705263157894737e-05, 'epoch': 0.03}
+{'loss': 2.0782, 'grad_norm': 17.25, 'learning_rate': 1.3494736842105265e-05, 'epoch': 0.03}
+{'loss': 1.9561, 'grad_norm': 20.25, 'learning_rate': 1.328421052631579e-05, 'epoch': 0.03}
+{'loss': 2.1066, 'grad_norm': 16.125, 'learning_rate': 1.3073684210526317e-05, 'epoch': 0.03}
+{'loss': 2.1306, 'grad_norm': 21.5, 'learning_rate': 1.2863157894736845e-05, 'epoch': 0.03}
+{'loss': 2.2024, 'grad_norm': 21.25, 'learning_rate': 1.265263157894737e-05, 'epoch': 0.03}
+{'eval_loss': 1.387230634689331, 'eval_runtime': 70.8834, 'eval_samples_per_second': 27.454, 'eval_steps_per_second': 3.442, 'epoch': 0.03}
+{'loss': 2.1128, 'grad_norm': 27.25, 'learning_rate': 1.2442105263157895e-05, 'epoch': 0.03}
+{'loss': 2.1231, 'grad_norm': 13.875, 'learning_rate': 1.2231578947368421e-05, 'epoch': 0.03}
+{'loss': 1.8941, 'grad_norm': 15.125, 'learning_rate': 1.202105263157895e-05, 'epoch': 0.04}
+{'loss': 2.1364, 'grad_norm': 20.125, 'learning_rate': 1.1810526315789474e-05, 'epoch': 0.04}
+{'loss': 1.9262, 'grad_norm': 15.3125, 'learning_rate': 1.16e-05, 'epoch': 0.04}
+{'loss': 1.8194, 'grad_norm': 14.625, 'learning_rate': 1.1389473684210527e-05, 'epoch': 0.04}
+{'loss': 2.1468, 'grad_norm': 24.5, 'learning_rate': 1.1178947368421054e-05, 'epoch': 0.04}
+{'loss': 2.0112, 'grad_norm': 15.6875, 'learning_rate': 1.0968421052631579e-05, 'epoch': 0.04}
+{'loss': 1.9459, 'grad_norm': 26.0, 'learning_rate': 1.0757894736842107e-05, 'epoch': 0.04}
+{'loss': 1.9353, 'grad_norm': 20.5, 'learning_rate': 1.0547368421052633e-05, 'epoch': 0.04}
+{'eval_loss': 1.387534499168396, 'eval_runtime': 70.8845, 'eval_samples_per_second': 27.453, 'eval_steps_per_second': 3.442, 'epoch': 0.04}
+{'loss': 2.0762, 'grad_norm': 15.5, 'learning_rate': 1.0336842105263158e-05, 'epoch': 0.04}
+{'loss': 1.9985, 'grad_norm': 14.625, 'learning_rate': 1.0126315789473685e-05, 'epoch': 0.04}
+{'loss': 2.0422, 'grad_norm': 17.75, 'learning_rate': 9.915789473684211e-06, 'epoch': 0.04}
+{'loss': 1.9553, 'grad_norm': 14.9375, 'learning_rate': 9.705263157894738e-06, 'epoch': 0.04}
+{'loss': 2.0373, 'grad_norm': 19.0, 'learning_rate': 9.494736842105265e-06, 'epoch': 0.05}
+{'loss': 1.9516, 'grad_norm': 21.25, 'learning_rate': 9.28421052631579e-06, 'epoch': 0.05}
+{'loss': 2.0668, 'grad_norm': 19.75, 'learning_rate': 9.073684210526316e-06, 'epoch': 0.05}
+{'loss': 2.0434, 'grad_norm': 21.375, 'learning_rate': 8.863157894736842e-06, 'epoch': 0.05}
+{'loss': 1.8338, 'grad_norm': 32.25, 'learning_rate': 8.652631578947369e-06, 'epoch': 0.05}
+{'loss': 2.0294, 'grad_norm': 24.0, 'learning_rate': 8.442105263157896e-06, 'epoch': 0.05}
+{'eval_loss': 1.3855153322219849, 'eval_runtime': 70.8369, 'eval_samples_per_second': 27.472, 'eval_steps_per_second': 3.445, 'epoch': 0.05}
+{'loss': 1.9889, 'grad_norm': 13.75, 'learning_rate': 8.231578947368422e-06, 'epoch': 0.05}
+{'loss': 2.1589, 'grad_norm': 19.625, 'learning_rate': 8.021052631578949e-06, 'epoch': 0.05}
+{'loss': 1.8482, 'grad_norm': 22.625, 'learning_rate': 7.810526315789474e-06, 'epoch': 0.05}
+{'loss': 2.0285, 'grad_norm': 17.0, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.05}
+{'loss': 2.033, 'grad_norm': 12.625, 'learning_rate': 7.3894736842105275e-06, 'epoch': 0.05}
+{'loss': 1.8447, 'grad_norm': 18.25, 'learning_rate': 7.178947368421053e-06, 'epoch': 0.05}
+{'loss': 1.9463, 'grad_norm': 12.375, 'learning_rate': 6.96842105263158e-06, 'epoch': 0.06}
+{'loss': 1.8566, 'grad_norm': 17.0, 'learning_rate': 6.7578947368421054e-06, 'epoch': 0.06}
+{'loss': 1.894, 'grad_norm': 30.625, 'learning_rate': 6.547368421052632e-06, 'epoch': 0.06}
+{'loss': 2.0295, 'grad_norm': 14.0, 'learning_rate': 6.336842105263158e-06, 'epoch': 0.06}
+{'eval_loss': 1.3851174116134644, 'eval_runtime': 70.7297, 'eval_samples_per_second': 27.513, 'eval_steps_per_second': 3.45, 'epoch': 0.06}
+{'loss': 2.1037, 'grad_norm': 19.0, 'learning_rate': 6.126315789473685e-06, 'epoch': 0.06}
+{'loss': 2.0089, 'grad_norm': 17.25, 'learning_rate': 5.915789473684212e-06, 'epoch': 0.06}
+{'loss': 1.9478, 'grad_norm': 15.875, 'learning_rate': 5.705263157894737e-06, 'epoch': 0.06}
+{'loss': 2.1005, 'grad_norm': 25.625, 'learning_rate': 5.494736842105264e-06, 'epoch': 0.06}
+{'loss': 1.8994, 'grad_norm': 15.1875, 'learning_rate': 5.2842105263157896e-06, 'epoch': 0.06}
+{'loss': 1.922, 'grad_norm': 19.5, 'learning_rate': 5.073684210526316e-06, 'epoch': 0.06}
+{'loss': 1.8245, 'grad_norm': 15.0625, 'learning_rate': 4.863157894736843e-06, 'epoch': 0.06}
+{'loss': 1.8955, 'grad_norm': 12.8125, 'learning_rate': 4.652631578947368e-06, 'epoch': 0.06}
+{'loss': 1.9555, 'grad_norm': 18.625, 'learning_rate': 4.442105263157896e-06, 'epoch': 0.07}
+{'loss': 1.9102, 'grad_norm': 21.0, 'learning_rate': 4.2315789473684215e-06, 'epoch': 0.07}
+{'eval_loss': 1.3849036693572998, 'eval_runtime': 70.8187, 'eval_samples_per_second': 27.479, 'eval_steps_per_second': 3.445, 'epoch': 0.07}
+{'loss': 1.9383, 'grad_norm': 22.125, 'learning_rate': 4.021052631578948e-06, 'epoch': 0.07}
+{'loss': 2.0907, 'grad_norm': 14.75, 'learning_rate': 3.810526315789474e-06, 'epoch': 0.07}
+{'loss': 2.1399, 'grad_norm': 14.4375, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.07}
+{'loss': 1.8243, 'grad_norm': 12.8125, 'learning_rate': 3.3894736842105264e-06, 'epoch': 0.07}
+{'loss': 1.8226, 'grad_norm': 16.75, 'learning_rate': 3.178947368421053e-06, 'epoch': 0.07}
+{'loss': 1.8474, 'grad_norm': 17.75, 'learning_rate': 2.9684210526315795e-06, 'epoch': 0.07}
+{'loss': 1.9003, 'grad_norm': 24.25, 'learning_rate': 2.7578947368421056e-06, 'epoch': 0.07}
+{'loss': 1.9335, 'grad_norm': 25.25, 'learning_rate': 2.5473684210526317e-06, 'epoch': 0.07}
+{'loss': 1.9916, 'grad_norm': 33.5, 'learning_rate': 2.3368421052631583e-06, 'epoch': 0.07}
+{'loss': 1.8945, 'grad_norm': 22.125, 'learning_rate': 2.1263157894736844e-06, 'epoch': 0.07}
+{'eval_loss': 1.3843345642089844, 'eval_runtime': 70.8313, 'eval_samples_per_second': 27.474, 'eval_steps_per_second': 3.445, 'epoch': 0.07}
+{'loss': 2.1927, 'grad_norm': 20.0, 'learning_rate': 1.9157894736842105e-06, 'epoch': 0.08}
+{'loss': 2.071, 'grad_norm': 27.5, 'learning_rate': 1.705263157894737e-06, 'epoch': 0.08}
+{'loss': 2.0194, 'grad_norm': 23.5, 'learning_rate': 1.4947368421052632e-06, 'epoch': 0.08}
+{'loss': 1.9029, 'grad_norm': 13.6875, 'learning_rate': 1.2842105263157895e-06, 'epoch': 0.08}
+{'loss': 1.9192, 'grad_norm': 17.125, 'learning_rate': 1.0736842105263159e-06, 'epoch': 0.08}
+{'loss': 2.1427, 'grad_norm': 20.75, 'learning_rate': 8.631578947368421e-07, 'epoch': 0.08}
+{'loss': 2.1284, 'grad_norm': 25.375, 'learning_rate': 6.526315789473684e-07, 'epoch': 0.08}
+{'loss': 2.0406, 'grad_norm': 12.625, 'learning_rate': 4.421052631578947e-07, 'epoch': 0.08}
+{'loss': 1.9466, 'grad_norm': 21.25, 'learning_rate': 2.315789473684211e-07, 'epoch': 0.08}
+{'loss': 1.9592, 'grad_norm': 18.75, 'learning_rate': 2.1052631578947368e-08, 'epoch': 0.08}
+{'eval_loss': 1.3860498666763306, 'eval_runtime': 70.9451, 'eval_samples_per_second': 27.43, 'eval_steps_per_second': 3.439, 'epoch': 0.08}
+{'train_runtime': 5750.6913, 'train_samples_per_second': 2.782, 'train_steps_per_second': 0.174, 'train_loss': 2.0532218742370607, 'epoch': 0.08}
+Round 0 student evaluation: {'eval_loss': 1.4380934212731629}
+Ensemble has 1 models
+Model 0 vocab size: 151936
+Ensemble evaluation after round 0: {'eval_loss': 1.4380934212731629}
+Round 0 completed in: 99m 30s
+Total training time so far: 102m 9s
+GPU memory after cleanup: 3.21 GB
+
+==================================================
+Starting Round 1 at: 2025-05-20 01:17:36
+==================================================
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+A ConfigError was raised whilst setting the number of model parameters in Weights & Biases config.
+  0%|          | 0/1000 [00:00<?, ?it/s]Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 448, in <module>
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 320, in main
+    trainer.train()
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2245, in train
+    return inner_training_loop(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2560, in _inner_training_loop
+    tr_loss_step = self.training_step(model, inputs, num_items_in_batch)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 3736, in training_step
+    loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
+  File "/h/klambert/slm_ensembles/train.py", line 121, in compute_loss
+    student_logits = model(**student_inputs).logits
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/accelerate/utils/operations.py", line 818, in forward
+    return model_forward(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/accelerate/utils/operations.py", line 806, in __call__
+    return convert_to_fp32(self.model_forward(*args, **kwargs))
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/amp/autocast_mode.py", line 44, in decorate_autocast
+    return func(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/accelerate/hooks.py", line 175, in new_forward
+    output = module._old_forward(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/generic.py", line 965, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+    return func(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 823, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/generic.py", line 965, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 505, in forward
+    inputs_embeds = self.embed_tokens(input_ids)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/accelerate/hooks.py", line 175, in new_forward
+    output = module._old_forward(*args, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/modules/sparse.py", line 190, in forward
+    return F.embedding(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/nn/functional.py", line 2551, in embedding
+    return torch.embedding(weight, input, padding_idx, scale_grad_by_freq, sparse)
+RuntimeError: CUDA error: device-side assert triggered
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.

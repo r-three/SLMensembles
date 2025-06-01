@@ -1,0 +1,7 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 311, in <module>
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 219, in main
+    wandb.log({"eval/teacher_loss_in_main": teacher_eval_results["eval_loss"]}, step=global_step)
+UnboundLocalError: local variable 'global_step' referenced before assignment

@@ -1,0 +1,96 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+
+==================================================
+Starting Round 0 at: 2025-05-30 00:55:19
+==================================================
+Round '0' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-30/run_1/round_0
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+[34m[1mwandb[0m: [33mWARNING[0m The `run_name` is currently set to the same value as `TrainingArguments.output_dir`. If this was not intended, please specify a different run name by setting the `TrainingArguments.run_name` parameter.
+[34m[1mwandb[0m: [33mWARNING[0m The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10/10 [10:31<00:00, 56.44s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10/10 [11:16<00:00, 67.62s/it]
+{'eval_loss': 1.4590474367141724, 'eval_runtime': 51.1251, 'eval_samples_per_second': 38.063, 'eval_steps_per_second': 4.773, 'epoch': 0}
+{'loss': 3.6455, 'grad_norm': 172.0, 'learning_rate': 0.0, 'epoch': 0.0}
+{'eval_loss': 1.4590474367141724, 'eval_runtime': 51.31, 'eval_samples_per_second': 37.926, 'eval_steps_per_second': 4.755, 'epoch': 0.0}
+{'loss': 3.6162, 'grad_norm': 184.0, 'learning_rate': 2e-08, 'epoch': 0.0}
+{'eval_loss': 1.4576094150543213, 'eval_runtime': 51.4044, 'eval_samples_per_second': 37.857, 'eval_steps_per_second': 4.747, 'epoch': 0.0}
+{'loss': 3.8501, 'grad_norm': 182.0, 'learning_rate': 4e-08, 'epoch': 0.0}
+{'eval_loss': 1.4588589668273926, 'eval_runtime': 51.4903, 'eval_samples_per_second': 37.794, 'eval_steps_per_second': 4.739, 'epoch': 0.0}
+{'loss': 3.2643, 'grad_norm': 166.0, 'learning_rate': 6e-08, 'epoch': 0.0}
+{'eval_loss': 1.4584115743637085, 'eval_runtime': 51.5374, 'eval_samples_per_second': 37.759, 'eval_steps_per_second': 4.734, 'epoch': 0.0}
+{'loss': 3.7273, 'grad_norm': 181.0, 'learning_rate': 8e-08, 'epoch': 0.0}
+{'eval_loss': 1.457067608833313, 'eval_runtime': 51.5622, 'eval_samples_per_second': 37.741, 'eval_steps_per_second': 4.732, 'epoch': 0.0}
+{'loss': 3.2895, 'grad_norm': 175.0, 'learning_rate': 1e-07, 'epoch': 0.0}
+{'eval_loss': 1.456943154335022, 'eval_runtime': 51.5617, 'eval_samples_per_second': 37.741, 'eval_steps_per_second': 4.732, 'epoch': 0.0}
+{'loss': 3.6426, 'grad_norm': 192.0, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+{'eval_loss': 1.4579212665557861, 'eval_runtime': 51.5331, 'eval_samples_per_second': 37.762, 'eval_steps_per_second': 4.735, 'epoch': 0.0}
+{'loss': 3.6038, 'grad_norm': 180.0, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+{'eval_loss': 1.4591513872146606, 'eval_runtime': 51.4854, 'eval_samples_per_second': 37.797, 'eval_steps_per_second': 4.739, 'epoch': 0.0}
+{'loss': 3.0131, 'grad_norm': 155.0, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+{'eval_loss': 1.456289291381836, 'eval_runtime': 51.5233, 'eval_samples_per_second': 37.769, 'eval_steps_per_second': 4.736, 'epoch': 0.0}
+{'loss': 3.4096, 'grad_norm': 169.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+{'eval_loss': 1.4576948881149292, 'eval_runtime': 51.5199, 'eval_samples_per_second': 37.772, 'eval_steps_per_second': 4.736, 'epoch': 0.0}
+{'train_runtime': 631.7365, 'train_samples_per_second': 0.507, 'train_steps_per_second': 0.016, 'train_loss': 3.506201887130737, 'epoch': 0.0}
+
+-------------------------
+Student evaluation for 0: 1.3834795951843262
+Ensemble evaluation for 0: 1.3834795951843262
+Teacher evaluation for 0: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 0 at: 2025-05-30 01:06:46
+Completed in: 11m 26s
+Total training time: 11m 39s
+==================================================
+
+
+==================================================
+Starting Round 1 at: 2025-05-30 01:06:47
+==================================================
+Round '1' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-30/run_1/round_1
+[34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 0 that is less than the current step 22. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+ 20%|███████████████████████████████████▊                                                                                                                                               | 2/10 [03:36<14:24, 108.08s/it]Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 302, in <module>████████████████████████████▉                                                                                       | 124/244 [00:51<00:50,  2.39it/s]
+{'eval_loss': 1.4580278396606445, 'eval_runtime': 101.6118, 'eval_samples_per_second': 19.151, 'eval_steps_per_second': 2.401, 'epoch': 0}
+{'loss': 3.8224, 'grad_norm': 92.5, 'learning_rate': 0.0, 'epoch': 0.0}
+{'eval_loss': 1.4580278396606445, 'eval_runtime': 102.0642, 'eval_samples_per_second': 19.066, 'eval_steps_per_second': 2.391, 'epoch': 0.0}
+{'loss': 3.9434, 'grad_norm': 91.0, 'learning_rate': 2e-08, 'epoch': 0.0}
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 239, in main
+    trainer.train()
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2245, in train
+    return inner_training_loop(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2627, in _inner_training_loop
+    self._maybe_log_save_evaluate(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 3096, in _maybe_log_save_evaluate
+    metrics = self._evaluate(trial, ignore_keys_for_eval)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 3045, in _evaluate
+    metrics = self.evaluate(ignore_keys=ignore_keys_for_eval)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 4154, in evaluate
+    output = eval_loop(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 4338, in evaluation_loop
+    for step, inputs in enumerate(dataloader):
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/accelerate/data_loader.py", line 577, in __iter__
+    next_batch = next(dataloader_iter)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 708, in __next__
+    data = self._next_data()
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 764, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 50, in fetch
+    data = self.dataset.__getitems__(possibly_batched_index)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/datasets/arrow_dataset.py", line 2781, in __getitems__
+    batch = self.__getitem__(keys)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/datasets/arrow_dataset.py", line 2777, in __getitem__
+    return self._getitem(key)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/datasets/arrow_dataset.py", line 2762, in _getitem
+    formatted_output = format_table(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/datasets/formatting/formatting.py", line 653, in format_table
+    return formatter(pa_table, query_type=query_type)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/datasets/formatting/formatting.py", line 410, in __call__
+    return self.format_batch(pa_table)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/datasets/formatting/formatting.py", line 466, in format_batch
+    batch = self.python_arrow_extractor().extract_batch(pa_table)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/datasets/formatting/formatting.py", line 149, in extract_batch
+    return pa_table.to_pydict()
+KeyboardInterrupt

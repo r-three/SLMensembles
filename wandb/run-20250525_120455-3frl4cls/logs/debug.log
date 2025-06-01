@@ -1,0 +1,23 @@
+2025-05-25 12:04:55,260 INFO    MainThread:3301 [wandb_setup.py:_flush():70] Current SDK version is 0.19.11
+2025-05-25 12:04:55,260 INFO    MainThread:3301 [wandb_setup.py:_flush():70] Configure stats pid to 3301
+2025-05-25 12:04:55,260 INFO    MainThread:3301 [wandb_setup.py:_flush():70] Loading settings from /h/klambert/.config/wandb/settings
+2025-05-25 12:04:55,260 INFO    MainThread:3301 [wandb_setup.py:_flush():70] Loading settings from /fs01/home/klambert/slm_ensembles/wandb/settings
+2025-05-25 12:04:55,260 INFO    MainThread:3301 [wandb_setup.py:_flush():70] Loading settings from environment variables
+2025-05-25 12:04:55,261 INFO    MainThread:3301 [wandb_init.py:setup_run_log_directory():724] Logging user logs to /fs01/home/klambert/slm_ensembles/wandb/run-20250525_120455-3frl4cls/logs/debug.log
+2025-05-25 12:04:55,261 INFO    MainThread:3301 [wandb_init.py:setup_run_log_directory():725] Logging internal logs to /fs01/home/klambert/slm_ensembles/wandb/run-20250525_120455-3frl4cls/logs/debug-internal.log
+2025-05-25 12:04:55,261 INFO    MainThread:3301 [wandb_init.py:init():852] calling init triggers
+2025-05-25 12:04:55,261 INFO    MainThread:3301 [wandb_init.py:init():857] wandb.init called with sweep_config: {}
+config: {'_wandb': {}}
+2025-05-25 12:04:55,261 INFO    MainThread:3301 [wandb_init.py:init():893] starting backend
+2025-05-25 12:04:55,261 INFO    MainThread:3301 [wandb_init.py:init():897] sending inform_init request
+2025-05-25 12:04:55,265 INFO    MainThread:3301 [backend.py:_multiprocessing_setup():101] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2025-05-25 12:04:55,266 INFO    MainThread:3301 [wandb_init.py:init():907] backend started and connected
+2025-05-25 12:04:55,268 INFO    MainThread:3301 [wandb_init.py:init():1005] updated telemetry
+2025-05-25 12:04:55,286 INFO    MainThread:3301 [wandb_init.py:init():1029] communicating run to backend with 90.0 second timeout
+2025-05-25 12:04:55,595 INFO    MainThread:3301 [wandb_init.py:init():1104] starting run threads in backend
+2025-05-25 12:04:55,752 INFO    MainThread:3301 [wandb_run.py:_console_start():2573] atexit reg
+2025-05-25 12:04:55,753 INFO    MainThread:3301 [wandb_run.py:_redirect():2421] redirect: wrap_raw
+2025-05-25 12:04:55,753 INFO    MainThread:3301 [wandb_run.py:_redirect():2490] Wrapping output streams.
+2025-05-25 12:04:55,753 INFO    MainThread:3301 [wandb_run.py:_redirect():2513] Redirects installed.
+2025-05-25 12:04:55,757 INFO    MainThread:3301 [wandb_init.py:init():1150] run started, returning control to user process
+2025-05-25 12:05:02,274 INFO    MsgRouterThr:3301 [mailbox.py:close():129] [no run ID] Closing mailbox, abandoning 1 handles.

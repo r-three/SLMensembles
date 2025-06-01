@@ -1,0 +1,16 @@
+{"time":"2025-05-29T20:15:08.726792407-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/run-20250529_201508-6y6dzoe9/logs/debug-core.log"}
+{"time":"2025-05-29T20:15:08.895653811-04:00","level":"INFO","msg":"created new stream","id":"6y6dzoe9"}
+{"time":"2025-05-29T20:15:08.895710388-04:00","level":"INFO","msg":"stream: started","id":"6y6dzoe9"}
+{"time":"2025-05-29T20:15:08.895730231-04:00","level":"INFO","msg":"sender: started","stream_id":"6y6dzoe9"}
+{"time":"2025-05-29T20:15:08.895733778-04:00","level":"INFO","msg":"handler: started","stream_id":"6y6dzoe9"}
+{"time":"2025-05-29T20:15:08.895739138-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"6y6dzoe9"}
+{"time":"2025-05-29T20:15:09.093635573-04:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-29T20:26:41.780487913-04:00","level":"WARN","msg":"handler: ignoring partial history record","step":10,"current":13}
+{"time":"2025-05-29T20:39:22.632203518-04:00","level":"INFO","msg":"stream: closing","id":"6y6dzoe9"}
+{"time":"2025-05-29T20:39:22.632238238-04:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-29T20:39:22.632283888-04:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-29T20:39:23.021037749-04:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-29T20:39:23.219847351-04:00","level":"INFO","msg":"handler: closed","stream_id":"6y6dzoe9"}
+{"time":"2025-05-29T20:39:23.219868201-04:00","level":"INFO","msg":"writer: Close: closed","stream_id":"6y6dzoe9"}
+{"time":"2025-05-29T20:39:23.219877248-04:00","level":"INFO","msg":"sender: closed","stream_id":"6y6dzoe9"}
+{"time":"2025-05-29T20:39:23.220038016-04:00","level":"INFO","msg":"stream: closed","id":"6y6dzoe9"}

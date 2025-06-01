@@ -1,0 +1,1 @@
+{"_step":1,"on_log_round_0/train/eval_runtime":51.5422,"_wandb":{"runtime":1261},"on_log_round_0/train/eval_steps_per_second":4.734,"_timestamp":1.7482251208015504e+09,"on_log_round_0/train/eval_loss":1.431442141532898,"_runtime":1261.645069891,"on_log_round_0/train/eval_samples_per_second":37.755,"on_log_round_0/train/epoch":1.0378719473591348e-05}

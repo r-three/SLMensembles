@@ -1,0 +1,7 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 419, in <module>
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 200, in main
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+NameError: name 'transformers' is not defined

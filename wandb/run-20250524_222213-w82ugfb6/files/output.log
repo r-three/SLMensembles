@@ -1,0 +1,234 @@
+[34m[1mwandb[0m: [33mWARNING[0m The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [12:20<00:00,  3.91s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [12:54<00:00,  9.68s/it]
+{'eval_loss': 1.4186351299285889, 'eval_runtime': 50.9376, 'eval_samples_per_second': 38.204, 'eval_steps_per_second': 4.79, 'epoch': 0.0}
+{'loss': 3.8118, 'grad_norm': 113.5, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.0}
+{'eval_loss': 1.3857604265213013, 'eval_runtime': 51.222, 'eval_samples_per_second': 37.991, 'eval_steps_per_second': 4.764, 'epoch': 0.0}
+{'loss': 2.9467, 'grad_norm': 42.25, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.0}
+{'eval_loss': 1.4221477508544922, 'eval_runtime': 51.3761, 'eval_samples_per_second': 37.878, 'eval_steps_per_second': 4.749, 'epoch': 0.0}
+{'loss': 2.4503, 'grad_norm': 49.75, 'learning_rate': 1.16e-05, 'epoch': 0.0}
+{'eval_loss': 1.4304676055908203, 'eval_runtime': 51.3761, 'eval_samples_per_second': 37.878, 'eval_steps_per_second': 4.749, 'epoch': 0.0}
+{'loss': 2.3403, 'grad_norm': 29.875, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.0}
+{'eval_loss': 1.4202810525894165, 'eval_runtime': 51.258, 'eval_samples_per_second': 37.965, 'eval_steps_per_second': 4.76, 'epoch': 0.0}
+{'eval_loss': 1.399138331413269, 'eval_runtime': 51.2513, 'eval_samples_per_second': 37.97, 'eval_steps_per_second': 4.761, 'epoch': 0.0}
+{'loss': 2.1871, 'grad_norm': 21.0, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.0}
+{'eval_loss': 1.3963923454284668, 'eval_runtime': 51.2539, 'eval_samples_per_second': 37.968, 'eval_steps_per_second': 4.761, 'epoch': 0.0}
+{'loss': 2.2362, 'grad_norm': 29.125, 'learning_rate': 1.4e-05, 'epoch': 0.0}
+{'eval_loss': 1.3952528238296509, 'eval_runtime': 51.2195, 'eval_samples_per_second': 37.993, 'eval_steps_per_second': 4.764, 'epoch': 0.01}
+{'loss': 2.1401, 'grad_norm': 36.75, 'learning_rate': 7.333333333333333e-06, 'epoch': 0.01}
+{'eval_loss': 1.3931840658187866, 'eval_runtime': 51.2582, 'eval_samples_per_second': 37.965, 'eval_steps_per_second': 4.76, 'epoch': 0.01}
+{'loss': 1.9699, 'grad_norm': 25.625, 'learning_rate': 6.666666666666667e-07, 'epoch': 0.01}
+{'eval_loss': 1.3933346271514893, 'eval_runtime': 51.2278, 'eval_samples_per_second': 37.987, 'eval_steps_per_second': 4.763, 'epoch': 0.01}
+{'train_runtime': 741.4985, 'train_samples_per_second': 1.726, 'train_steps_per_second': 0.108, 'train_loss': 2.510320019721985, 'epoch': 0.01}
+
+-------------------------
+Student evaluation for 0: 1.3585408651493796, perplexity: 3.890512466430664, tokens: 1024012
+Ensemble evaluation for 0: 1.3585408651493796, perplexity: 3.890512466430664, tokens: 1024012
+Teacher evaluation for 0: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 0 at: 2025-05-24 22:38:45
+Completed in: 16m 36s
+Total training time: 16m 45s
+==================================================
+
+
+==================================================
+Starting Round 1 at: 2025-05-24 22:38:46
+==================================================
+Round '1' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-24/run_2/round_1
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [21:27<00:00,  5.73s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [22:00<00:00, 16.50s/it]
+{'eval_loss': 1.3619892597198486, 'eval_runtime': 101.7534, 'eval_samples_per_second': 19.125, 'eval_steps_per_second': 2.398, 'epoch': 0.0}
+{'loss': 2.6601, 'grad_norm': 34.5, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.0}
+{'eval_loss': 1.3626763820648193, 'eval_runtime': 101.7143, 'eval_samples_per_second': 19.132, 'eval_steps_per_second': 2.399, 'epoch': 0.0}
+{'loss': 2.2478, 'grad_norm': 12.25, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.0}
+{'eval_loss': 1.372951865196228, 'eval_runtime': 101.5453, 'eval_samples_per_second': 19.164, 'eval_steps_per_second': 2.403, 'epoch': 0.0}
+{'loss': 2.4161, 'grad_norm': 13.75, 'learning_rate': 1.16e-05, 'epoch': 0.0}
+{'eval_loss': 1.38255774974823, 'eval_runtime': 101.5711, 'eval_samples_per_second': 19.159, 'eval_steps_per_second': 2.402, 'epoch': 0.0}
+{'loss': 2.2052, 'grad_norm': 8.0, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.0}
+{'eval_loss': 1.3859143257141113, 'eval_runtime': 101.5388, 'eval_samples_per_second': 19.165, 'eval_steps_per_second': 2.403, 'epoch': 0.0}
+{'eval_loss': 1.3856827020645142, 'eval_runtime': 101.6152, 'eval_samples_per_second': 19.151, 'eval_steps_per_second': 2.401, 'epoch': 0.0}
+{'loss': 2.5108, 'grad_norm': 12.9375, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.0}
+{'eval_loss': 1.3827307224273682, 'eval_runtime': 101.5397, 'eval_samples_per_second': 19.165, 'eval_steps_per_second': 2.403, 'epoch': 0.0}
+{'loss': 2.1066, 'grad_norm': 14.625, 'learning_rate': 1.4e-05, 'epoch': 0.0}
+{'eval_loss': 1.3780628442764282, 'eval_runtime': 101.4915, 'eval_samples_per_second': 19.174, 'eval_steps_per_second': 2.404, 'epoch': 0.01}
+{'loss': 2.2734, 'grad_norm': 6.3125, 'learning_rate': 7.333333333333333e-06, 'epoch': 0.01}
+{'eval_loss': 1.3796323537826538, 'eval_runtime': 101.4791, 'eval_samples_per_second': 19.176, 'eval_steps_per_second': 2.404, 'epoch': 0.01}
+{'loss': 1.9064, 'grad_norm': 13.5625, 'learning_rate': 6.666666666666667e-07, 'epoch': 0.01}
+{'eval_loss': 1.3801605701446533, 'eval_runtime': 101.5126, 'eval_samples_per_second': 19.17, 'eval_steps_per_second': 2.404, 'epoch': 0.01}
+{'train_runtime': 1287.6652, 'train_samples_per_second': 0.994, 'train_steps_per_second': 0.062, 'train_loss': 2.2908014059066772, 'epoch': 0.01}
+
+-------------------------
+Student evaluation for 1: 1.343660814618831, perplexity: 3.833050012588501, tokens: 1024012
+Ensemble evaluation for 1: 1.3473468922501164, perplexity: 3.8472049236297607, tokens: 1024012
+Teacher evaluation for 1: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 1 at: 2025-05-24 23:05:01
+Completed in: 26m 15s
+Total training time: 43m 1s
+==================================================
+
+
+==================================================
+Starting Round 2 at: 2025-05-24 23:05:02
+==================================================
+Round '2' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-24/run_2/round_2
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [28:24<00:00,  7.12s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [28:58<00:00, 21.73s/it]
+{'eval_loss': 1.359223484992981, 'eval_runtime': 141.2294, 'eval_samples_per_second': 13.779, 'eval_steps_per_second': 1.728, 'epoch': 0.0}
+{'loss': 2.4369, 'grad_norm': 18.75, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.0}
+{'eval_loss': 1.3610385656356812, 'eval_runtime': 141.2548, 'eval_samples_per_second': 13.777, 'eval_steps_per_second': 1.727, 'epoch': 0.0}
+{'loss': 2.194, 'grad_norm': 7.25, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.0}
+{'eval_loss': 1.3669930696487427, 'eval_runtime': 141.1613, 'eval_samples_per_second': 13.786, 'eval_steps_per_second': 1.729, 'epoch': 0.0}
+{'loss': 2.2041, 'grad_norm': 10.25, 'learning_rate': 1.16e-05, 'epoch': 0.0}
+{'eval_loss': 1.3738429546356201, 'eval_runtime': 141.1493, 'eval_samples_per_second': 13.787, 'eval_steps_per_second': 1.729, 'epoch': 0.0}
+{'loss': 2.0942, 'grad_norm': 12.125, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.0}
+{'eval_loss': 1.3784117698669434, 'eval_runtime': 141.1403, 'eval_samples_per_second': 13.788, 'eval_steps_per_second': 1.729, 'epoch': 0.0}
+{'eval_loss': 1.380571722984314, 'eval_runtime': 141.2872, 'eval_samples_per_second': 13.773, 'eval_steps_per_second': 1.727, 'epoch': 0.0}
+{'loss': 2.1619, 'grad_norm': 5.75, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.0}
+{'eval_loss': 1.383655309677124, 'eval_runtime': 141.2208, 'eval_samples_per_second': 13.78, 'eval_steps_per_second': 1.728, 'epoch': 0.0}
+{'loss': 2.0131, 'grad_norm': 10.0625, 'learning_rate': 1.4e-05, 'epoch': 0.0}
+{'eval_loss': 1.3845230340957642, 'eval_runtime': 141.1341, 'eval_samples_per_second': 13.788, 'eval_steps_per_second': 1.729, 'epoch': 0.01}
+{'loss': 2.2331, 'grad_norm': 5.25, 'learning_rate': 7.333333333333333e-06, 'epoch': 0.01}
+{'eval_loss': 1.38431978225708, 'eval_runtime': 141.1311, 'eval_samples_per_second': 13.789, 'eval_steps_per_second': 1.729, 'epoch': 0.01}
+{'loss': 2.1537, 'grad_norm': 7.21875, 'learning_rate': 6.666666666666667e-07, 'epoch': 0.01}
+{'eval_loss': 1.3844081163406372, 'eval_runtime': 141.0766, 'eval_samples_per_second': 13.794, 'eval_steps_per_second': 1.73, 'epoch': 0.01}
+{'train_runtime': 1704.7002, 'train_samples_per_second': 0.751, 'train_steps_per_second': 0.047, 'train_loss': 2.186368298530579, 'epoch': 0.01}
+
+-------------------------
+Student evaluation for 2: 1.3701283708448462, perplexity: 3.9358561038970947, tokens: 1024012
+Ensemble evaluation for 2: 1.3510775727425208, perplexity: 3.861584424972534, tokens: 1024012
+Teacher evaluation for 2: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 2 at: 2025-05-24 23:38:55
+Completed in: 33m 53s
+Total training time: 76m 55s
+==================================================
+
+
+==================================================
+Starting Round 3 at: 2025-05-24 23:38:57
+==================================================
+Round '3' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-24/run_2/round_3
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [35:26<00:00,  8.52s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [35:59<00:00, 26.99s/it]
+{'eval_loss': 1.3646965026855469, 'eval_runtime': 180.5597, 'eval_samples_per_second': 10.778, 'eval_steps_per_second': 1.351, 'epoch': 0.0}
+{'loss': 2.135, 'grad_norm': 12.3125, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.0}
+{'eval_loss': 1.366076111793518, 'eval_runtime': 180.3368, 'eval_samples_per_second': 10.791, 'eval_steps_per_second': 1.353, 'epoch': 0.0}
+{'loss': 2.3766, 'grad_norm': 8.875, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.0}
+{'eval_loss': 1.3686604499816895, 'eval_runtime': 180.3081, 'eval_samples_per_second': 10.793, 'eval_steps_per_second': 1.353, 'epoch': 0.0}
+{'loss': 2.2115, 'grad_norm': 4.21875, 'learning_rate': 1.16e-05, 'epoch': 0.0}
+{'eval_loss': 1.3713427782058716, 'eval_runtime': 180.3363, 'eval_samples_per_second': 10.791, 'eval_steps_per_second': 1.353, 'epoch': 0.0}
+{'loss': 2.1974, 'grad_norm': 6.8125, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.0}
+{'eval_loss': 1.376875877380371, 'eval_runtime': 180.7387, 'eval_samples_per_second': 10.767, 'eval_steps_per_second': 1.35, 'epoch': 0.0}
+{'eval_loss': 1.3777016401290894, 'eval_runtime': 180.0231, 'eval_samples_per_second': 10.81, 'eval_steps_per_second': 1.355, 'epoch': 0.0}
+{'loss': 2.2193, 'grad_norm': 5.40625, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.0}
+{'eval_loss': 1.3788690567016602, 'eval_runtime': 180.3958, 'eval_samples_per_second': 10.787, 'eval_steps_per_second': 1.353, 'epoch': 0.0}
+{'loss': 2.1876, 'grad_norm': 6.15625, 'learning_rate': 1.4e-05, 'epoch': 0.0}
+{'eval_loss': 1.3792599439620972, 'eval_runtime': 180.0564, 'eval_samples_per_second': 10.808, 'eval_steps_per_second': 1.355, 'epoch': 0.01}
+{'loss': 2.2895, 'grad_norm': 8.0625, 'learning_rate': 7.333333333333333e-06, 'epoch': 0.01}
+{'eval_loss': 1.380410075187683, 'eval_runtime': 180.4523, 'eval_samples_per_second': 10.784, 'eval_steps_per_second': 1.352, 'epoch': 0.01}
+{'loss': 2.0307, 'grad_norm': 7.125, 'learning_rate': 6.666666666666667e-07, 'epoch': 0.01}
+{'eval_loss': 1.3807909488677979, 'eval_runtime': 180.1855, 'eval_samples_per_second': 10.8, 'eval_steps_per_second': 1.354, 'epoch': 0.01}
+{'train_runtime': 2126.268, 'train_samples_per_second': 0.602, 'train_steps_per_second': 0.038, 'train_loss': 2.20594437122345, 'epoch': 0.01}
+
+-------------------------
+Student evaluation for 3: 1.3574672599622748, perplexity: 3.886337995529175, tokens: 1024012
+Ensemble evaluation for 3: 1.3469908813928717, perplexity: 3.8458352088928223, tokens: 1024012
+Teacher evaluation for 3: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 3 at: 2025-05-25 00:20:30
+Completed in: 41m 33s
+Total training time: 118m 30s
+==================================================
+
+
+==================================================
+Starting Round 4 at: 2025-05-25 00:20:31
+==================================================
+Round '4' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-24/run_2/round_4
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [42:37<00:00,  9.93s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [43:08<00:00, 32.35s/it]
+{'eval_loss': 1.3657891750335693, 'eval_runtime': 220.2176, 'eval_samples_per_second': 8.837, 'eval_steps_per_second': 1.108, 'epoch': 0.0}
+{'loss': 2.3328, 'grad_norm': 9.75, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.0}
+{'eval_loss': 1.367061734199524, 'eval_runtime': 219.7809, 'eval_samples_per_second': 8.854, 'eval_steps_per_second': 1.11, 'epoch': 0.0}
+{'loss': 2.1766, 'grad_norm': 4.3125, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.0}
+{'eval_loss': 1.3699791431427002, 'eval_runtime': 219.7094, 'eval_samples_per_second': 8.857, 'eval_steps_per_second': 1.111, 'epoch': 0.0}
+{'loss': 2.2448, 'grad_norm': 4.90625, 'learning_rate': 1.16e-05, 'epoch': 0.0}
+{'eval_loss': 1.3721287250518799, 'eval_runtime': 219.5407, 'eval_samples_per_second': 8.864, 'eval_steps_per_second': 1.111, 'epoch': 0.0}
+{'loss': 2.1576, 'grad_norm': 5.53125, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.0}
+{'eval_loss': 1.3763689994812012, 'eval_runtime': 219.6203, 'eval_samples_per_second': 8.861, 'eval_steps_per_second': 1.111, 'epoch': 0.0}
+{'eval_loss': 1.377428650856018, 'eval_runtime': 219.543, 'eval_samples_per_second': 8.864, 'eval_steps_per_second': 1.111, 'epoch': 0.0}
+{'loss': 2.0214, 'grad_norm': 4.21875, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.0}
+{'eval_loss': 1.3797929286956787, 'eval_runtime': 219.7018, 'eval_samples_per_second': 8.857, 'eval_steps_per_second': 1.111, 'epoch': 0.0}
+{'loss': 2.142, 'grad_norm': 3.421875, 'learning_rate': 1.4e-05, 'epoch': 0.0}
+{'eval_loss': 1.3798625469207764, 'eval_runtime': 219.6875, 'eval_samples_per_second': 8.858, 'eval_steps_per_second': 1.111, 'epoch': 0.01}
+{'loss': 1.933, 'grad_norm': 3.46875, 'learning_rate': 7.333333333333333e-06, 'epoch': 0.01}
+{'eval_loss': 1.3809536695480347, 'eval_runtime': 219.5594, 'eval_samples_per_second': 8.863, 'eval_steps_per_second': 1.111, 'epoch': 0.01}
+{'loss': 2.1498, 'grad_norm': 3.796875, 'learning_rate': 6.666666666666667e-07, 'epoch': 0.01}
+{'eval_loss': 1.3811089992523193, 'eval_runtime': 219.5831, 'eval_samples_per_second': 8.862, 'eval_steps_per_second': 1.111, 'epoch': 0.01}
+{'train_runtime': 2557.8414, 'train_samples_per_second': 0.5, 'train_steps_per_second': 0.031, 'train_loss': 2.1447492361068727, 'epoch': 0.01}
+
+-------------------------
+Student evaluation for 4: 1.3755406254318499, perplexity: 3.9572155475616455, tokens: 1024012
+Ensemble evaluation for 4: 1.346626343128367, perplexity: 3.8444340229034424, tokens: 1024012
+Teacher evaluation for 4: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 4 at: 2025-05-25 01:09:54
+Completed in: 49m 23s
+Total training time: 167m 54s
+==================================================
+
+
+==================================================
+Starting Round 5 at: 2025-05-25 01:09:55
+==================================================
+Round '5' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-24/run_2/round_5
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [50:01<00:00, 11.43s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 80/80 [50:35<00:00, 37.95s/it]
+{'eval_loss': 1.3679121732711792, 'eval_runtime': 264.3475, 'eval_samples_per_second': 7.362, 'eval_steps_per_second': 0.923, 'epoch': 0.0}
+{'loss': 2.2896, 'grad_norm': 4.375, 'learning_rate': 3.6000000000000003e-06, 'epoch': 0.0}
+{'eval_loss': 1.3684699535369873, 'eval_runtime': 259.5794, 'eval_samples_per_second': 7.497, 'eval_steps_per_second': 0.94, 'epoch': 0.0}
+{'loss': 2.2266, 'grad_norm': 3.140625, 'learning_rate': 7.600000000000001e-06, 'epoch': 0.0}
+{'eval_loss': 1.3711873292922974, 'eval_runtime': 259.4364, 'eval_samples_per_second': 7.501, 'eval_steps_per_second': 0.941, 'epoch': 0.0}
+{'loss': 2.0527, 'grad_norm': 3.59375, 'learning_rate': 1.16e-05, 'epoch': 0.0}
+{'eval_loss': 1.3726928234100342, 'eval_runtime': 259.5138, 'eval_samples_per_second': 7.499, 'eval_steps_per_second': 0.94, 'epoch': 0.0}
+{'loss': 2.388, 'grad_norm': 5.90625, 'learning_rate': 1.5600000000000003e-05, 'epoch': 0.0}
+{'eval_loss': 1.3752124309539795, 'eval_runtime': 259.5382, 'eval_samples_per_second': 7.498, 'eval_steps_per_second': 0.94, 'epoch': 0.0}
+{'eval_loss': 1.3777755498886108, 'eval_runtime': 259.6968, 'eval_samples_per_second': 7.493, 'eval_steps_per_second': 0.94, 'epoch': 0.0}
+{'loss': 2.2469, 'grad_norm': 5.25, 'learning_rate': 1.9600000000000002e-05, 'epoch': 0.0}
+{'eval_loss': 1.382544994354248, 'eval_runtime': 259.726, 'eval_samples_per_second': 7.493, 'eval_steps_per_second': 0.939, 'epoch': 0.0}
+{'loss': 1.9586, 'grad_norm': 3.578125, 'learning_rate': 1.4e-05, 'epoch': 0.0}
+{'eval_loss': 1.3841720819473267, 'eval_runtime': 259.8252, 'eval_samples_per_second': 7.49, 'eval_steps_per_second': 0.939, 'epoch': 0.01}
+{'loss': 2.1913, 'grad_norm': 4.5625, 'learning_rate': 7.333333333333333e-06, 'epoch': 0.01}
+{'eval_loss': 1.384009838104248, 'eval_runtime': 259.5345, 'eval_samples_per_second': 7.498, 'eval_steps_per_second': 0.94, 'epoch': 0.01}
+{'loss': 1.9991, 'grad_norm': 2.59375, 'learning_rate': 6.666666666666667e-07, 'epoch': 0.01}
+{'eval_loss': 1.3838510513305664, 'eval_runtime': 259.4781, 'eval_samples_per_second': 7.5, 'eval_steps_per_second': 0.94, 'epoch': 0.01}
+{'train_runtime': 3002.0682, 'train_samples_per_second': 0.426, 'train_steps_per_second': 0.027, 'train_loss': 2.169101667404175, 'epoch': 0.01}
+
+-------------------------
+Student evaluation for 5: 1.3918982264135653, perplexity: 4.0224785804748535, tokens: 1024012
+Ensemble evaluation for 5: 1.3494263883137079, perplexity: 3.8552134037017822, tokens: 1024012
+Teacher evaluation for 5: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 5 at: 2025-05-25 02:07:26
+Completed in: 57m 30s
+Total training time: 225m 26s
+==================================================
+
+
+==================================================
+Training completed at: 2025-05-25 02:07:27
+Total training time: 225m 27s
+==================================================

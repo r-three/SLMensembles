@@ -1,0 +1,18 @@
+{"time":"2025-05-29T16:30:19.209316101-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/run-20250529_163019-cp088tzm/logs/debug-core.log"}
+{"time":"2025-05-29T16:30:19.649241709-04:00","level":"INFO","msg":"created new stream","id":"cp088tzm"}
+{"time":"2025-05-29T16:30:19.649320047-04:00","level":"INFO","msg":"stream: started","id":"cp088tzm"}
+{"time":"2025-05-29T16:30:19.649338916-04:00","level":"INFO","msg":"handler: started","stream_id":"cp088tzm"}
+{"time":"2025-05-29T16:30:19.649353121-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"cp088tzm"}
+{"time":"2025-05-29T16:30:19.649352536-04:00","level":"INFO","msg":"sender: started","stream_id":"cp088tzm"}
+{"time":"2025-05-29T16:30:19.77890908-04:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-29T17:09:14.372947549-04:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/k-lambert-university-of-toronto/%3Cslm_ensembles%3E/cp088tzm/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-29T17:09:20.124369661-04:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-29T17:09:21.767977827-04:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/k-lambert-university-of-toronto/%3Cslm_ensembles%3E/cp088tzm/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-29T18:20:51.095460092-04:00","level":"INFO","msg":"stream: closing","id":"cp088tzm"}
+{"time":"2025-05-29T18:20:51.09556067-04:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-29T18:20:51.101025192-04:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-29T18:20:51.691706353-04:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-29T18:20:51.763341425-04:00","level":"INFO","msg":"handler: closed","stream_id":"cp088tzm"}
+{"time":"2025-05-29T18:20:51.76337847-04:00","level":"INFO","msg":"writer: Close: closed","stream_id":"cp088tzm"}
+{"time":"2025-05-29T18:20:51.763382822-04:00","level":"INFO","msg":"sender: closed","stream_id":"cp088tzm"}
+{"time":"2025-05-29T18:20:51.76394132-04:00","level":"INFO","msg":"stream: closed","id":"cp088tzm"}

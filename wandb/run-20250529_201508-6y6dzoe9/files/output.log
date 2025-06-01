@@ -1,0 +1,70 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+
+==================================================
+Starting Round 0 at: 2025-05-29 20:15:17
+==================================================
+Round '0' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-29/run_7/round_0
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+[34m[1mwandb[0m: [33mWARNING[0m The `run_name` is currently set to the same value as `TrainingArguments.output_dir`. If this was not intended, please specify a different run name by setting the `TrainingArguments.run_name` parameter.
+[34m[1mwandb[0m: [33mWARNING[0m The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10/10 [10:34<00:00, 56.67s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10/10 [11:14<00:00, 67.41s/it]
+{'eval_loss': 1.4590474367141724, 'eval_runtime': 51.2871, 'eval_samples_per_second': 37.943, 'eval_steps_per_second': 4.758, 'epoch': 0}
+{'eval_loss': 1.4590474367141724, 'eval_runtime': 51.6479, 'eval_samples_per_second': 37.678, 'eval_steps_per_second': 4.724, 'epoch': 0.0}
+{'eval_loss': 1.457587480545044, 'eval_runtime': 51.9418, 'eval_samples_per_second': 37.465, 'eval_steps_per_second': 4.698, 'epoch': 0.0}
+{'eval_loss': 1.4588439464569092, 'eval_runtime': 51.8771, 'eval_samples_per_second': 37.512, 'eval_steps_per_second': 4.703, 'epoch': 0.0}
+{'eval_loss': 1.458467721939087, 'eval_runtime': 51.8346, 'eval_samples_per_second': 37.542, 'eval_steps_per_second': 4.707, 'epoch': 0.0}
+{'eval_loss': 1.4605157375335693, 'eval_runtime': 51.8157, 'eval_samples_per_second': 37.556, 'eval_steps_per_second': 4.709, 'epoch': 0.0}
+{'eval_loss': 1.4606856107711792, 'eval_runtime': 51.8401, 'eval_samples_per_second': 37.538, 'eval_steps_per_second': 4.707, 'epoch': 0.0}
+{'eval_loss': 1.45944344997406, 'eval_runtime': 51.9013, 'eval_samples_per_second': 37.494, 'eval_steps_per_second': 4.701, 'epoch': 0.0}
+{'eval_loss': 1.4593154191970825, 'eval_runtime': 51.8112, 'eval_samples_per_second': 37.559, 'eval_steps_per_second': 4.709, 'epoch': 0.0}
+{'eval_loss': 1.4563183784484863, 'eval_runtime': 51.8018, 'eval_samples_per_second': 37.566, 'eval_steps_per_second': 4.71, 'epoch': 0.0}
+{'loss': 3.5036, 'grad_norm': 164.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+{'eval_loss': 1.4586094617843628, 'eval_runtime': 51.8489, 'eval_samples_per_second': 37.532, 'eval_steps_per_second': 4.706, 'epoch': 0.0}
+{'train_runtime': 634.3213, 'train_samples_per_second': 0.504, 'train_steps_per_second': 0.016, 'train_loss': 3.5036006927490235, 'epoch': 0.0}
+
+-------------------------
+Student evaluation for 0: 1.3843494653701782
+Ensemble evaluation for 0: 1.3843494653701782
+Teacher evaluation for 0: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 0 at: 2025-05-29 20:26:41
+Completed in: 11m 24s
+Total training time: 11m 33s
+==================================================
+
+
+==================================================
+Starting Round 1 at: 2025-05-29 20:26:42
+==================================================
+Round '1' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-29/run_7/round_1
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+[34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 10 that is less than the current step 13. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 60%|████████████████████████████████████████████████████████████████████████████████████▌                                                        | 6/10 [12:34<07:14, 108.58s/it]Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 303, in <module>                                                                                                                
+{'eval_loss': 1.4585462808609009, 'eval_runtime': 102.7731, 'eval_samples_per_second': 18.935, 'eval_steps_per_second': 2.374, 'epoch': 0}
+{'eval_loss': 1.4585462808609009, 'eval_runtime': 102.8233, 'eval_samples_per_second': 18.926, 'eval_steps_per_second': 2.373, 'epoch': 0.0}
+{'eval_loss': 1.4578542709350586, 'eval_runtime': 102.7205, 'eval_samples_per_second': 18.945, 'eval_steps_per_second': 2.375, 'epoch': 0.0}
+{'eval_loss': 1.4589132070541382, 'eval_runtime': 102.6692, 'eval_samples_per_second': 18.954, 'eval_steps_per_second': 2.377, 'epoch': 0.0}
+{'eval_loss': 1.4580059051513672, 'eval_runtime': 102.5296, 'eval_samples_per_second': 18.98, 'eval_steps_per_second': 2.38, 'epoch': 0.0}
+{'eval_loss': 1.458653450012207, 'eval_runtime': 102.5052, 'eval_samples_per_second': 18.984, 'eval_steps_per_second': 2.38, 'epoch': 0.0}
+{'eval_loss': 1.4579178094863892, 'eval_runtime': 102.5077, 'eval_samples_per_second': 18.984, 'eval_steps_per_second': 2.38, 'epoch': 0.0}
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 239, in main
+    trainer.train()
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2245, in train
+    return inner_training_loop(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2560, in _inner_training_loop
+    tr_loss_step = self.training_step(model, inputs, num_items_in_batch)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 3782, in training_step
+    self.accelerator.backward(loss, **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/accelerate/accelerator.py", line 2473, in backward
+    loss.backward(**kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/_tensor.py", line 626, in backward
+    torch.autograd.backward(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/autograd/__init__.py", line 347, in backward
+    _engine_run_backward(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/torch/autograd/graph.py", line 823, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+KeyboardInterrupt

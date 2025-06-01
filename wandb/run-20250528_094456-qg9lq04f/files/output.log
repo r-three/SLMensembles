@@ -1,0 +1,2496 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+
+==================================================
+Starting Round 0 at: 2025-05-28 09:45:10
+==================================================
+Round '0' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_0
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+wandb: WARNING The `run_name` is currently set to the same value as `TrainingArguments.output_dir`. If this was not intended, please specify a different run name by setting the `TrainingArguments.run_name` parameter.
+wandb: WARNING The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+ 10%|█         | 2/20 [01:01<01:28,  4.93s/it]   wandb: WARNING Tried to log to step 2 that is less than the current step 3. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=1, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6455, 'grad_norm': 172.0, 'learning_rate': 0.0, 'epoch': 0.0}
+
+
+[on_log] step=2, adjusted_step=2, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6162, 'grad_norm': 184.0, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 15%|█▌        | 3/20 [01:12<08:49, 31.13s/it]wandb: WARNING Tried to log to step 2 that is less than the current step 3. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=2, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4575533866882324, 'eval_runtime': 51.1521, 'eval_samples_per_second': 38.043, 'eval_steps_per_second': 4.77, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 3 that is less than the current step 4. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=3, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8501, 'grad_norm': 182.0, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [01:17<05:32, 20.77s/it]  wandb: WARNING Tried to log to step 4 that is less than the current step 5. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=4, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2632, 'grad_norm': 166.0, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [02:08<05:32, 20.77s/it]s] wandb: WARNING Tried to log to step 4 that is less than the current step 6. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 25%|██▌       | 5/20 [02:18<08:51, 35.46s/it]wandb: WARNING Tried to log to step 4 that is less than the current step 6. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=4, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4568756818771362, 'eval_runtime': 51.2552, 'eval_samples_per_second': 37.967, 'eval_steps_per_second': 4.76, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 5 that is less than the current step 7. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=5, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7206, 'grad_norm': 181.0, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [02:23<05:50, 25.04s/it]  wandb: WARNING Tried to log to step 6 that is less than the current step 8. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=6, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2807, 'grad_norm': 176.0, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [03:14<05:50, 25.04s/it]s] wandb: WARNING Tried to log to step 6 that is less than the current step 9. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 6 that is less than the current step 9. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=6, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573709964752197, 'eval_runtime': 51.2479, 'eval_samples_per_second': 37.972, 'eval_steps_per_second': 4.761, 'epoch': 0.0}
+ 40%|████      | 8/20 [03:29<05:20, 26.74s/it]  wandb: WARNING Tried to log to step 7 that is less than the current step 10. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=7, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6531, 'grad_norm': 194.0, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+
+
+[on_log] step=8, adjusted_step=8, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5892, 'grad_norm': 175.0, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 8 that is less than the current step 11. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 40%|████      | 8/20 [04:21<05:20, 26.74s/it]   wandb: WARNING Tried to log to step 8 that is less than the current step 12. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 45%|████▌     | 9/20 [04:31<06:53, 37.61s/it]wandb: WARNING Tried to log to step 8 that is less than the current step 12. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=8, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4604206085205078, 'eval_runtime': 51.2557, 'eval_samples_per_second': 37.967, 'eval_steps_per_second': 4.76, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 9 that is less than the current step 13. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=9, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.9847, 'grad_norm': 150.0, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [04:36<04:35, 27.59s/it] wandb: WARNING Tried to log to step 10 that is less than the current step 14. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=10, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3987, 'grad_norm': 168.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [05:27<04:35, 27.59s/it]] wandb: WARNING Tried to log to step 10 that is less than the current step 15. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 60%|██████    | 12/20 [05:42<03:43, 27.89s/it]wandb: WARNING Tried to log to step 10 that is less than the current step 15. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=10, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.459794044494629, 'eval_runtime': 51.2745, 'eval_samples_per_second': 37.953, 'eval_steps_per_second': 4.759, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 11 that is less than the current step 16. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=11, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4634, 'grad_norm': 186.0, 'learning_rate': 2e-07, 'epoch': 0.0}
+
+
+[on_log] step=12, adjusted_step=12, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+ 60%|██████    | 12/20 [05:42<03:43, 27.89s/it] wandb: WARNING Tried to log to step 12 that is less than the current step 17. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+{'loss': 3.8867, 'grad_norm': 222.0, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [06:34<03:43, 27.89s/it]] wandb: WARNING Tried to log to step 12 that is less than the current step 18. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 12 that is less than the current step 18. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=12, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.456234335899353, 'eval_runtime': 51.4681, 'eval_samples_per_second': 37.81, 'eval_steps_per_second': 4.741, 'epoch': 0.0}
+ 70%|███████   | 14/20 [06:49<02:49, 28.22s/it] wandb: WARNING Tried to log to step 13 that is less than the current step 19. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=13, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.396, 'grad_norm': 191.0, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+
+
+[on_log] step=14, adjusted_step=14, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9092, 'grad_norm': 176.0, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 14 that is less than the current step 20. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 70%|███████   | 14/20 [07:41<02:49, 28.22s/it]  wandb: WARNING Tried to log to step 14 that is less than the current step 21. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 75%|███████▌  | 15/20 [07:51<03:11, 38.28s/it]wandb: WARNING Tried to log to step 14 that is less than the current step 21. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=14, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.458454966545105, 'eval_runtime': 51.3707, 'eval_samples_per_second': 37.882, 'eval_steps_per_second': 4.75, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 15 that is less than the current step 22. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=15, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.574, 'grad_norm': 184.0, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [07:56<01:52, 28.22s/it] wandb: WARNING Tried to log to step 16 that is less than the current step 23. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=16, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.6211, 'grad_norm': 238.0, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [08:47<01:52, 28.22s/it]] wandb: WARNING Tried to log to step 16 that is less than the current step 24. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 90%|█████████ | 18/20 [09:02<00:56, 28wandb: WARNING Tried to log to step 16 that is less than the current step 24. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=16, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4595668315887451, 'eval_runtime': 51.3143, 'eval_samples_per_second': 37.923, 'eval_steps_per_second': 4.755, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 17 that is less than the current step 25. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=17, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8772, 'grad_norm': 163.0, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+
+
+[on_log] step=18, adjusted_step=18, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4755, 'grad_norm': 187.0, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 18 that is less than the current step 26. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 90%|█████████ | 18/20 [09:53<00:56, 28.20s/it]  wandb: WARNING Tried to log to step 18 that is less than the current step 27. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 18 that is less than the current step 27. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=18, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4589526653289795, 'eval_runtime': 51.3192, 'eval_samples_per_second': 37.92, 'eval_steps_per_second': 4.755, 'epoch': 0.0}
+100%|██████████| 20/20 [10:08<00:00, 28.20s/it] wandb: WARNING Tried to log to step 19 that is less than the current step 28. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=19, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8776, 'grad_norm': 206.0, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+
+
+[on_log] step=20, adjusted_step=20, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0624, 'grad_norm': 165.0, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 20 that is less than the current step 29. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [11:00<00:00, 28.20s/it]  wandb: WARNING Tried to log to step 20 that is less than the current step 30. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [11:10<00:00, 28.20s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+[on_log] step=20, adjusted_step=20, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4592043161392212, 'eval_runtime': 51.3176, 'eval_samples_per_second': 37.921, 'eval_steps_per_second': 4.755, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 20 that is less than the current step 30. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=20, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+
+
+{'train_runtime': 670.3688, 'train_samples_per_second': 0.955, 'train_steps_per_second': 0.03, 'train_loss': 3.6072556138038636, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 20 that is less than the current step 31. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [11:29<00:00, 34.50s/it]
+wandb: WARNING Tried to log to step 20 that is less than the current step 31. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+-------------------------
+Student evaluation for 0: 1.3847368955612183
+Ensemble evaluation for 0: 1.3847368955612183
+Teacher evaluation for 0: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 0 at: 2025-05-28 09:56:48
+Completed in: 11m 38s
+Total training time: 11m 53s
+==================================================
+
+
+==================================================
+Starting Round 1 at: 2025-05-28 09:56:49
+==================================================
+Round '1' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_1
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+ 10%|█         | 2/20 [00:11<01:44,  5.82s/it] wandb: WARNING Tried to log to step 21 that is less than the current step 32. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=21, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8052, 'grad_norm': 91.5, 'learning_rate': 0.0, 'epoch': 0.0}
+
+
+[on_log] step=2, adjusted_step=22, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9248, 'grad_norm': 90.0, 'learning_rate': 2e-08, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 22 that is less than the current step 33. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 10%|█         | 2/20 [01:53<01:44,  5.82s/it]wandb: WARNING Tried to log to step 22 that is less than the current step 34. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [01:41<00:00,  2.65it/s]wandb: WARNING Tried to log to step 22 that is less than the current step 34. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=22, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4581594467163086, 'eval_runtime': 101.6548, 'eval_samples_per_second': 19.143, 'eval_steps_per_second': 2.4, 'epoch': 0.0}
+ 20%|██        | 4/20 [02:11<09:30, 35.63s/it]  wandb: WARNING Tried to log to step 23 that is less than the current step 35. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=23, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9339, 'grad_norm': 93.0, 'learning_rate': 4e-08, 'epoch': 0.0}
+
+
+[on_log] step=4, adjusted_step=24, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.5344, 'grad_norm': 121.5, 'learning_rate': 6e-08, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 24 that is less than the current step 36. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 20%|██        | 4/20 [03:52<09:30, 35.63s/it]wandb: WARNING Tried to log to step 24 that is less than the current step 37. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 25%|██▌       | 5/20 [04:03<15:51, 63.40s/it]wandb: WARNING Tried to log to step 24 that is less than the current step 37. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=24, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.458329677581787, 'eval_runtime': 101.4601, 'eval_samples_per_second': 19.18, 'eval_steps_per_second': 2.405, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 25 that is less than the current step 38. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=25, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7921, 'grad_norm': 108.0, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [04:09<10:13, 43.81s/it]  wandb: WARNING Tried to log to step 26 that is less than the current step 39. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=26, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0837, 'grad_norm': 80.5, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [05:51<10:13, 43.81s/it]wandb: WARNING Tried to log to step 26 that is less than the current step 40. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 35%|███▌      | 7/20 [06:02<14:22, 66.34s/it]wandb: WARNING Tried to log to step 26 that is less than the current step 40. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=26, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.458066701889038, 'eval_runtime': 101.5059, 'eval_samples_per_second': 19.171, 'eval_steps_per_second': 2.404, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 27 that is less than the current step 41. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=27, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4804, 'grad_norm': 92.0, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [06:08<09:25, 47.11s/it]  wandb: WARNING Tried to log to step 28 that is less than the current step 42. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=28, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8805, 'grad_norm': 99.0, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [07:49<09:25, 47.11s/it]s] wandb: WARNING Tried to log to step 28 that is less than the current step 43. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 28 that is less than the current step 43. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=28, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4579182863235474, 'eval_runtime': 101.5179, 'eval_samples_per_second': 19.169, 'eval_steps_per_second': 2.404, 'epoch': 0.0}
+ 45%|████▌     | 9/20 [08:01<12:24, 67.68s/it]wandb: WARNING Tried to log to step 29 that is less than the current step 44. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=29, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4871, 'grad_norm': 86.5, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [08:06<08:05, 48.58s/it] wandb: WARNING Tried to log to step 30 that is less than the current step 45. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=30, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5816, 'grad_norm': 86.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [09:48<08:05, 48.58s/it]] wandb: WARNING Tried to log to step 30 that is less than the current step 46. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 30 that is less than the current step 46. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=30, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4572339057922363, 'eval_runtime': 101.6229, 'eval_samples_per_second': 19.149, 'eval_steps_per_second': 2.401, 'epoch': 0.0}
+ 55%|█████▌    | 11/20 [09:59<10:14, 68.23s/it]wandb: WARNING Tried to log to step 31 that is less than the current step 47. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=31, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.875, 'grad_norm': 124.0, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [10:05<06:33, 49.24s/it] wandb: WARNING Tried to log to step 32 that is less than the current step 48. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=32, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7193, 'grad_norm': 103.5, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [11:47<06:33, 49.24s/it]] wandb: WARNING Tried to log to step 32 that is less than the current step 49. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 32 that is less than the current step 49. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=32, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4579145908355713, 'eval_runtime': 101.5103, 'eval_samples_per_second': 19.17, 'eval_steps_per_second': 2.404, 'epoch': 0.0}
+ 70%|███████   | 14/20 [12:04<04:57, 49.56s/it]wandb: WARNING Tried to log to step 33 that is less than the current step 50. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=33, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9266, 'grad_norm': 93.0, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+
+
+[on_log] step=14, adjusted_step=34, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8282, 'grad_norm': 92.0, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 34 that is less than the current step 51. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 70%|███████   | 14/20 [13:45<04:57, 49.56s/it]  wandb: WARNING Tried to log to step 34 that is less than the current step 52. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 34 that is less than the current step 52. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=34, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4570773839950562, 'eval_runtime': 101.4395, 'eval_samples_per_second': 19.184, 'eval_steps_per_second': 2.405, 'epoch': 0.0}
+ 80%|████████  | 16/20 [14:02<03:18, 49.66s/it]wandb: WARNING Tried to log to step 35 that is less than the current step 53. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=35, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.146, 'grad_norm': 82.0, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+
+
+[on_log] step=16, adjusted_step=36, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5595, 'grad_norm': 78.0, 'learning_rate': 3e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 36 that is less than the current step 54. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 80%|████████  | 16/20 [15:44<03:18, 49.66s/it]wandb: WARNING Tried to log to step 36 that is less than the current step 55. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 85%|████████▌ | 17/20 [15:55<03:25, 68.61s/it]wandb: WARNING Tried to log to step 36 that is less than the current step 55. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=36, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4583243131637573, 'eval_runtime': 101.5339, 'eval_samples_per_second': 19.166, 'eval_steps_per_second': 2.403, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 37 that is less than the current step 56. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=37, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.0771, 'grad_norm': 81.0, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [16:01<01:39, 49.90s/it]wandb: WARNING Tried to log to step 38 that is less than the current step 57. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=38, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5845, 'grad_norm': 87.0, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [17:43<01:39, 49.90s/it]wandb: WARNING Tried to log to step 38 that is less than the current step 58. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 95%|█████████▌| 19/20 [17:54<01:08, 68.78s/it]wandb: WARNING Tried to log to step 38 that is less than the current step 58. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=38, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4584616422653198, 'eval_runtime': 101.6254, 'eval_samples_per_second': 19.149, 'eval_steps_per_second': 2.401, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 39 that is less than the current step 59. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=39, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3441, 'grad_norm': 80.0, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [18:00<00:00, 49.87s/it] wandb: WARNING Tried to log to step 40 that is less than the current step 60. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=40, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0866, 'grad_norm': 68.5, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [19:41<00:00, 49.87s/it]wandb: WARNING Tried to log to step 40 that is less than the current step 61. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [19:51<00:00, 49.87s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+[on_log] step=20, adjusted_step=40, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4584519863128662, 'eval_runtime': 101.7116, 'eval_samples_per_second': 19.133, 'eval_steps_per_second': 2.399, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 40 that is less than the current step 61. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=40, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+
+
+{'train_runtime': 1191.6852, 'train_samples_per_second': 0.537, 'train_steps_per_second': 0.017, 'train_loss': 3.7325212240219114, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 40 that is less than the current step 62. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [20:10<00:00, 60.53s/it]
+
+-------------------------
+Student evaluation for 1: 1.3836709260940552
+Ensemble evaluation for 1: 1.3841562271118164
+Teacher evaluation for 1: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 1 at: 2025-05-28 10:17:06
+Completed in: 20m 17s
+Total training time: 32m 11s
+==================================================
+
+
+==================================================
+Starting Round 2 at: 2025-05-28 10:17:06
+==================================================
+Round '2' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_2
+wandb: WARNING Tried to log to step 40 that is less than the current step 62. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+  5%|▌         | 1/20 [00:06<02:02,  6.47s/it]wandb: WARNING Tried to log to step 41 that is less than the current step 63. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=41, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4501, 'grad_norm': 54.75, 'learning_rate': 0.0, 'epoch': 0.0}
+ 10%|█         | 2/20 [00:13<01:59,  6.65s/it] wandb: WARNING Tried to log to step 42 that is less than the current step 64. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=42, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7377, 'grad_norm': 57.0, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 10%|█         | 2/20 [02:34<01:59,  6.65s/it]wandb: WARNING Tried to log to step 42 that is less than the current step 65. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [02:20<00:00,  1.97it/s]wandb: WARNING Tried to log to step 42 that is less than the current step 65. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=42, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.458477258682251, 'eval_runtime': 141.4467, 'eval_samples_per_second': 13.758, 'eval_steps_per_second': 1.725, 'epoch': 0.0}
+ 20%|██        | 4/20 [02:54<12:38, 47.43s/it] wandb: WARNING Tried to log to step 43 that is less than the current step 66. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=43, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7915, 'grad_norm': 45.5, 'learning_rate': 4e-08, 'epoch': 0.0}
+
+
+[on_log] step=4, adjusted_step=44, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7856, 'grad_norm': 66.0, 'learning_rate': 6e-08, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 44 that is less than the current step 67. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 20%|██        | 4/20 [05:15<12:38, 47.43s/it]wandb: WARNING Tried to log to step 44 that is less than the current step 68. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 25%|██▌       | 5/20 [05:27<21:22, 85.47s/it]wandb: WARNING Tried to log to step 44 that is less than the current step 68. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=44, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457684874534607, 'eval_runtime': 141.0563, 'eval_samples_per_second': 13.796, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 45 that is less than the current step 69. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=45, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 5.2349, 'grad_norm': 103.5, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [05:33<13:40, 58.62s/it] wandb: WARNING Tried to log to step 46 that is less than the current step 70. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=46, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9376, 'grad_norm': 65.5, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [07:54<13:40, 58.62s/it]wandb: WARNING Tried to log to step 46 that is less than the current step 71. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 35%|███▌      | 7/20 [08:06<19:23, 89.52s/it]wandb: WARNING Tried to log to step 46 that is less than the current step 71. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=46, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4578731060028076, 'eval_runtime': 141.0643, 'eval_samples_per_second': 13.795, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 47 that is less than the current step 72. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=47, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.1655, 'grad_norm': 72.5, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [08:14<12:40, 63.37s/it] wandb: WARNING Tried to log to step 48 that is less than the current step 73. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=48, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6463, 'grad_norm': 55.75, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [10:35<12:40, 63.37s/it]wandb: WARNING Tried to log to step 48 that is less than the current step 74. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 45%|████▌     | 9/20 [10:47<16:45, 91.37s/it]wandb: WARNING Tried to log to step 48 that is less than the current step 74. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=48, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.458565354347229, 'eval_runtime': 141.0316, 'eval_samples_per_second': 13.798, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 49 that is less than the current step 75. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=49, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5892, 'grad_norm': 68.5, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [10:53<10:51, 65.16s/it]wandb: WARNING Tried to log to step 50 that is less than the current step 76. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=50, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0144, 'grad_norm': 55.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [13:14<10:51, 65.16s/it]wandb: WARNING Tried to log to step 50 that is less than the current step 77. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 55%|█████▌    | 11/20 [13:26<13:48, 92.06s/it]wandb: WARNING Tried to log to step 50 that is less than the current step 77. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=50, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4586024284362793, 'eval_runtime': 141.0799, 'eval_samples_per_second': 13.794, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 51 that is less than the current step 78. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=51, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8664, 'grad_norm': 63.5, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [13:33<08:48, 66.12s/it]wandb: WARNING Tried to log to step 52 that is less than the current step 79. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=52, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.925, 'grad_norm': 41.75, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [15:54<08:48, 66.12s/it]wandb: WARNING Tried to log to step 52 that is less than the current step 80. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 65%|██████▌   | 13/20 [16:06<10:47, 92.53s/it]wandb: WARNING Tried to log to step 52 that is less than the current step 80. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=52, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4585932493209839, 'eval_runtime': 141.0888, 'eval_samples_per_second': 13.793, 'eval_steps_per_second': 1.729, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 53 that is less than the current step 81. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=53, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.7093, 'grad_norm': 83.5, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [16:13<06:39, 66.53s/it]wandb: WARNING Tried to log to step 54 that is less than the current step 82. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=54, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0643, 'grad_norm': 52.25, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [18:34<06:39, 66.53s/it]wandb: WARNING Tried to log to step 54 that is less than the current step 83. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 75%|███████▌  | 15/20 [18:46<07:43, 92.60s/it]wandb: WARNING Tried to log to step 54 that is less than the current step 83. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=54, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4580293893814087, 'eval_runtime': 141.1272, 'eval_samples_per_second': 13.789, 'eval_steps_per_second': 1.729, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 55 that is less than the current step 84. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=55, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.1144, 'grad_norm': 61.5, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [18:53<04:27, 66.80s/it]wandb: WARNING Tried to log to step 56 that is less than the current step 85. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=56, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5191, 'grad_norm': 52.5, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [21:14<04:27, 66.80s/it]wandb: WARNING Tried to log to step 56 that is less than the current step 86. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 85%|████████▌ | 17/20 [21:26<04:38, 92.78s/it]wandb: WARNING Tried to log to step 56 that is less than the current step 86. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=56, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.458176851272583, 'eval_runtime': 141.2359, 'eval_samples_per_second': 13.778, 'eval_steps_per_second': 1.728, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 57 that is less than the current step 87. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=57, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.8765, 'grad_norm': 46.25, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [21:32<02:13, 66.85s/it]wandb: WARNING Tried to log to step 58 that is less than the current step 88. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=58, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5661, 'grad_norm': 56.5, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [23:54<02:13, 66.85s/it]wandb: WARNING Tried to log to step 58 that is less than the current step 89. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 95%|█████████▌| 19/20 [24:05<01:32, 92.79s/it]wandb: WARNING Tried to log to step 58 that is less than the current step 89. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=58, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4576078653335571, 'eval_runtime': 141.3335, 'eval_samples_per_second': 13.769, 'eval_steps_per_second': 1.726, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 59 that is less than the current step 90. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=59, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1969, 'grad_norm': 52.75, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [24:12<00:00, 66.88s/it]wandb: WARNING Tried to log to step 60 that is less than the current step 91. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=60, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 5.4931, 'grad_norm': 112.0, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [26:33<00:00, 66.88s/it]wandb: WARNING Tried to log to step 60 that is less than the current step 92. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [26:43<00:00, 66.88s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+[on_log] step=20, adjusted_step=60, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577555656433105, 'eval_runtime': 141.1262, 'eval_samples_per_second': 13.789, 'eval_steps_per_second': 1.729, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 60 that is less than the current step 92. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=60, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+
+
+{'train_runtime': 1603.3251, 'train_samples_per_second': 0.399, 'train_steps_per_second': 0.012, 'train_loss': 3.784201681613922, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 60 that is less than the current step 93. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [27:02<00:00, 81.11s/it]
+
+-------------------------
+Student evaluation for 2: 1.3816025257110596
+Ensemble evaluation for 2: 1.3831411600112915
+Teacher evaluation for 2: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 2 at: 2025-05-28 10:44:15
+Completed in: 27m 9s
+Total training time: 59m 20s
+==================================================
+
+
+==================================================
+Starting Round 3 at: 2025-05-28 10:44:16
+==================================================
+Round '3' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_3
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/resolve/main/config.json
+Retrying in 1s [Retry 1/5].
+wandb: WARNING Tried to log to step 60 that is less than the current step 93. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/resolve/main/config.json
+Retrying in 2s [Retry 2/5].
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/resolve/main/config.json
+Retrying in 4s [Retry 3/5].
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/resolve/main/config.json
+Retrying in 8s [Retry 4/5].
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/resolve/main/config.json
+Retrying in 8s [Retry 5/5].
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+ 10%|█         | 2/20 [00:14<02:08,  7.16s/it]wandb: WARNING Tried to log to step 61 that is less than the current step 94. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=61, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.7253, 'grad_norm': 31.125, 'learning_rate': 0.0, 'epoch': 0.0}
+
+
+[on_log] step=2, adjusted_step=62, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4121, 'grad_norm': 37.25, 'learning_rate': 2e-08, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 62 that is less than the current step 95. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 10%|█         | 2/20 [03:14<02:08,  7.16s/it]wandb: WARNING Tried to log to step 62 that is less than the current step 96. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [02:59<00:00,  1.58it/s]wandb: WARNING Tried to log to step 62 that is less than the current step 96. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=62, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4579912424087524, 'eval_runtime': 180.446, 'eval_samples_per_second': 10.784, 'eval_steps_per_second': 1.352, 'epoch': 0.0}
+ 15%|█▌        | 3/20 [03:28<26:11, 92.44s/it]wandb: WARNING Tried to log to step 63 that is less than the current step 97. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=63, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4264, 'grad_norm': 39.0, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [03:35<15:40, 58.78s/it]  wandb: WARNING Tried to log to step 64 that is less than the current step 98. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=64, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4806, 'grad_norm': 45.25, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [06:35<15:40, 58.78s/it]s] wandb: WARNING Tried to log to step 64 that is less than the current step 99. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 64 that is less than the current step 99. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=64, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4569944143295288, 'eval_runtime': 179.9509, 'eval_samples_per_second': 10.814, 'eval_steps_per_second': 1.356, 'epoch': 0.0}
+ 25%|██▌       | 5/20 [06:47<26:44, 107.00s/it]wandb: WARNING Tried to log to step 65 that is less than the current step 100. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=65, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9654, 'grad_norm': 55.75, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [06:55<17:02, 73.05s/it]  wandb: WARNING Tried to log to step 66 that is less than the current step 101. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=66, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8454, 'grad_norm': 43.25, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [09:55<17:02, 73.05s/it]s] wandb: WARNING Tried to log to step 66 that is less than the current step 102. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 66 that is less than the current step 102. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=66, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4581166505813599, 'eval_runtime': 180.6417, 'eval_samples_per_second': 10.773, 'eval_steps_per_second': 1.351, 'epoch': 0.0}
+ 35%|███▌      | 7/20 [10:08<24:20, 112.32s/it]wandb: WARNING Tried to log to step 67 that is less than the current step 103. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=67, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8146, 'grad_norm': 43.5, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [10:15<15:46, 78.84s/it]  wandb: WARNING Tried to log to step 68 that is less than the current step 104. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=68, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.1533, 'grad_norm': 42.25, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [13:15<15:46, 78.84s/it]s] wandb: WARNING Tried to log to step 68 that is less than the current step 105. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 68 that is less than the current step 105. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=68, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.45766282081604, 'eval_runtime': 179.9903, 'eval_samples_per_second': 10.812, 'eval_steps_per_second': 1.356, 'epoch': 0.0}
+ 45%|████▌     | 9/20 [13:27<20:58, 114.38s/it]wandb: WARNING Tried to log to step 69 that is less than the current step 106. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=69, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8126, 'grad_norm': 56.0, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [13:35<13:32, 81.28s/it] wandb: WARNING Tried to log to step 70 that is less than the current step 107. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=70, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8881, 'grad_norm': 46.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [16:35<13:32, 81.28s/it]] wandb: WARNING Tried to log to step 70 that is less than the current step 108. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 70 that is less than the current step 108. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=70, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573777914047241, 'eval_runtime': 180.2213, 'eval_samples_per_second': 10.798, 'eval_steps_per_second': 1.354, 'epoch': 0.0}
+ 55%|█████▌    | 11/20 [16:47<17:18, 115.41s/it]wandb: WARNING Tried to log to step 71 that is less than the current step 109. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=71, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.303, 'grad_norm': 49.0, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [16:55<10:59, 82.48s/it] wandb: WARNING Tried to log to step 72 that is less than the current step 110. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=72, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5022, 'grad_norm': 42.25, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [19:55<10:59, 82.48s/it]] wandb: WARNING Tried to log to step 72 that is less than the current step 111. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 72 that is less than the current step 111. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=72, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4578559398651123, 'eval_runtime': 180.573, 'eval_samples_per_second': 10.777, 'eval_steps_per_second': 1.351, 'epoch': 0.0}
+ 65%|██████▌   | 13/20 [20:08<13:32, 116.01s/it]wandb: WARNING Tried to log to step 73 that is less than the current step 112. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=73, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8618, 'grad_norm': 52.0, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [20:15<08:18, 83.12s/it] wandb: WARNING Tried to log to step 74 that is less than the current step 113. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=74, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8767, 'grad_norm': 51.75, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [23:15<08:18, 83.12s/it]] wandb: WARNING Tried to log to step 74 that is less than the current step 114. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 74 that is less than the current step 114. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=74, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4575163125991821, 'eval_runtime': 180.2797, 'eval_samples_per_second': 10.794, 'eval_steps_per_second': 1.353, 'epoch': 0.0}
+ 75%|███████▌  | 15/20 [23:28<09:41, 116.33s/it]wandb: WARNING Tried to log to step 75 that is less than the current step 115. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=75, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5789, 'grad_norm': 46.5, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [23:35<05:33, 83.46s/it] wandb: WARNING Tried to log to step 76 that is less than the current step 116. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=76, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.102, 'grad_norm': 41.0, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [26:35<05:33, 83.46s/it]] wandb: WARNING Tried to log to step 76 that is less than the current step 117. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 76 that is less than the current step 117. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=76, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574594497680664, 'eval_runtime': 179.9608, 'eval_samples_per_second': 10.813, 'eval_steps_per_second': 1.356, 'epoch': 0.0}
+ 85%|████████▌ | 17/20 [26:48<05:49, 116.40s/it]wandb: WARNING Tried to log to step 77 that is less than the current step 118. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=77, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9032, 'grad_norm': 40.0, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [26:55<02:47, 83.57s/it] wandb: WARNING Tried to log to step 78 that is less than the current step 119. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=78, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.685, 'grad_norm': 41.75, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [29:55<02:47, 83.57s/it]] wandb: WARNING Tried to log to step 78 that is less than the current step 120. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 78 that is less than the current step 120. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=78, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4576337337493896, 'eval_runtime': 179.9911, 'eval_samples_per_second': 10.812, 'eval_steps_per_second': 1.356, 'epoch': 0.0}
+ 95%|█████████▌| 19/20 [30:08<01:56, 116.28s/it]wandb: WARNING Tried to log to step 79 that is less than the current step 121. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=79, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3257, 'grad_norm': 37.0, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [30:15<00:00, 83.51s/it] wandb: WARNING Tried to log to step 80 that is less than the current step 122. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=80, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.905, 'grad_norm': 47.25, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [33:15<00:00, 83.51s/it]] wandb: WARNING Tried to log to step 80 that is less than the current step 123. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 80 that is less than the current step 123. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=80, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573441743850708, 'eval_runtime': 179.9148, 'eval_samples_per_second': 10.816, 'eval_steps_per_second': 1.356, 'epoch': 0.0}
+
+
+[on_log] step=20, adjusted_step=80, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+100%|██████████| 20/20 [33:24<00:00, 83.51s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+{'train_runtime': 2005.0942, 'train_samples_per_second': 0.319, 'train_steps_per_second': 0.01, 'train_loss': 3.678365695476532, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 80 that is less than the current step 124. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [33:44<00:00, 101.23s/it]
+
+-------------------------
+Student evaluation for 3: 1.3820215463638306
+Ensemble evaluation for 3: 1.3835499286651611
+Teacher evaluation for 3: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 3 at: 2025-05-28 11:18:31
+Completed in: 34m 15s
+Total training time: 93m 36s
+==================================================
+
+
+==================================================
+Starting Round 4 at: 2025-05-28 11:18:31
+==================================================
+Round '4' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_4
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+  0%|          | 0/20 [00:00<?, ?it/s]wandb: WARNING Tried to log to step 80 that is less than the current step 124. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+  5%|▌         | 1/20 [00:07<02:29,  7.86s/it]wandb: WARNING Tried to log to step 81 that is less than the current step 125. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=81, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.344, 'grad_norm': 28.125, 'learning_rate': 0.0, 'epoch': 0.0}
+ 10%|█         | 2/20 [00:16<02:29,  8.31s/it] wandb: WARNING Tried to log to step 82 that is less than the current step 126. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=82, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.2747, 'grad_norm': 48.5, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 10%|█         | 2/20 [03:56<02:29,  8.31s/it]wandb: WARNING Tried to log to step 82 that is less than the current step 127. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 15%|█▌        | 3/20 [04:11<31:38, 111.69s/it]wandb: WARNING Tried to log to step 82 that is less than the current step 127. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=82, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4575978517532349, 'eval_runtime': 219.7934, 'eval_samples_per_second': 8.854, 'eval_steps_per_second': 1.11, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 83 that is less than the current step 128. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=83, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.3624, 'grad_norm': 46.5, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [04:19<18:51, 70.70s/it] wandb: WARNING Tried to log to step 84 that is less than the current step 129. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=84, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.6186, 'grad_norm': 47.25, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [07:58<18:51, 70.70s/it]wandb: WARNING Tried to log to step 84 that is less than the current step 130. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 25%|██▌       | 5/20 [08:11<32:14, 128.99s/it]wandb: WARNING Tried to log to step 84 that is less than the current step 130. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=84, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577821493148804, 'eval_runtime': 219.1505, 'eval_samples_per_second': 8.88, 'eval_steps_per_second': 1.113, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 85 that is less than the current step 131. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=85, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9562, 'grad_norm': 44.75, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [08:19<20:29, 87.84s/it] wandb: WARNING Tried to log to step 86 that is less than the current step 132. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=86, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1855, 'grad_norm': 29.875, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [11:58<20:29, 87.84s/it]wandb: WARNING Tried to log to step 86 that is less than the current step 133. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 35%|███▌      | 7/20 [12:11<29:16, 135.09s/it]wandb: WARNING Tried to log to step 86 that is less than the current step 133. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=86, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457728624343872, 'eval_runtime': 219.1408, 'eval_samples_per_second': 8.88, 'eval_steps_per_second': 1.113, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 87 that is less than the current step 134. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=87, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.659, 'grad_norm': 36.25, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [12:19<18:55, 94.62s/it] wandb: WARNING Tried to log to step 88 that is less than the current step 135. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=88, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6985, 'grad_norm': 36.25, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [15:58<18:55, 94.62s/it]wandb: WARNING Tried to log to step 88 that is less than the current step 136. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 45%|████▌     | 9/20 [16:12<25:15, 137.74s/it]wandb: WARNING Tried to log to step 88 that is less than the current step 136. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=88, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577809572219849, 'eval_runtime': 219.1914, 'eval_samples_per_second': 8.878, 'eval_steps_per_second': 1.113, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 89 that is less than the current step 137. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=89, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6535, 'grad_norm': 44.0, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [16:20<16:16, 97.64s/it]wandb: WARNING Tried to log to step 90 that is less than the current step 138. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=90, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.1444, 'grad_norm': 43.75, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [19:59<16:16, 97.64s/it]wandb: WARNING Tried to log to step 90 that is less than the current step 139. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [03:38<00:00,  1.32it/s]wandb: WARNING Tried to log to step 90 that is less than the current step 139. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=90, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573150873184204, 'eval_runtime': 219.4864, 'eval_samples_per_second': 8.866, 'eval_steps_per_second': 1.112, 'epoch': 0.0}
+ 60%|██████    | 12/20 [20:20<13:12, 99.08s/it]wandb: WARNING Tried to log to step 91 that is less than the current step 140. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=91, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4437, 'grad_norm': 30.875, 'learning_rate': 2e-07, 'epoch': 0.0}
+
+
+[on_log] step=12, adjusted_step=92, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5006, 'grad_norm': 37.0, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 92 that is less than the current step 141. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 60%|██████    | 12/20 [23:59<13:12, 99.08s/it]wandb: WARNING Tried to log to step 92 that is less than the current step 142. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [03:38<00:00,  1.32it/s]wandb: WARNING Tried to log to step 92 that is less than the current step 142. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=92, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4575527906417847, 'eval_runtime': 219.2534, 'eval_samples_per_second': 8.876, 'eval_steps_per_second': 1.113, 'epoch': 0.0}
+ 70%|███████   | 14/20 [24:20<09:58, 99wandb: WARNING Tried to log to step 93 that is less than the current step 143. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=93, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6427, 'grad_norm': 37.75, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+
+
+[on_log] step=14, adjusted_step=94, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3435, 'grad_norm': 32.75, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 94 that is less than the current step 144. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 70%|███████   | 14/20 [28:00<09:58, 99.72s/it]wandb: WARNING Tried to log to step 94 that is less than the current step 145. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [03:38<00:00,  1.32it/s]wandb: WARNING Tried to log to step 94 that is less than the current step 145. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=94, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4578981399536133, 'eval_runtime': 219.2566, 'eval_samples_per_second': 8.875, 'eval_steps_per_second': 1.113, 'epoch': 0.0}
+ 80%|████████  | 16/20 [28:21<06:40, 10wandb: WARNING Tried to log to step 95 that is less than the current step 146. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=95, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.2213, 'grad_norm': 34.5, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+
+
+[on_log] step=16, adjusted_step=96, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0844, 'grad_norm': 30.5, 'learning_rate': 3e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 96 that is less than the current step 147. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 80%|████████  | 16/20 [32:00<06:40, 100.07s/it]wandb: WARNING Tried to log to step 96 that is less than the current step 148. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [03:38<00:00,  1.32it/s]wandb: WARNING Tried to log to step 96 that is less than the current step 148. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=96, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457510232925415, 'eval_runtime': 219.0999, 'eval_samples_per_second': 8.882, 'eval_steps_per_second': 1.114, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [32:21<03:20, 10wandb: WARNING Tried to log to step 97 that is less than the current step 149. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=97, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7634, 'grad_norm': 38.5, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+
+
+[on_log] step=18, adjusted_step=98, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1708, 'grad_norm': 35.25, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 98 that is less than the current step 150. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 90%|█████████ | 18/20 [36:01<03:20, 100.16s/it]wandb: WARNING Tried to log to step 98 that is less than the current step 151. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [03:38<00:00,  1.32it/s]wandb: WARNING Tried to log to step 98 that is less than the current step 151. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=98, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4572522640228271, 'eval_runtime': 219.5781, 'eval_samples_per_second': 8.862, 'eval_steps_per_second': 1.111, 'epoch': 0.0}
+100%|██████████| 20/20 [36:22<00:00, 100.41s/it]wandb: WARNING Tried to log to step 99 that is less than the current step 152. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=99, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1036, 'grad_norm': 31.625, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+
+
+[on_log] step=20, adjusted_step=100, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.7307, 'grad_norm': 43.75, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 100 that is less than the current step 153. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [40:01<00:00, 100.41s/it]wandb: WARNING Tried to log to step 100 that is less than the current step 154. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [40:11<00:00, 100.41s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+[on_log] step=20, adjusted_step=100, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.45720374584198, 'eval_runtime': 219.2159, 'eval_samples_per_second': 8.877, 'eval_steps_per_second': 1.113, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 100 that is less than the current step 154. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=100, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+
+
+{'train_runtime': 2411.5385, 'train_samples_per_second': 0.265, 'train_steps_per_second': 0.008, 'train_loss': 3.7450688600540163, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 100 that is less than the current step 155. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [40:45<00:00, 122.25s/it]
+
+-------------------------
+Student evaluation for 4: 1.3810378313064575
+Ensemble evaluation for 4: 1.38339102268219
+Teacher evaluation for 4: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 4 at: 2025-05-28 11:59:24
+Completed in: 40m 52s
+Total training time: 134m 29s
+==================================================
+
+
+==================================================
+Starting Round 5 at: 2025-05-28 11:59:24
+==================================================
+Round '5' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_5
+wandb: WARNING Tried to log to step 100 that is less than the current step 155. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+  5%|▌         | 1/20 [00:08<02:42,  8.56s/it]wandb: WARNING Tried to log to step 101 that is less than the current step 156. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=101, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.3103, 'grad_norm': 35.25, 'learning_rate': 0.0, 'epoch': 0.0}
+ 10%|█         | 2/20 [00:17<02:36,  8.wandb: WARNING Tried to log to step 102 that is less than the current step 157. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=102, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9463, 'grad_norm': 35.25, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 10%|█         | 2/20 [04:36<02:36,  8.70s/it]wandb: WARNING Tried to log to step 102 that is less than the current step 158. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:17<00:00,  1.13it/s]wandb: WARNING Tried to log to step 102 that is less than the current step 158. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=102, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573800563812256, 'eval_runtime': 258.8874, 'eval_samples_per_second': 7.517, 'eval_steps_per_second': 0.942, 'epoch': 0.0}
+ 15%|█▌        | 3/20 [04:51<36:49, 129.96s/it]wandb: WARNING Tried to log to step 103 that is less than the current step 159. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=103, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6988, 'grad_norm': 30.375, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [05:00<21:52, 82.06s/it] wandb: WARNING Tried to log to step 104 that is less than the current step 160. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=104, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.0398, 'grad_norm': 36.75, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [09:18<21:52, 82.06s/it]wandb: WARNING Tried to log to step 104 that is less than the current step 161. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:17<00:00,  1.13it/s]wandb: WARNING Tried to log to step 104 that is less than the current step 161. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=104, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574624300003052, 'eval_runtime': 258.3002, 'eval_samples_per_second': 7.534, 'eval_steps_per_second': 0.945, 'epoch': 0.0}
+ 25%|██▌       | 5/20 [09:32<37:39, 150.64s/it]wandb: WARNING Tried to log to step 105 that is less than the current step 162. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=105, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5168, 'grad_norm': 26.125, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [09:41<23:52, 102.32s/it]wandb: WARNING Tried to log to step 106 that is less than the current step 163. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=106, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.0805, 'grad_norm': 33.0, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [14:01<23:52, 102.32s/it]  wandb: WARNING Tried to log to step 106 that is less than the current step 164. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 106 that is less than the current step 164. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=106, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4572372436523438, 'eval_runtime': 260.2215, 'eval_samples_per_second': 7.478, 'eval_steps_per_second': 0.938, 'epoch': 0.0}
+ 35%|███▌      | 7/20 [14:15<34:21, 158.57s/it]wandb: WARNING Tried to log to step 107 that is less than the current step 165. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=107, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.304, 'grad_norm': 36.5, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [14:24<22:10, 110.91s/it]wandb: WARNING Tried to log to step 108 that is less than the current step 166. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=108, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4588, 'grad_norm': 30.75, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [18:43<22:10, 110.91s/it]  wandb: WARNING Tried to log to step 108 that is less than the current step 167. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 108 that is less than the current step 167. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=108, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457886815071106, 'eval_runtime': 258.769, 'eval_samples_per_second': 7.52, 'eval_steps_per_second': 0.943, 'epoch': 0.0}
+ 45%|████▌     | 9/20 [18:57<29:36, 161.51s/it]wandb: WARNING Tried to log to step 109 that is less than the current step 168. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=109, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4346, 'grad_norm': 28.75, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [19:06<19:04, 114.42s/itwandb: WARNING Tried to log to step 110 that is less than the current step 169. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=110, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2988, 'grad_norm': 24.75, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [23:24<19:04, 114.42s/it]wandb: WARNING Tried to log to step 110 that is less than the current step 170. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 55%|█████▌    | 11/20 [23:38<24:25, 162.83s/it]wandb: WARNING Tried to log to step 110 that is less than the current step 170. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=110, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457376480102539, 'eval_runtime': 258.6908, 'eval_samples_per_second': 7.522, 'eval_steps_per_second': 0.943, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 111 that is less than the current step 171. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=111, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0368, 'grad_norm': 24.0, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [23:47<15:27, 115.91s/itwandb: WARNING Tried to log to step 112 that is less than the current step 172. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=112, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.0452, 'grad_norm': 32.0, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [28:05<15:27, 115.91s/it]wandb: WARNING Tried to log to step 112 that is less than the current step 173. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:17<00:00,  1.13it/s]wandb: WARNING Tried to log to step 112 that is less than the current step 173. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=112, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4578289985656738, 'eval_runtime': 258.4105, 'eval_samples_per_second': 7.531, 'eval_steps_per_second': 0.944, 'epoch': 0.0}
+ 70%|███████   | 14/20 [28:28<11:39, 11wandb: WARNING Tried to log to step 113 that is less than the current step 174. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=113, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2351, 'grad_norm': 26.5, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+
+
+[on_log] step=14, adjusted_step=114, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.822, 'grad_norm': 29.75, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 114 that is less than the current step 175. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 70%|███████   | 14/20 [32:47<11:39, 116.54s/it]wandb: WARNING Tried to log to step 114 that is less than the current step 176. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:18<00:00,  1.13it/s]wandb: WARNING Tried to log to step 114 that is less than the current step 176. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=114, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457190990447998, 'eval_runtime': 259.1993, 'eval_samples_per_second': 7.508, 'eval_steps_per_second': 0.941, 'epoch': 0.0}
+ 75%|███████▌  | 15/20 [33:01<13:39, 163.86s/it]wandb: WARNING Tried to log to step 115 that is less than the current step 177. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=115, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4799, 'grad_norm': 34.25, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [33:10<07:48, 117.11s/itwandb: WARNING Tried to log to step 116 that is less than the current step 178. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=116, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8999, 'grad_norm': 34.0, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [37:28<07:48, 117.11s/it]wandb: WARNING Tried to log to step 116 that is less than the current step 179. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:17<00:00,  1.13it/s]wandb: WARNING Tried to log to step 116 that is less than the current step 179. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=116, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.456805944442749, 'eval_runtime': 258.6369, 'eval_samples_per_second': 7.524, 'eval_steps_per_second': 0.943, 'epoch': 0.0}
+ 85%|████████▌ | 17/20 [37:42<08:11, 163.84s/it]wandb: WARNING Tried to log to step 117 that is less than the current step 180. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=117, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.3763, 'grad_norm': 29.5, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [37:51<03:54, 117.25s/itwandb: WARNING Tried to log to step 118 that is less than the current step 181. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=118, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7147, 'grad_norm': 27.875, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [42:09<03:54, 117.25s/it] wandb: WARNING Tried to log to step 118 that is less than the current step 182. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 118 that is less than the current step 182. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=118, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4571460485458374, 'eval_runtime': 258.424, 'eval_samples_per_second': 7.53, 'eval_steps_per_second': 0.944, 'epoch': 0.0}
+ 95%|█████████▌| 19/20 [42:23<02:43, 163.87s/it]wandb: WARNING Tried to log to step 119 that is less than the current step 183. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=119, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4538, 'grad_norm': 27.0, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [42:32<00:00, 117.22s/itwandb: WARNING Tried to log to step 120 that is less than the current step 184. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=120, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9651, 'grad_norm': 31.5, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [46:51<00:00, 117.22s/it] wandb: WARNING Tried to log to step 120 that is less than the current step 185. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 120 that is less than the current step 185. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=120, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573273658752441, 'eval_runtime': 258.6373, 'eval_samples_per_second': 7.524, 'eval_steps_per_second': 0.943, 'epoch': 0.0}
+
+
+[on_log] step=20, adjusted_step=120, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+100%|██████████| 20/20 [47:00<00:00, 117.22s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+{'train_runtime': 2820.9699, 'train_samples_per_second': 0.227, 'train_steps_per_second': 0.007, 'train_loss': 3.7558873653411866, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 120 that is less than the current step 186. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [47:35<00:00, 142.76s/it]
+wandb: WARNING Tried to log to step 120 that is less than the current step 186. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+-------------------------
+Student evaluation for 5: 1.3824405670166016
+Ensemble evaluation for 5: 1.3832683563232422
+Teacher evaluation for 5: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 5 at: 2025-05-28 12:47:08
+Completed in: 47m 43s
+Total training time: 182m 13s
+==================================================
+
+
+==================================================
+Starting Round 6 at: 2025-05-28 12:47:09
+==================================================
+Round '6' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_6
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+  5%|▌         | 1/20 [00:09<02:55,  9.24s/it]wandb: WARNING Tried to log to step 121 that is less than the current step 187. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=121, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2531, 'grad_norm': 22.25, 'learning_rate': 0.0, 'epoch': 0.0}
+ 10%|█         | 2/20 [00:18<02:46,  9.23s/it] wandb: WARNING Tried to log to step 122 that is less than the current step 188. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=122, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5848, 'grad_norm': 28.5, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 10%|█         | 2/20 [05:16<02:46,  9.23s/it]]  wandb: WARNING Tried to log to step 122 that is less than the current step 189. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 122 that is less than the current step 189. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=122, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4571709632873535, 'eval_runtime': 297.8962, 'eval_samples_per_second': 6.532, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+ 15%|█▌        | 3/20 [05:32<42:03, 148.45s/it]wandb: WARNING Tried to log to step 123 that is less than the current step 190. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=123, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.98, 'grad_norm': 20.625, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [05:41<24:56, 93.50s/it] wandb: WARNING Tried to log to step 124 that is less than the current step 191. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=124, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.0511, 'grad_norm': 28.5, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [10:40<24:56, 93.50s/it]]  wandb: WARNING Tried to log to step 124 that is less than the current step 192. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 124 that is less than the current step 192. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=124, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457275629043579, 'eval_runtime': 298.3858, 'eval_samples_per_second': 6.522, 'eval_steps_per_second': 0.818, 'epoch': 0.0}
+ 25%|██▌       | 5/20 [10:55<43:12, 172.84s/it]wandb: WARNING Tried to log to step 125 that is less than the current step 193. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=125, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0093, 'grad_norm': 17.75, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [11:04<27:21, 117wandb: WARNING Tried to log to step 126 that is less than the current step 194. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=126, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0172, 'grad_norm': 24.0, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [16:02<27:21, 117.24s/it]wandb: WARNING Tried to log to step 126 that is less than the current step 195. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:56<00:00,  1.01s/it]wandb: WARNING Tried to log to step 126 that is less than the current step 195. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=126, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457496166229248, 'eval_runtime': 297.8022, 'eval_samples_per_second': 6.535, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+ 35%|███▌      | 7/20 [16:17<39:13, 181.04s/it]wandb: WARNING Tried to log to step 127 that is less than the current step 196. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=127, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4099, 'grad_norm': 25.5, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [16:26<25:16, 126.34s/it]wandb: WARNING Tried to log to step 128 that is less than the current step 197. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=128, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8291, 'grad_norm': 22.75, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [21:23<25:16, 126.34s/it]wandb: WARNING Tried to log to step 128 that is less than the current step 198. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:56<00:00,  1.01s/it]wandb: WARNING Tried to log to step 128 that is less than the current step 198. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=128, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4571864604949951, 'eval_runtime': 297.5877, 'eval_samples_per_second': 6.539, 'eval_steps_per_second': 0.82, 'epoch': 0.0}
+ 45%|████▌     | 9/20 [21:38<33:48, 184.44s/it]wandb: WARNING Tried to log to step 129 that is less than the current step 199. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=129, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.932, 'grad_norm': 28.0, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [21:47<21:43, 130.35s/itwandb: WARNING Tried to log to step 130 that is less than the current step 200. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=130, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.1181, 'grad_norm': 24.625, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [26:45<21:43, 130.35s/it]wandb: WARNING Tried to log to step 130 that is less than the current step 201. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:56<00:00,  1.01s/it]wandb: WARNING Tried to log to step 130 that is less than the current step 201. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=130, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4575046300888062, 'eval_runtime': 297.9228, 'eval_samples_per_second': 6.532, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+ 55%|█████▌    | 11/20 [27:00<27:54, 186.11s/it]wandb: WARNING Tried to log to step 131 that is less than the current step 202. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=131, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4003, 'grad_norm': 22.125, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [27:09<17:38, 132.30s/itwandb: WARNING Tried to log to step 132 that is less than the current step 203. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=132, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.8895, 'grad_norm': 31.375, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [32:07<17:38, 132.30s/it] wandb: WARNING Tried to log to step 132 that is less than the current step 204. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 132 that is less than the current step 204. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=132, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4575433731079102, 'eval_runtime': 297.9938, 'eval_samples_per_second': 6.53, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+ 65%|██████▌   | 13/20 [32:22<21:48, 186.98s/it]wandb: WARNING Tried to log to step 133 that is less than the current step 205. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=133, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8198, 'grad_norm': 28.0, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [32:31<13:19, 133.29s/itwandb: WARNING Tried to log to step 134 that is less than the current step 206. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=134, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6757, 'grad_norm': 24.5, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [37:29<13:19, 133.29s/it] wandb: WARNING Tried to log to step 134 that is less than the current step 207. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 134 that is less than the current step 207. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=134, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.456754446029663, 'eval_runtime': 297.9899, 'eval_samples_per_second': 6.53, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+ 75%|███████▌  | 15/20 [37:44<15:36, 187.33s/it]wandb: WARNING Tried to log to step 135 that is less than the current step 208. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=135, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3007, 'grad_norm': 24.0, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [37:53<08:54, 133.71s/itwandb: WARNING Tried to log to step 136 that is less than the current step 209. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=136, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.4029, 'grad_norm': 27.75, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [42:51<08:54, 133.71s/it]wandb: WARNING Tried to log to step 136 that is less than the current step 210. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 85%|████████▌ | 17/20 [43:05<09:22, 187.48s/it]wandb: WARNING Tried to log to step 136 that is less than the current step 210. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=136, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4570789337158203, 'eval_runtime': 297.9616, 'eval_samples_per_second': 6.531, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 137 that is less than the current step 211. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=137, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7274, 'grad_norm': 26.375, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [43:15<04:27, 133.94s/it]wandb: WARNING Tried to log to step 138 that is less than the current step 212. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=138, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5653, 'grad_norm': 22.125, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [48:13<04:27, 133.94s/it]wandb: WARNING Tried to log to step 138 that is less than the current step 213. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [04:56<00:00,  1.01s/it]wandb: WARNING Tried to log to step 138 that is less than the current step 213. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=138, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4568308591842651, 'eval_runtime': 297.9095, 'eval_samples_per_second': 6.532, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+ 95%|█████████▌| 19/20 [48:27<03:07, 187.59s/it]wandb: WARNING Tried to log to step 139 that is less than the current step 214. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=139, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.6138, 'grad_norm': 30.875, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [48:37<00:00, 134.22s/itwandb: WARNING Tried to log to step 140 that is less than the current step 215. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=140, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.9858, 'grad_norm': 23.125, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [53:35<00:00, 134.22s/it]wandb: WARNING Tried to log to step 140 that is less than the current step 216. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [53:45<00:00, 134.22s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+[on_log] step=20, adjusted_step=140, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.45699143409729, 'eval_runtime': 297.814, 'eval_samples_per_second': 6.534, 'eval_steps_per_second': 0.819, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 140 that is less than the current step 216. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=140, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+
+
+{'train_runtime': 3225.3291, 'train_samples_per_second': 0.198, 'train_steps_per_second': 0.006, 'train_loss': 3.678286612033844, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 140 that is less than the current step 217. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [54:19<00:00, 162.97s/it]
+
+-------------------------
+Student evaluation for 6: 1.3822320699691772
+Ensemble evaluation for 6: 1.3844635486602783
+Teacher evaluation for 6: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 6 at: 2025-05-28 13:41:36
+Completed in: 54m 27s
+Total training time: 236m 41s
+==================================================
+
+
+==================================================
+Starting Round 7 at: 2025-05-28 13:41:37
+==================================================
+Round '7' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_7
+wandb: WARNING Tried to log to step 140 that is less than the current step 217. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+  5%|▌         | 1/20 [00:09<03:07,  9.88s/it]wandb: WARNING Tried to log to step 141 that is less than the current step 218. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=141, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9874, 'grad_norm': 28.25, 'learning_rate': 0.0, 'epoch': 0.0}
+ 10%|█         | 2/20 [00:19<02:57,  9.87s/it] wandb: WARNING Tried to log to step 142 that is less than the current step 219. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=142, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7817, 'grad_norm': 20.375, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 10%|█         | 2/20 [05:57<02:57,  9.87s/it]wandb: WARNING Tried to log to step 142 that is less than the current step 220. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [05:35<00:00,  1.14s/it]wandb: WARNING Tried to log to step 142 that is less than the current step 220. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=142, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4572467803955078, 'eval_runtime': 337.3357, 'eval_samples_per_second': 5.769, 'eval_steps_per_second': 0.723, 'epoch': 0.0}
+ 15%|█▌        | 3/20 [06:13<47:20, 167.10s/it]wandb: WARNING Tried to log to step 143 that is less than the current step 221. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=143, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9574, 'grad_norm': 24.5, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [06:23<28:00, 105.05s/it]wandb: WARNING Tried to log to step 144 that is less than the current step 222. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=144, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.9558, 'grad_norm': 19.5, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [12:00<28:00, 105.05s/it]  wandb: WARNING Tried to log to step 144 that is less than the current step 223. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 144 that is less than the current step 223. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=144, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574716091156006, 'eval_runtime': 336.8471, 'eval_samples_per_second': 5.777, 'eval_steps_per_second': 0.724, 'epoch': 0.0}
+ 25%|██▌       | 5/20 [12:16<48:35, 194.37s/it]wandb: WARNING Tried to log to step 145 that is less than the current step 224. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=145, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.19, 'grad_norm': 24.5, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [12:26<30:43, 131.68s/it]wandb: WARNING Tried to log to step 146 that is less than the current step 225. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=146, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8929, 'grad_norm': 25.5, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [18:03<30:43, 131.68s/it]wandb: WARNING Tried to log to step 146 that is less than the current step 226. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [05:35<00:00,  1.14s/it]wandb: WARNING Tried to log to step 146 that is less than the current step 226. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=146, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573224782943726, 'eval_runtime': 336.9199, 'eval_samples_per_second': 5.776, 'eval_steps_per_second': 0.724, 'epoch': 0.0}
+ 35%|███▌      | 7/20 [18:18<44:09, 203.78s/it]wandb: WARNING Tried to log to step 147 that is less than the current step 227. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=147, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.3483, 'grad_norm': 25.0, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [18:28<28:24, 142.06s/it]wandb: WARNING Tried to log to step 148 that is less than the current step 228. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=148, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5731, 'grad_norm': 25.625, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [24:05<28:24, 142.06s/it]wandb: WARNING Tried to log to step 148 that is less than the current step 229. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [05:35<00:00,  1.14s/it]wandb: WARNING Tried to log to step 148 that is less than the current step 229. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=148, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4570389986038208, 'eval_runtime': 337.0465, 'eval_samples_per_second': 5.774, 'eval_steps_per_second': 0.724, 'epoch': 0.0}
+ 45%|████▌     | 9/20 [24:21<38:05, 207.79s/it]wandb: WARNING Tried to log to step 149 that is less than the current step 230. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=149, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.038, 'grad_norm': 24.375, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [24:30<24:26, 146.70s/itwandb: WARNING Tried to log to step 150 that is less than the current step 231. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=150, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3217, 'grad_norm': 19.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [30:07<24:26, 146.70s/it] wandb: WARNING Tried to log to step 150 that is less than the current step 232. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 150 that is less than the current step 232. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=150, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574328660964966, 'eval_runtime': 336.9284, 'eval_samples_per_second': 5.776, 'eval_steps_per_second': 0.724, 'epoch': 0.0}
+ 55%|█████▌    | 11/20 [30:23<31:26, 209.62s/it]wandb: WARNING Tried to log to step 151 that is less than the current step 233. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=151, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.804, 'grad_norm': 23.5, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [30:33<19:52, 149.00s/itwandb: WARNING Tried to log to step 152 that is less than the current step 234. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=152, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5705, 'grad_norm': 21.625, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [36:10<19:52, 149.00s/it] wandb: WARNING Tried to log to step 152 that is less than the current step 235. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 152 that is less than the current step 235. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=152, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4573293924331665, 'eval_runtime': 336.7354, 'eval_samples_per_second': 5.779, 'eval_steps_per_second': 0.725, 'epoch': 0.0}
+ 65%|██████▌   | 13/20 [36:25<24:33, 210.57s/it]wandb: WARNING Tried to log to step 153 that is less than the current step 236. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=153, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4732, 'grad_norm': 15.6875, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [36:35<14:59, 14wandb: WARNING Tried to log to step 154 that is less than the current step 237. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=154, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4836, 'grad_norm': 23.75, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [42:12<14:59, 149.95s/it]wandb: WARNING Tried to log to step 154 that is less than the current step 238. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [05:35<00:00,  1.14s/it]wandb: WARNING Tried to log to step 154 that is less than the current step 238. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=154, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4571080207824707, 'eval_runtime': 336.8246, 'eval_samples_per_second': 5.777, 'eval_steps_per_second': 0.724, 'epoch': 0.0}
+ 75%|███████▌  | 15/20 [42:27<17:34, 210.89s/it]wandb: WARNING Tried to log to step 155 that is less than the current step 239. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=155, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2135, 'grad_norm': 22.25, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [42:37<10:01, 150.38s/itwandb: WARNING Tried to log to step 156 that is less than the current step 240. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=156, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9562, 'grad_norm': 25.875, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [48:26<10:01, 150.38s/it]wandb: WARNING Tried to log to step 156 that is less than the current step 241. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [05:47<00:00,  1.14s/it]wandb: WARNING Tried to log to step 156 that is less than the current step 241. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=156, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574772119522095, 'eval_runtime': 349.1608, 'eval_samples_per_second': 5.573, 'eval_steps_per_second': 0.699, 'epoch': 0.0}
+ 85%|████████▌ | 17/20 [48:42<10:44, 214.73s/it]wandb: WARNING Tried to log to step 157 that is less than the current step 242. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=157, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.4054, 'grad_norm': 24.5, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [48:51<05:06, 153.17s/itwandb: WARNING Tried to log to step 158 that is less than the current step 243. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=158, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9031, 'grad_norm': 21.625, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [54:29<05:06, 153.17s/it] wandb: WARNING Tried to log to step 158 that is less than the current step 244. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 158 that is less than the current step 244. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=158, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4572051763534546, 'eval_runtime': 337.2787, 'eval_samples_per_second': 5.77, 'eval_steps_per_second': 0.723, 'epoch': 0.0}
+ 95%|█████████▌| 19/20 [54:44<03:33, 213.06s/it]wandb: WARNING Tried to log to step 159 that is less than the current step 245. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=159, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.4181, 'grad_norm': 24.0, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [54:54<00:00, 152.05s/itwandb: WARNING Tried to log to step 160 that is less than the current step 246. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=160, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.23, 'grad_norm': 18.875, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [1:00:31<00:00, 152.05s/itwandb: WARNING Tried to log to step 160 that is less than the current step 247. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 160 that is less than the current step 247. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=160, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4567439556121826, 'eval_runtime': 337.5765, 'eval_samples_per_second': 5.765, 'eval_steps_per_second': 0.723, 'epoch': 0.0}
+
+
+[on_log] step=20, adjusted_step=160, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+100%|██████████| 20/20 [1:00:41<00:00, 152.05s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+{'train_runtime': 3641.9789, 'train_samples_per_second': 0.176, 'train_steps_per_second': 0.005, 'train_loss': 3.7751856207847596, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 160 that is less than the current step 248. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [1:01:18<00:00, 183.90s/it]
+
+-------------------------
+Student evaluation for 7: 1.3799052238464355
+Ensemble evaluation for 7: 1.3839683532714844
+Teacher evaluation for 7: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 7 at: 2025-05-28 14:43:03
+Completed in: 61m 26s
+Total training time: 298m 8s
+==================================================
+
+
+==================================================
+Starting Round 8 at: 2025-05-28 14:43:04
+==================================================
+Round '8' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_8
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+  0%|          | 0/20 [00:00<?, ?it/s]wandb: WARNING Tried to log to step 160 that is less than the current step 248. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+  5%|▌         | 1/20 [00:10<03:24, 10.77s/it]wandb: WARNING Tried to log to step 161 that is less than the current step 249. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=161, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3673, 'grad_norm': 18.0, 'learning_rate': 0.0, 'epoch': 0.0}
+ 10%|█         | 2/20 [00:21<03:12, 10.70s/it] wandb: WARNING Tried to log to step 162 that is less than the current step 250. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=162, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2433, 'grad_norm': 19.0, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 10%|█         | 2/20 [06:38<03:12, 10.70s/it]wandb: WARNING Tried to log to step 162 that is less than the current step 251. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:15<00:00,  1.26s/it]wandb: WARNING Tried to log to step 162 that is less than the current step 251. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=162, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4576137065887451, 'eval_runtime': 377.1534, 'eval_samples_per_second': 5.16, 'eval_steps_per_second': 0.647, 'epoch': 0.0}
+ 15%|█▌        | 3/20 [06:55<52:38, 185.80s/it]wandb: WARNING Tried to log to step 163 that is less than the current step 252. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=163, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0642, 'grad_norm': 17.875, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [07:06<31:06, 116.65s/it]wandb: WARNING Tried to log to step 164 that is less than the current step 253. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=164, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.6351, 'grad_norm': 20.5, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [13:22<31:06, 116.65s/it]  wandb: WARNING Tried to log to step 164 that is less than the current step 254. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 164 that is less than the current step 254. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=164, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4576494693756104, 'eval_runtime': 376.7081, 'eval_samples_per_second': 5.166, 'eval_steps_per_second': 0.648, 'epoch': 0.0}
+ 25%|██▌       | 5/20 [13:38<54:02, 216.19s/it]wandb: WARNING Tried to log to step 165 that is less than the current step 255. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=165, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1874, 'grad_norm': 20.375, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [13:49<34:07, 146wandb: WARNING Tried to log to step 166 that is less than the current step 256. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=166, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.3778, 'grad_norm': 19.0, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [20:06<34:07, 146.28s/it]wandb: WARNING Tried to log to step 166 that is less than the current step 257. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:15<00:00,  1.26s/it]wandb: WARNING Tried to log to step 166 that is less than the current step 257. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=166, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574931859970093, 'eval_runtime': 376.9432, 'eval_samples_per_second': 5.163, 'eval_steps_per_second': 0.647, 'epoch': 0.0}
+ 35%|███▌      | 7/20 [20:22<49:09, 226.91s/it]wandb: WARNING Tried to log to step 167 that is less than the current step 258. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=167, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1479, 'grad_norm': 16.875, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [20:33<31:36, 158.04s/it]wandb: WARNING Tried to log to step 168 that is less than the current step 259. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=168, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0641, 'grad_norm': 22.0, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [26:49<31:36, 158.04s/it]wandb: WARNING Tried to log to step 168 that is less than the current step 260. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:15<00:00,  1.27s/it]wandb: WARNING Tried to log to step 168 that is less than the current step 260. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=168, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577953815460205, 'eval_runtime': 376.6907, 'eval_samples_per_second': 5.166, 'eval_steps_per_second': 0.648, 'epoch': 0.0}
+ 45%|████▌     | 9/20 [27:05<42:25, 231.39s/it]wandb: WARNING Tried to log to step 169 that is less than the current step 261. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=169, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6544, 'grad_norm': 21.75, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [27:16<27:13, 163.32s/itwandb: WARNING Tried to log to step 170 that is less than the current step 262. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=170, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.0704, 'grad_norm': 13.9375, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [33:33<27:13, 163.32s/it] wandb: WARNING Tried to log to step 170 that is less than the current step 263. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 170 that is less than the current step 263. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=170, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577739238739014, 'eval_runtime': 376.774, 'eval_samples_per_second': 5.165, 'eval_steps_per_second': 0.648, 'epoch': 0.0}
+ 55%|█████▌    | 11/20 [33:49<35:01, 233.53s/it]wandb: WARNING Tried to log to step 171 that is less than the current step 264. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=171, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.2341, 'grad_norm': 18.125, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [33:59<22:05, 16wandb: WARNING Tried to log to step 172 that is less than the current step 265. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=172, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4479, 'grad_norm': 19.375, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [40:16<22:05, 165.71s/it]wandb: WARNING Tried to log to step 172 that is less than the current step 266. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:15<00:00,  1.26s/it]wandb: WARNING Tried to log to step 172 that is less than the current step 266. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=172, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577807188034058, 'eval_runtime': 377.1072, 'eval_samples_per_second': 5.16, 'eval_steps_per_second': 0.647, 'epoch': 0.0}
+ 65%|██████▌   | 13/20 [40:32<27:22, 234.57s/it]wandb: WARNING Tried to log to step 173 that is less than the current step 267. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=173, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.5385, 'grad_norm': 22.75, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [40:43<16:41, 166.91s/itwandb: WARNING Tried to log to step 174 that is less than the current step 268. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=174, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7137, 'grad_norm': 19.875, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [46:59<16:41, 166.91s/it]wandb: WARNING Tried to log to step 174 that is less than the current step 269. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:14<00:00,  1.26s/it]wandb: WARNING Tried to log to step 174 that is less than the current step 269. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=174, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457481861114502, 'eval_runtime': 376.1489, 'eval_samples_per_second': 5.173, 'eval_steps_per_second': 0.649, 'epoch': 0.0}
+ 75%|███████▌  | 15/20 [47:16<19:34, 234.98s/it]wandb: WARNING Tried to log to step 175 that is less than the current step 270. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=175, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1413, 'grad_norm': 16.125, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [47:26<11:09, 167.42s/itwandb: WARNING Tried to log to step 176 that is less than the current step 271. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=176, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.1254, 'grad_norm': 19.875, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [53:43<11:09, 167.42s/it] wandb: WARNING Tried to log to step 176 that is less than the current step 272. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 176 that is less than the current step 272. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=176, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577125310897827, 'eval_runtime': 376.6445, 'eval_samples_per_second': 5.167, 'eval_steps_per_second': 0.648, 'epoch': 0.0}
+ 85%|████████▌ | 17/20 [53:59<11:45, 235.15s/it]wandb: WARNING Tried to log to step 177 that is less than the current step 273. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=177, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4532, 'grad_norm': 20.125, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [54:10<05:35, 167.70s/it]wandb: WARNING Tried to log to step 178 that is less than the current step 274. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=178, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 2.7211, 'grad_norm': 14.875, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [1:00:26<05:35, 167.70s/it]wandb: WARNING Tried to log to step 178 that is less than the current step 275. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:14<00:00,  1.26s/it]wandb: WARNING Tried to log to step 178 that is less than the current step 275. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=178, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574470520019531, 'eval_runtime': 376.2921, 'eval_samples_per_second': 5.172, 'eval_steps_per_second': 0.648, 'epoch': 0.0}
+ 95%|█████████▌| 19/20 [1:00:42<03:55, 235.13s/it]wandb: WARNING Tried to log to step 179 that is less than the current step 276. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=179, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.5572, 'grad_norm': 20.0, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [1:00:52<00:00, 167.72s/wandb: WARNING Tried to log to step 180 that is less than the current step 277. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=180, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.7092, 'grad_norm': 28.375, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [1:07:09<00:00, 167.72s/it]wandb: WARNING Tried to log to step 180 that is less than the current step 278. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [1:07:19<00:00, 167.72s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+[on_log] step=20, adjusted_step=180, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4574161767959595, 'eval_runtime': 376.2414, 'eval_samples_per_second': 5.172, 'eval_steps_per_second': 0.649, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 180 that is less than the current step 278. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=180, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+
+
+{'train_runtime': 4039.506, 'train_samples_per_second': 0.158, 'train_steps_per_second': 0.005, 'train_loss': 3.5226747393608093, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 180 that is less than the current step 279. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [1:07:53<00:00, 203.70s/it]
+
+-------------------------
+Student evaluation for 8: 1.3810311555862427
+Ensemble evaluation for 8: 1.3836294412612915
+Teacher evaluation for 8: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 8 at: 2025-05-28 15:51:06
+Completed in: 68m 2s
+Total training time: 366m 11s
+==================================================
+
+
+==================================================
+Starting Round 9 at: 2025-05-28 15:51:06
+==================================================
+Round '9' model stored in: /projects/distilling_llms/model_log/2025-05-28/run_1/round_9
+wandb: WARNING Tried to log to step 180 that is less than the current step 279. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+  5%|▌         | 1/20 [00:11<03:43, 11.78s/it]wandb: WARNING Tried to log to step 181 that is less than the current step 280. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=1, adjusted_step=181, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.829, 'grad_norm': 15.75, 'learning_rate': 0.0, 'epoch': 0.0}
+ 10%|█         | 2/20 [00:23<03:26, 11.45s/it] wandb: WARNING Tried to log to step 182 that is less than the current step 281. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=182, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6252, 'grad_norm': 19.75, 'learning_rate': 2e-08, 'epoch': 0.0}
+ 10%|█         | 2/20 [07:18<03:26, 11.45s/it]]  wandb: WARNING Tried to log to step 182 that is less than the current step 282. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 182 that is less than the current step 282. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=2, adjusted_step=182, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577813148498535, 'eval_runtime': 415.7808, 'eval_samples_per_second': 4.68, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 15%|█▌        | 3/20 [07:36<57:53, 204.34s/it]wandb: WARNING Tried to log to step 183 that is less than the current step 283. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=3, adjusted_step=183, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8349, 'grad_norm': 22.5, 'learning_rate': 4e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [07:48<34:09, 128.12s/it]wandb: WARNING Tried to log to step 184 that is less than the current step 284. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=184, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.1587, 'grad_norm': 21.125, 'learning_rate': 6e-08, 'epoch': 0.0}
+ 20%|██        | 4/20 [14:56<34:09, 128.12s/it]wandb: WARNING Tried to log to step 184 that is less than the current step 285. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [07:06<00:00,  1.39s/it]wandb: WARNING Tried to log to step 184 that is less than the current step 285. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=4, adjusted_step=184, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457885980606079, 'eval_runtime': 427.9213, 'eval_samples_per_second': 4.548, 'eval_steps_per_second': 0.57, 'epoch': 0.0}
+ 25%|██▌       | 5/20 [15:12<1:00:33, 242.25s/it]wandb: WARNING Tried to log to step 185 that is less than the current step 286. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=5, adjusted_step=185, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.7095, 'grad_norm': 17.25, 'learning_rate': 8e-08, 'epoch': 0.0}
+ 30%|███       | 6/20 [15:24<38:14, 163wandb: WARNING Tried to log to step 186 that is less than the current step 287. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=186, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.0979, 'grad_norm': 19.125, 'learning_rate': 1e-07, 'epoch': 0.0}
+ 30%|███       | 6/20 [22:20<38:14, 163.90s/it]  wandb: WARNING Tried to log to step 186 that is less than the current step 288. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 186 that is less than the current step 288. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=6, adjusted_step=186, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4576215744018555, 'eval_runtime': 416.0122, 'eval_samples_per_second': 4.678, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 35%|███▌      | 7/20 [22:37<54:36, 252.00s/it]wandb: WARNING Tried to log to step 187 that is less than the current step 289. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=7, adjusted_step=187, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6429, 'grad_norm': 20.5, 'learning_rate': 1.2e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [22:49<35:04, 175.36s/it]wandb: WARNING Tried to log to step 188 that is less than the current step 290. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=188, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.6871, 'grad_norm': 17.5, 'learning_rate': 1.4e-07, 'epoch': 0.0}
+ 40%|████      | 8/20 [29:44<35:04, 175.36s/it]wandb: WARNING Tried to log to step 188 that is less than the current step 291. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:54<00:00,  1.39s/it]wandb: WARNING Tried to log to step 188 that is less than the current step 291. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=8, adjusted_step=188, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.457555890083313, 'eval_runtime': 415.6913, 'eval_samples_per_second': 4.681, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 45%|████▌     | 9/20 [30:01<46:52, 255.70s/it]wandb: WARNING Tried to log to step 189 that is less than the current step 292. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=9, adjusted_step=189, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.6793, 'grad_norm': 26.5, 'learning_rate': 1.6e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [30:12<30:02, 180.25s/itwandb: WARNING Tried to log to step 190 that is less than the current step 293. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=190, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.4631, 'grad_norm': 16.0, 'learning_rate': 1.8e-07, 'epoch': 0.0}
+ 50%|█████     | 10/20 [37:08<30:02, 180.25s/it] wandb: WARNING Tried to log to step 190 that is less than the current step 294. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 190 that is less than the current step 294. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=10, adjusted_step=190, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.458060383796692, 'eval_runtime': 415.5736, 'eval_samples_per_second': 4.683, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 55%|█████▌    | 11/20 [37:25<38:36, 257.37s/it]wandb: WARNING Tried to log to step 191 that is less than the current step 295. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=11, adjusted_step=191, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1038, 'grad_norm': 15.0, 'learning_rate': 2e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [37:36<24:19, 182.49s/it]wandb: WARNING Tried to log to step 192 that is less than the current step 296. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=192, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.0464, 'grad_norm': 20.625, 'learning_rate': 2.1999999999999998e-07, 'epoch': 0.0}
+ 60%|██████    | 12/20 [44:31<24:19, 182.49s/it] wandb: WARNING Tried to log to step 192 that is less than the current step 297. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 192 that is less than the current step 297. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=12, adjusted_step=192, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4576886892318726, 'eval_runtime': 415.4655, 'eval_samples_per_second': 4.684, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 65%|██████▌   | 13/20 [44:48<30:06, 258.11s/it]wandb: WARNING Tried to log to step 193 that is less than the current step 298. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=13, adjusted_step=193, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.6666, 'grad_norm': 23.25, 'learning_rate': 2.4e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [44:59<18:21, 183.55s/itwandb: WARNING Tried to log to step 194 that is less than the current step 299. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=194, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.1552, 'grad_norm': 14.8125, 'learning_rate': 2.6e-07, 'epoch': 0.0}
+ 70%|███████   | 14/20 [51:55<18:21, 183.55s/it]wandb: WARNING Tried to log to step 194 that is less than the current step 300. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:53<00:00,  1.39s/it]wandb: WARNING Tried to log to step 194 that is less than the current step 300. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=14, adjusted_step=194, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4579249620437622, 'eval_runtime': 415.4903, 'eval_samples_per_second': 4.684, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 75%|███████▌  | 15/20 [52:11<21:32, 258.47s/it]wandb: WARNING Tried to log to step 195 that is less than the current step 301. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=15, adjusted_step=195, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.8749, 'grad_norm': 20.375, 'learning_rate': 2.8e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [52:23<12:16, 184.06s/itwandb: WARNING Tried to log to step 196 that is less than the current step 302. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=196, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.7364, 'grad_norm': 24.75, 'learning_rate': 3e-07, 'epoch': 0.0}
+ 80%|████████  | 16/20 [59:18<12:16, 184.06s/it] wandb: WARNING Tried to log to step 196 that is less than the current step 303. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+wandb: WARNING Tried to log to step 196 that is less than the current step 303. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=16, adjusted_step=196, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4577703475952148, 'eval_runtime': 415.6175, 'eval_samples_per_second': 4.682, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 85%|████████▌ | 17/20 [59:35<12:56, 258.69s/it]wandb: WARNING Tried to log to step 197 that is less than the current step 304. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=17, adjusted_step=197, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9031, 'grad_norm': 19.875, 'learning_rate': 3.2e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [59:46<06:08, 184.36s/it]wandb: WARNING Tried to log to step 198 that is less than the current step 305. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=198, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 4.2247, 'grad_norm': 20.875, 'learning_rate': 3.4000000000000003e-07, 'epoch': 0.0}
+ 90%|█████████ | 18/20 [1:06:42<06:08, 184.36s/it]wandb: WARNING Tried to log to step 198 that is less than the current step 306. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 244/244 [06:54<00:00,  1.39s/it]wandb: WARNING Tried to log to step 198 that is less than the current step 306. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=18, adjusted_step=198, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4579095840454102, 'eval_runtime': 415.8118, 'eval_samples_per_second': 4.68, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+ 95%|█████████▌| 19/20 [1:06:59<04:19, 259.02s/it]wandb: WARNING Tried to log to step 199 that is less than the current step 307. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=19, adjusted_step=199, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.9548, 'grad_norm': 19.375, 'learning_rate': 3.6e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [1:07:11<00:00, 184.77s/wandb: WARNING Tried to log to step 200 that is less than the current step 308. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=200, logs keys=['loss', 'grad_norm', 'learning_rate', 'epoch']
+
+
+{'loss': 3.232, 'grad_norm': 17.125, 'learning_rate': 3.7999999999999996e-07, 'epoch': 0.0}
+100%|██████████| 20/20 [1:14:07<00:00, 184.77s/it]wandb: WARNING Tried to log to step 200 that is less than the current step 309. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [1:14:16<00:00, 184.77s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+
+
+[on_log] step=20, adjusted_step=200, logs keys=['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.4576101303100586, 'eval_runtime': 415.806, 'eval_samples_per_second': 4.68, 'eval_steps_per_second': 0.587, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 200 that is less than the current step 309. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+
+[on_log] step=20, adjusted_step=200, logs keys=['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos', 'train_loss', 'epoch']
+
+
+{'train_runtime': 4457.2054, 'train_samples_per_second': 0.144, 'train_steps_per_second': 0.004, 'train_loss': 3.8812849879264832, 'epoch': 0.0}
+wandb: WARNING Tried to log to step 200 that is less than the current step 310. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+100%|██████████| 20/20 [1:14:55<00:00, 224.79s/it]
+wandb: WARNING Tried to log to step 200 that is less than the current step 310. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+
+-------------------------
+Student evaluation for 9: 1.3808135986328125
+Ensemble evaluation for 9: 1.384228229522705
+Teacher evaluation for 9: 1.0332053899765015
+-------------------------
+==================================================
+Ending Round 9 at: 2025-05-28 17:06:12
+Completed in: 75m 5s
+Total training time: 441m 17s
+==================================================
+
+
+==================================================
+Training completed at: 2025-05-28 17:06:12
+Total training time: 441m 17s
+==================================================

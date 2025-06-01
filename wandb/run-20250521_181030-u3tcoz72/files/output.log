@@ -1,0 +1,56 @@
+wandb: WARNING The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+100%|██████████| 80/80 [09:37<00:00,  6.86s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+{'loss': 1.8293, 'grad_norm': 14.8125, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.9238, 'grad_norm': 13.75, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.9036, 'grad_norm': 16.25, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.7346, 'grad_norm': 19.0, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.8582, 'grad_norm': 15.625, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.5964, 'grad_norm': 14.5625, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.7035, 'grad_norm': 14.625, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 2.1013, 'grad_norm': 18.875, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'train_runtime': 578.4953, 'train_samples_per_second': 4.425, 'train_steps_per_second': 0.138, 'train_loss': 1.8313568115234375, 'epoch': 0.01}
+100%|██████████| 80/80 [10:08<00:00,  7.61s/it]
+Starting Round 1
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|██████████| 80/80 [11:56<00:00,  8.73s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+{'loss': 1.8229, 'grad_norm': 7.3125, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.7949, 'grad_norm': 7.03125, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.9313, 'grad_norm': 11.875, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.6729, 'grad_norm': 7.25, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.8243, 'grad_norm': 9.0, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.799, 'grad_norm': 7.75, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.7599, 'grad_norm': 6.375, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.6787, 'grad_norm': 9.9375, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'train_runtime': 717.0399, 'train_samples_per_second': 3.57, 'train_steps_per_second': 0.112, 'train_loss': 1.785467529296875, 'epoch': 0.01}
+100%|██████████| 80/80 [12:28<00:00,  9.36s/it]
+Traceback (most recent call last):
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/hub.py", line 424, in cached_files
+    hf_hub_download(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py", line 106, in _inner_fn
+    validate_repo_id(arg_value)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py", line 154, in validate_repo_id
+    raise HFValidationError(
+huggingface_hub.errors.HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name': '['/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-21/run_7/round_1']'. Use `repo_type` argument if needed.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/og_train.py", line 118, in <module>
+    ensemble_model.add_model([round_output_dir])
+  File "/fs01/home/klambert/slm_ensembles/ensemble.py", line 69, in add_model
+    new_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.torch_dtype, device_map=self.device_map)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/models/auto/auto_factory.py", line 492, in from_pretrained
+    resolved_config_file = cached_file(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/hub.py", line 266, in cached_file
+    file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/hub.py", line 470, in cached_files
+    resolved_files = [
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/hub.py", line 471, in <listcomp>
+    _get_cache_file_to_return(path_or_repo_id, filename, cache_dir, revision) for filename in full_filenames
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/utils/hub.py", line 134, in _get_cache_file_to_return
+    resolved_file = try_to_load_from_cache(path_or_repo_id, full_filename, cache_dir=cache_dir, revision=revision)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py", line 106, in _inner_fn
+    validate_repo_id(arg_value)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py", line 154, in validate_repo_id
+    raise HFValidationError(
+huggingface_hub.errors.HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name': '['/scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-21/run_7/round_1']'. Use `repo_type` argument if needed.

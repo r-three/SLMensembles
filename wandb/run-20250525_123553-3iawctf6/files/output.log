@@ -1,0 +1,173 @@
+[34m[1mwandb[0m: [33mWARNING[0m The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+                                                                                                                                                                                                                                                                          
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [10:10<00:00, 30.54s/it]
+{'eval_loss': 1.4582815170288086, 'eval_runtime': 50.9325, 'eval_samples_per_second': 38.207, 'eval_steps_per_second': 4.791, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.4554474353790283, 'eval_runtime': 51.2746, 'eval_samples_per_second': 37.953, 'eval_steps_per_second': 4.759, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.4381327629089355, 'eval_runtime': 51.3239, 'eval_samples_per_second': 37.916, 'eval_steps_per_second': 4.754, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.4176219701766968, 'eval_runtime': 51.2504, 'eval_samples_per_second': 37.97, 'eval_steps_per_second': 4.761, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.4100345373153687, 'eval_runtime': 51.22, 'eval_samples_per_second': 37.993, 'eval_steps_per_second': 4.764, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.3982126712799072, 'eval_runtime': 51.2326, 'eval_samples_per_second': 37.984, 'eval_steps_per_second': 4.763, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.388909101486206, 'eval_runtime': 51.2413, 'eval_samples_per_second': 37.977, 'eval_steps_per_second': 4.762, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.3867145776748657, 'eval_runtime': 51.236, 'eval_samples_per_second': 37.981, 'eval_steps_per_second': 4.762, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.3872672319412231, 'eval_runtime': 51.2274, 'eval_samples_per_second': 37.987, 'eval_steps_per_second': 4.763, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'eval_loss': 1.3927000761032104, 'eval_runtime': 51.2356, 'eval_samples_per_second': 37.981, 'eval_steps_per_second': 4.762, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b5c71e9d0>
+{'train_runtime': 579.0803, 'train_samples_per_second': 0.553, 'train_steps_per_second': 0.035, 'train_loss': 3.3821857452392576, 'epoch': 0.0}
+
+-------------------------
+Student evaluation for 0: 1.3579002045664552, perplexity: 3.8880209922790527, tokens: 1024012
+Ensemble evaluation for 0: 1.3579002045664552, perplexity: 3.8880209922790527, tokens: 1024012
+Teacher evaluation for 0: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 0 at: 2025-05-25 12:49:39
+Completed in: 13m 47s
+Total training time: 13m 51s
+==================================================
+
+
+==================================================
+Starting Round 1 at: 2025-05-25 12:49:41
+==================================================
+Round '1' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-25/run_1/round_1
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+ 15%|██████████████████████████████████▌                                                                                                                                                                                                   | 3/20 [01:51<14:05, 49.71s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 2 that is less than the current step 22. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 25%|█████████████████████████████████████████████████████████▌                                                                                                                                                                            | 5/20 [03:39<14:28, 57.89s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 4 that is less than the current step 23. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3933519124984741, 'eval_runtime': 101.4743, 'eval_samples_per_second': 19.177, 'eval_steps_per_second': 2.405, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+ 40%|████████████████████████████████████████████████████████████████████████████████████████████                                                                                                                                          | 8/20 [05:30<08:27, 42.29s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 6 that is less than the current step 24. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3898491859436035, 'eval_runtime': 101.437, 'eval_samples_per_second': 19.184, 'eval_steps_per_second': 2.405, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+ 40%|████████████████████████████████████████████████████████████████████████████████████████████                                                                                                                                          | 8/20 [07:11<08:27, 42.29s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 8 that is less than the current step 25. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3868285417556763, 'eval_runtime': 101.4356, 'eval_samples_per_second': 19.185, 'eval_steps_per_second': 2.405, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+ 50%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████▌                                                                                                                  | 10/20 [08:59<07:16, 43.64s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 10 that is less than the current step 26. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3845500946044922, 'eval_runtime': 101.4697, 'eval_samples_per_second': 19.178, 'eval_steps_per_second': 2.405, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+ 65%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▊                                                                                | 13/20 [10:49<07:17, 62.49s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 12 that is less than the current step 27. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3833569288253784, 'eval_runtime': 101.4264, 'eval_samples_per_second': 19.186, 'eval_steps_per_second': 2.406, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+ 80%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▏                                             | 16/20 [12:40<02:58, 44.71s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 14 that is less than the current step 28. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3824095726013184, 'eval_runtime': 101.394, 'eval_samples_per_second': 19.192, 'eval_steps_per_second': 2.406, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+ 90%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████                       | 18/20 [14:28<01:29, 44.79s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 16 that is less than the current step 29. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.383589267730713, 'eval_runtime': 101.5252, 'eval_samples_per_second': 19.168, 'eval_steps_per_second': 2.403, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+ 90%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▌                       | 18/20 [16:09<01:29, 44.79s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 18 that is less than the current step 30. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.383625864982605, 'eval_runtime': 101.5029, 'eval_samples_per_second': 19.172, 'eval_steps_per_second': 2.404, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [17:57<00:00, 44.84s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 20 that is less than the current step 31. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.384459137916565, 'eval_runtime': 101.4987, 'eval_samples_per_second': 19.173, 'eval_steps_per_second': 2.404, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503650e0>
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [18:13<00:00, 44.84s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+{'eval_loss': 1.3856432437896729, 'eval_runtime': 101.4857, 'eval_samples_per_second': 19.175, 'eval_steps_per_second': 2.404, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b50365150>
+{'train_runtime': 1093.473, 'train_samples_per_second': 0.293, 'train_steps_per_second': 0.018, 'train_loss': 2.943205642700195, 'epoch': 0.0}
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [18:45<00:00, 56.30s/it]
+
+-------------------------
+Student evaluation for 1: 1.3637714040182742, perplexity: 3.9109153747558594, tokens: 1024012
+Ensemble evaluation for 1: 1.3516517191153148, perplexity: 3.863801956176758, tokens: 1024012
+Teacher evaluation for 1: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 1 at: 2025-05-25 13:12:41
+Completed in: 23m 0s
+Total training time: 36m 53s
+==================================================
+
+
+==================================================
+Starting Round 2 at: 2025-05-25 13:12:42
+==================================================
+Round '2' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-25/run_1/round_2
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+ 10%|███████████████████████▌                                                                                                                                                                                                                   | 2/20 [02:27<01:01,  3.43s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 2 that is less than the current step 33. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+ 25%|██████████████████████████████████████████████████████████▊                                                                                                                                                                                | 5/20 [04:59<19:49, 79.30s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 4 that is less than the current step 34. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3844459056854248, 'eval_runtime': 141.0608, 'eval_samples_per_second': 13.795, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+ 35%|██████████████████████████████████████████████████████████████████████████████████▎                                                                                                                                                        | 7/20 [07:27<18:02, 83.27s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 6 that is less than the current step 35. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3833955526351929, 'eval_runtime': 141.06, 'eval_samples_per_second': 13.796, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+ 50%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████                                                                                                                     | 10/20 [09:58<09:57, 59.79s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 8 that is less than the current step 36. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.382858157157898, 'eval_runtime': 141.0591, 'eval_samples_per_second': 13.796, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+ 50%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████                                                                                                                     | 10/20 [12:19<09:57, 59.79s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 10 that is less than the current step 37. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3823833465576172, 'eval_runtime': 141.0853, 'eval_samples_per_second': 13.793, 'eval_steps_per_second': 1.729, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+ 60%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▍                                                                                             | 12/20 [14:48<08:06, 60.79s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 12 that is less than the current step 38. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3821868896484375, 'eval_runtime': 141.058, 'eval_samples_per_second': 13.796, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+ 75%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▌                                                          | 15/20 [17:19<07:11, 86.26s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 14 that is less than the current step 39. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3826285600662231, 'eval_runtime': 140.9752, 'eval_samples_per_second': 13.804, 'eval_steps_per_second': 1.731, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+ 85%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▉                                   | 17/20 [19:47<04:19, 86.34s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 16 that is less than the current step 40. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3819494247436523, 'eval_runtime': 141.0518, 'eval_samples_per_second': 13.796, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [22:18<00:00, 61.48s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 18 that is less than the current step 41. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3821516036987305, 'eval_runtime': 141.0661, 'eval_samples_per_second': 13.795, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [24:39<00:00, 61.48s/it][34m[1mwandb[0m: [33mWARNING[0m Tried to log to step 20 that is less than the current step 42. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+{'eval_loss': 1.3837242126464844, 'eval_runtime': 141.0468, 'eval_samples_per_second': 13.797, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [24:58<00:00, 61.48s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+{'eval_loss': 1.3870571851730347, 'eval_runtime': 141.0412, 'eval_samples_per_second': 13.797, 'eval_steps_per_second': 1.73, 'epoch': 0.0}
+on_evaluate metrics logged:
+<generator object WandbEvalsCallback.on_evaluate.<locals>.<genexpr> at 0x7f1b503658c0>
+{'train_runtime': 1498.3333, 'train_samples_per_second': 0.214, 'train_steps_per_second': 0.013, 'train_loss': 2.8806352615356445, 'epoch': 0.0}
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [25:30<00:00, 76.51s/it]
+
+-------------------------
+Student evaluation for 2: 1.3611882795574846, perplexity: 3.9008259773254395, tokens: 1024012
+Ensemble evaluation for 2: 1.3531719197492351, perplexity: 3.869680404663086, tokens: 1024012
+Teacher evaluation for 2: 1.259693487730119, perplexity: 3.524341106414795, tokens: 1024012
+-------------------------
+==================================================
+Ending Round 2 at: 2025-05-25 13:43:07
+Completed in: 30m 24s
+Total training time: 67m 19s
+==================================================
+
+
+==================================================
+Training completed at: 2025-05-25 13:43:08
+Total training time: 67m 20s
+==================================================

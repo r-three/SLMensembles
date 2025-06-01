@@ -1,0 +1,39 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+
+==================================================
+Starting Round 0 at: 2025-05-25 22:04:24
+==================================================
+Round '0' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-25/run_3/round_0
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+ 10%|███████████████████████▌                                                                                                                                                                                                                   | 1/10 [00:52<00:04,  2.09it/s]Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 334, in <module>███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 244/244 [00:51<00:00,  4.89it/s]
+
+
+Original Train Logs Keys (Round 0, Step 1): ['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+
+
+{'eval_loss': 1.431442141532898, 'eval_runtime': 51.5422, 'eval_samples_per_second': 37.755, 'eval_steps_per_second': 4.734, 'epoch': 0.0}
+
+
+Original Eval Metrics Keys (Round 0, Step 1): ['eval_loss', 'eval_runtime', 'eval_samples_per_second', 'eval_steps_per_second', 'epoch']
+  File "/h/klambert/slm_ensembles/train.py", line 276, in main
+    ensemble_model = ModelEnsemble(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2245, in train
+    return inner_training_loop(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 2627, in _inner_training_loop
+    self._maybe_log_save_evaluate(
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 3096, in _maybe_log_save_evaluate
+    metrics = self._evaluate(trial, ignore_keys_for_eval)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 3045, in _evaluate
+    metrics = self.evaluate(ignore_keys=ignore_keys_for_eval)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer.py", line 4184, in evaluate
+    self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, output.metrics)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer_callback.py", line 538, in on_evaluate
+    return self.call_event("on_evaluate", args, state, control, metrics=metrics)
+  File "/scratch/ssd004/scratch/klambert/slm_ensembles/venv/lib/python3.10/site-packages/transformers/trainer_callback.py", line 556, in call_event
+    result = getattr(callback, event)(
+  File "/h/klambert/slm_ensembles/train.py", line 189, in on_evaluate
+    # custom_logs = {f"on_evaluate_round_{self.round_num}/eval/{k}": v for k, v in metrics.items()}
+  File "/h/klambert/slm_ensembles/train.py", line 66, in evaluate_model
+    # Count non-masked tokens for proper averaging
+KeyboardInterrupt

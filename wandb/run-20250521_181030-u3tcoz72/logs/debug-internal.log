@@ -1,0 +1,15 @@
+{"time":"2025-05-21T18:10:30.906150317-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/run-20250521_181030-u3tcoz72/logs/debug-core.log"}
+{"time":"2025-05-21T18:10:31.080387459-04:00","level":"INFO","msg":"created new stream","id":"u3tcoz72"}
+{"time":"2025-05-21T18:10:31.080433768-04:00","level":"INFO","msg":"stream: started","id":"u3tcoz72"}
+{"time":"2025-05-21T18:10:31.08045986-04:00","level":"INFO","msg":"handler: started","stream_id":"u3tcoz72"}
+{"time":"2025-05-21T18:10:31.080500117-04:00","level":"INFO","msg":"sender: started","stream_id":"u3tcoz72"}
+{"time":"2025-05-21T18:10:31.080500115-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"u3tcoz72"}
+{"time":"2025-05-21T18:10:31.35778448-04:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-21T18:33:25.568642154-04:00","level":"INFO","msg":"stream: closing","id":"u3tcoz72"}
+{"time":"2025-05-21T18:33:25.569320518-04:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-21T18:33:25.569373945-04:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-21T18:33:29.805929079-04:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-21T18:33:29.956272521-04:00","level":"INFO","msg":"handler: closed","stream_id":"u3tcoz72"}
+{"time":"2025-05-21T18:33:29.956310961-04:00","level":"INFO","msg":"writer: Close: closed","stream_id":"u3tcoz72"}
+{"time":"2025-05-21T18:33:29.956345166-04:00","level":"INFO","msg":"sender: closed","stream_id":"u3tcoz72"}
+{"time":"2025-05-21T18:33:29.956562174-04:00","level":"INFO","msg":"stream: closed","id":"u3tcoz72"}

@@ -1,0 +1,103 @@
+{
+  "os": "Linux-5.4.0-131-generic-x86_64-with-glibc2.27",
+  "python": "CPython 3.10.12",
+  "startedAt": "2025-05-12T18:51:50.862959Z",
+  "program": "/h/klambert/slm_ensembles/train.py",
+  "git": {
+    "remote": "https://github.com/r-three/slm_ensembles.git",
+    "commit": "022798a1a9a942218fd5a74b51ec6702c1e8ee20"
+  },
+  "email": "k.lambertcanada@gmail.com",
+  "root": "/fs01/home/klambert/slm_ensembles",
+  "host": "gpu173.cluster.local",
+  "executable": "/scratch/ssd004/scratch/klambert/slm_ensembles/env/bin/python",
+  "cpu_count": 20,
+  "cpu_count_logical": 40,
+  "gpu": "Quadro RTX 6000",
+  "gpu_count": 2,
+  "disk": {
+    "/": {
+      "total": "879610769408",
+      "used": "49527685120"
+    }
+  },
+  "memory": {
+    "total": "202494357504"
+  },
+  "cpu": {
+    "count": 20,
+    "countLogical": 40
+  },
+  "gpu_nvidia": [
+    {
+      "name": "Quadro RTX 6000",
+      "memoryTotal": "24159191040",
+      "cudaCores": 4608,
+      "architecture": "Turing"
+    },
+    {
+      "name": "Quadro RTX 6000",
+      "memoryTotal": "24159191040",
+      "cudaCores": 4608,
+      "architecture": "Turing"
+    }
+  ],
+  "slurm": {
+    "cluster_name": "vaughan2",
+    "conf": "/opt/slurm-23.11.9/etc/slurm.conf",
+    "cpus_on_node": "4",
+    "cpus_per_task": "4",
+    "distribution": "cyclic,pack",
+    "gpus_on_node": "2",
+    "gtids": "0",
+    "job_account": "vector",
+    "job_cpus_per_node": "4",
+    "job_end_time": "1747102389",
+    "job_gid": "14408",
+    "job_group": "klambert",
+    "job_id": "16161464",
+    "job_name": "bash",
+    "job_nodelist": "gpu173",
+    "job_num_nodes": "1",
+    "job_partition": "rtx6000",
+    "job_qos": "normal",
+    "job_start_time": "1747073589",
+    "job_uid": "13975",
+    "job_user": "klambert",
+    "jobid": "16161464",
+    "launch_node_ipaddr": "172.17.15.236",
+    "localid": "0",
+    "mem_per_node": "10240",
+    "mpi_type": "pmi2",
+    "nnodes": "1",
+    "nodeid": "0",
+    "nodelist": "gpu173",
+    "nprocs": "1",
+    "ntasks": "1",
+    "prio_process": "0",
+    "procid": "0",
+    "pty_port": "40315",
+    "pty_win_col": "180",
+    "pty_win_row": "30",
+    "script_context": "prolog_task",
+    "srun_comm_host": "172.17.15.236",
+    "srun_comm_port": "45193",
+    "step_gpus": "2,3",
+    "step_id": "0",
+    "step_launcher_port": "45193",
+    "step_nodelist": "gpu173",
+    "step_num_nodes": "1",
+    "step_num_tasks": "1",
+    "step_tasks_per_node": "1",
+    "stepid": "0",
+    "submit_dir": "/fs01/home/klambert/slm_ensembles",
+    "submit_host": "v3",
+    "task_pid": "13242",
+    "tasks_per_node": "1",
+    "topology_addr": "gpu173",
+    "topology_addr_pattern": "node",
+    "tres_per_task": "cpu:4",
+    "umask": "0002"
+  },
+  "cudaVersion": "12.0"
+}

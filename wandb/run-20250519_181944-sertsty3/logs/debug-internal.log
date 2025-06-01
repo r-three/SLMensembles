@@ -1,0 +1,15 @@
+{"time":"2025-05-19T18:19:44.084030961-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/run-20250519_181944-sertsty3/logs/debug-core.log"}
+{"time":"2025-05-19T18:19:44.251295851-04:00","level":"INFO","msg":"created new stream","id":"sertsty3"}
+{"time":"2025-05-19T18:19:44.25135034-04:00","level":"INFO","msg":"stream: started","id":"sertsty3"}
+{"time":"2025-05-19T18:19:44.251366583-04:00","level":"INFO","msg":"sender: started","stream_id":"sertsty3"}
+{"time":"2025-05-19T18:19:44.251372436-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"sertsty3"}
+{"time":"2025-05-19T18:19:44.251369658-04:00","level":"INFO","msg":"handler: started","stream_id":"sertsty3"}
+{"time":"2025-05-19T18:19:44.399968408-04:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-19T18:19:54.142733451-04:00","level":"INFO","msg":"stream: closing","id":"sertsty3"}
+{"time":"2025-05-19T18:19:54.142774368-04:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-19T18:19:54.142815411-04:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-19T18:19:54.590618926-04:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-19T18:19:54.689045664-04:00","level":"INFO","msg":"handler: closed","stream_id":"sertsty3"}
+{"time":"2025-05-19T18:19:54.689090242-04:00","level":"INFO","msg":"writer: Close: closed","stream_id":"sertsty3"}
+{"time":"2025-05-19T18:19:54.689104606-04:00","level":"INFO","msg":"sender: closed","stream_id":"sertsty3"}
+{"time":"2025-05-19T18:19:54.689201887-04:00","level":"INFO","msg":"stream: closed","id":"sertsty3"}

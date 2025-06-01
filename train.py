@@ -1,7 +1,6 @@
 import gc
 import os
 import time
-import wandb
 
 import numpy as np
 import torch
@@ -91,7 +90,6 @@ class DistillationTrainer(SFTTrainer):
     def __init__(self, *args, **kwargs):
         self.round_num = kwargs.pop("round_num")
         self.steps_per_round = kwargs.pop("steps_per_round")
-        self.run = kwargs.pop("run")
         self.extra_logging_info = {}
         super().__init__(*args, **kwargs)
 
@@ -112,7 +110,6 @@ class DistillationTrainer(SFTTrainer):
 
         # Distill teacher into current model
         loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
-        self.run.log({f"round_{self.round_num}/train/kl_loss": loss})
         
         return (loss, current_model_logits) if return_outputs else loss
 
@@ -158,19 +155,15 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=model.config.vocab_size,
         )
 
-        kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
-        if "kl_losses" not in self.extra_logging_info:
-            self.extra_logging_info["kl_losses"] = []
-        self.extra_logging_info["kl_losses"].append(kl_loss.item())
+        # kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
+        # if "kl_losses" not in self.extra_logging_info:
+        #     self.extra_logging_info["kl_losses"] = []
+        # self.extra_logging_info["kl_losses"].append(kl_loss.item())
 
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
     
     def evaluation_loop(self, dataloader, description, prediction_loss_only=None, ignore_keys=None, metric_key_prefix="eval"):
         output = super().evaluation_loop(dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix)
-        self.run.log({
-            f"round_{self.round_num}/eval/lm_loss": output.metrics["eval_loss"],
-            f"round_{self.round_num}/eval/kl_loss": np.mean(self.extra_logging_info["kl_losses"])
-        })
         return output
 
     def log(self, logs, start_time=None):
@@ -187,7 +180,7 @@ class DistillationTrainer(SFTTrainer):
         
 
 def main():
-    global teacher_model, ensemble_model
+    global teacher_model, ensemble_model, global_step
 
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -198,10 +191,6 @@ def main():
     print(f"Run: {run_name}")
 
     print(f"Models stored in: {output_path}\n")
-
-    # Setup wandb
-    run = wandb.init(project="<slm_ensembles>", name=f"test_{run_name}")
-    global_step = 0
 
     # Load tokenizer and models
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
@@ -215,7 +204,6 @@ def main():
     # collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, 0, True)
-    wandb.log({"eval/teacher_loss": teacher_eval_results["eval_loss"]}, step=global_step)
     
     ensemble_eval_results = None
 
@@ -233,13 +221,10 @@ def main():
         
         student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=device)
 
-        run.watch(student_model)
-
         training_args = config.get_training_args(round_output_dir)
         trainer = DistillationTrainer(
             round_num=round_num,
             steps_per_round=config.steps_per_round,
-            run=run,
             model=student_model,
             train_dataset=dataset["train"],
             eval_dataset=dataset["test"],
@@ -285,17 +270,10 @@ def main():
         print(f"Total training time: {overall_elapsed_str}")
         print(f"{'='*50}\n")
 
-        run.log({"eval/custom_student_loss": student_eval_results["eval_loss"]}, step=global_step)
-        global_step += trainer.state.global_step
-        # global_step += config.steps_per_round
-
         # Reset the student model for the next round and load a fresh copy
         del student_model
         gc.collect()
         torch.cuda.empty_cache()
-        # student_model = AutoModelForCausalLM.from_pretrained(
-        #     config.student_model_name, torch_dtype=torch.bfloat16, device_map=device
-        # )
 
     # Record overall end time
     overall_end_time = time.time()

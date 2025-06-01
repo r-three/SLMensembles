@@ -1,0 +1,84 @@
+{
+  "os": "Linux-5.4.0-131-generic-x86_64-with-glibc2.27",
+  "python": "CPython 3.10.12",
+  "startedAt": "2025-05-14T02:17:51.537526Z",
+  "program": "/h/klambert/slm_ensembles/train.py",
+  "git": {
+    "remote": "https://github.com/r-three/slm_ensembles.git",
+    "commit": "892c84bfa5fe6e4ec6acabbd1e46e70cb0236a77"
+  },
+  "email": "k.lambertcanada@gmail.com",
+  "root": "/fs01/home/klambert/slm_ensembles",
+  "host": "gpu007",
+  "executable": "/scratch/ssd004/scratch/klambert/slm_ensembles/env/bin/python",
+  "cpu_count": 16,
+  "cpu_count_logical": 32,
+  "gpu": "NVIDIA A40",
+  "gpu_count": 2,
+  "disk": {
+    "/": {
+      "total": "879613915136",
+      "used": "43102969856"
+    }
+  },
+  "memory": {
+    "total": "202499788800"
+  },
+  "cpu": {
+    "count": 16,
+    "countLogical": 32
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA A40",
+      "memoryTotal": "48305799168",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "NVIDIA A40",
+      "memoryTotal": "48305799168",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    }
+  ],
+  "slurm": {
+    "cluster_name": "vaughan2",
+    "conf": "/opt/slurm-23.11.9/etc/slurm.conf",
+    "cpus_on_node": "4",
+    "cpus_per_task": "4",
+    "gpus_on_node": "2",
+    "gtids": "0",
+    "job_account": "vector",
+    "job_cpus_per_node": "4",
+    "job_end_time": "1747217704",
+    "job_gid": "14408",
+    "job_gpus": "1,2",
+    "job_id": "16172611",
+    "job_name": "slm_ensembles",
+    "job_nodelist": "gpu007",
+    "job_num_nodes": "1",
+    "job_partition": "a40",
+    "job_qos": "normal",
+    "job_start_time": "1747188904",
+    "job_uid": "13975",
+    "job_user": "klambert",
+    "jobid": "16172611",
+    "localid": "0",
+    "mem_per_node": "16384",
+    "nnodes": "1",
+    "nodeid": "0",
+    "nodelist": "gpu007",
+    "prio_process": "0",
+    "procid": "0",
+    "script_context": "prolog_task",
+    "submit_dir": "/fs01/home/klambert/slm_ensembles",
+    "submit_host": "v3",
+    "task_pid": "32547",
+    "tasks_per_node": "1",
+    "topology_addr": "gpu007",
+    "topology_addr_pattern": "node",
+    "tres_per_task": "cpu:4"
+  },
+  "cudaVersion": "12.0"
+}

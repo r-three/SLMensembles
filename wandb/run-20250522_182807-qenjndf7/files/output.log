@@ -1,0 +1,23 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Teacher model evaluation: {'eval_loss': 1.3539468194424984}
+No prior ensemble loaded
+
+==================================================
+Starting Round 0 at: 2025-05-22 18:30:43
+==================================================
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+> /h/klambert/slm_ensembles/train.py(326)main()
+-> if ensemble_model is not None:
+(Pdb)
+Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 462, in <module>
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 326, in main
+    if ensemble_model is not None:
+  File "/h/klambert/slm_ensembles/train.py", line 326, in main
+    if ensemble_model is not None:
+  File "/pkgs/python-3.10.12/lib/python3.10/bdb.py", line 90, in trace_dispatch
+    return self.dispatch_line(frame)
+  File "/pkgs/python-3.10.12/lib/python3.10/bdb.py", line 115, in dispatch_line
+    if self.quitting: raise BdbQuit
+bdb.BdbQuit

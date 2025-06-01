@@ -1,0 +1,10 @@
+{"time":"2025-05-20T16:07:55.119516974-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/run-20250520_160755-ikvc0985/logs/debug-core.log"}
+{"time":"2025-05-20T16:07:55.292216349-04:00","level":"INFO","msg":"created new stream","id":"ikvc0985"}
+{"time":"2025-05-20T16:07:55.292269988-04:00","level":"INFO","msg":"stream: started","id":"ikvc0985"}
+{"time":"2025-05-20T16:07:55.292320581-04:00","level":"INFO","msg":"sender: started","stream_id":"ikvc0985"}
+{"time":"2025-05-20T16:07:55.292338273-04:00","level":"INFO","msg":"handler: started","stream_id":"ikvc0985"}
+{"time":"2025-05-20T16:07:55.292331372-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"ikvc0985"}
+{"time":"2025-05-20T16:07:55.520353673-04:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-20T16:22:15.934016895-04:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/k-lambert-university-of-toronto/slm_ensembles/ikvc0985/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-20T16:22:23.200147478-04:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/k-lambert-university-of-toronto/slm_ensembles/ikvc0985/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-20T16:22:40.698701658-04:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}

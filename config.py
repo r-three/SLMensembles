@@ -3,10 +3,6 @@ import torch
 from datetime import datetime
 import glob
 
-# WandB Setup
-os.environ["WANDB_PROJECT"] = "<slm_ensembles>"
-os.environ["WANDB_LOG_MODEL"] = "end"
-
 # Model and dataset setup
 seed = 42
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -20,7 +16,7 @@ dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixtur
 base_output_dir = "/projects/distilling_llms/model_log"
 
 # Training parameters
-total_rounds = 10  # number of ensemble models
+total_rounds = 3  # number of ensemble models
 steps_per_round = 10
 kl_temperature = 1.0
 eval_batch_size = 8

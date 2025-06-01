@@ -13,9 +13,6 @@ import/
 trl/
 .vscode/
 
-# Logging and data tracking directories
-wandb/
-
 # Original files 
 og_train.py
 notes.py

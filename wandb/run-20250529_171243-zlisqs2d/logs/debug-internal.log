@@ -1,0 +1,15 @@
+{"time":"2025-05-29T17:12:43.159473935-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/run-20250529_171243-zlisqs2d/logs/debug-core.log"}
+{"time":"2025-05-29T17:12:43.331980486-04:00","level":"INFO","msg":"created new stream","id":"zlisqs2d"}
+{"time":"2025-05-29T17:12:43.332040322-04:00","level":"INFO","msg":"stream: started","id":"zlisqs2d"}
+{"time":"2025-05-29T17:12:43.332056179-04:00","level":"INFO","msg":"handler: started","stream_id":"zlisqs2d"}
+{"time":"2025-05-29T17:12:43.332063124-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"zlisqs2d"}
+{"time":"2025-05-29T17:12:43.332061894-04:00","level":"INFO","msg":"sender: started","stream_id":"zlisqs2d"}
+{"time":"2025-05-29T17:12:43.481871378-04:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-29T18:18:00.37891602-04:00","level":"INFO","msg":"stream: closing","id":"zlisqs2d"}
+{"time":"2025-05-29T18:18:00.379013782-04:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-29T18:18:00.381388753-04:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-29T18:18:00.870737011-04:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-29T18:18:00.98101078-04:00","level":"INFO","msg":"handler: closed","stream_id":"zlisqs2d"}
+{"time":"2025-05-29T18:18:00.981027743-04:00","level":"INFO","msg":"writer: Close: closed","stream_id":"zlisqs2d"}
+{"time":"2025-05-29T18:18:00.993158432-04:00","level":"INFO","msg":"sender: closed","stream_id":"zlisqs2d"}
+{"time":"2025-05-29T18:18:00.993217614-04:00","level":"INFO","msg":"stream: closed","id":"zlisqs2d"}

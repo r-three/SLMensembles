@@ -1,0 +1,12 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+
+==================================================
+Starting Round 0 at: 2025-05-25 15:44:59
+==================================================
+Round '0' model stored in: /scratch/ssd004/scratch/klambert/slm_ensembles/boosted_distillation_1.5B_teacher_average_fixed_logging/2025-05-25/run_3/round_0
+Traceback (most recent call last):
+  File "/h/klambert/slm_ensembles/train.py", line 327, in <module>
+    main()
+  File "/h/klambert/slm_ensembles/train.py", line 244, in main
+    training_args["run_name"] = run_name
+TypeError: 'SFTConfig' object does not support item assignment

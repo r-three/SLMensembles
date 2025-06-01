@@ -1,0 +1,19 @@
+wandb: WARNING The get_url method is deprecated and will be removed in a future release. Please use `run.url` instead.
+100%|██████████| 80/80 [10:04<00:00,  7.27s/it]Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+{'loss': 1.8281, 'grad_norm': 14.6875, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.9253, 'grad_norm': 13.8125, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.9033, 'grad_norm': 16.25, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.7358, 'grad_norm': 18.875, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.8576, 'grad_norm': 15.5, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.598, 'grad_norm': 14.375, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 1.7033, 'grad_norm': 14.625, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'loss': 2.1021, 'grad_norm': 18.75, 'learning_rate': 3e-05, 'epoch': 0.01}
+{'train_runtime': 605.9647, 'train_samples_per_second': 4.225, 'train_steps_per_second': 0.132, 'train_loss': 1.8316802978515625, 'epoch': 0.01}
+100%|██████████| 80/80 [10:42<00:00,  8.03s/it]
+Starting Round 1
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+ 55%|█████▌    | 44/80 [06:51<05:33,  9.26s/it]
+{'loss': 1.8239, 'grad_norm': 7.34375, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.7961, 'grad_norm': 7.03125, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.9316, 'grad_norm': 11.8125, 'learning_rate': 3e-05, 'epoch': 0.0}
+{'loss': 1.673, 'grad_norm': 7.21875, 'learning_rate': 3e-05, 'epoch': 0.01}

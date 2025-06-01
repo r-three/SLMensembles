@@ -1,0 +1,15 @@
+{"time":"2025-05-08T20:33:17.544022372-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/fs01/home/klambert/slm_ensembles/wandb/offline-run-20250508_203317-geojdob4/logs/debug-core.log"}
+{"time":"2025-05-08T20:33:17.652827812-04:00","level":"WARN","msg":"GraphQL client is nil, skipping feature loading"}
+{"time":"2025-05-08T20:33:17.653164229-04:00","level":"INFO","msg":"created new stream","id":"geojdob4"}
+{"time":"2025-05-08T20:33:17.653204202-04:00","level":"INFO","msg":"stream: started","id":"geojdob4"}
+{"time":"2025-05-08T20:33:17.653223854-04:00","level":"INFO","msg":"sender: started","stream_id":"geojdob4"}
+{"time":"2025-05-08T20:33:17.653211342-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"geojdob4"}
+{"time":"2025-05-08T20:33:17.653265432-04:00","level":"INFO","msg":"handler: started","stream_id":"geojdob4"}
+{"time":"2025-05-08T20:33:17.656800177-04:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-08T21:14:01.355853547-04:00","level":"INFO","msg":"stream: closing","id":"geojdob4"}
+{"time":"2025-05-08T21:14:01.378935316-04:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-08T21:14:01.378993597-04:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-08T21:14:01.379149339-04:00","level":"INFO","msg":"handler: closed","stream_id":"geojdob4"}
+{"time":"2025-05-08T21:14:01.379183026-04:00","level":"INFO","msg":"writer: Close: closed","stream_id":"geojdob4"}
+{"time":"2025-05-08T21:14:01.379246556-04:00","level":"INFO","msg":"sender: closed","stream_id":"geojdob4"}
+{"time":"2025-05-08T21:14:01.38032317-04:00","level":"INFO","msg":"stream: closed","id":"geojdob4"}
