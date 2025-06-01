@@ -59,7 +59,7 @@ def get_training_args(output_dir):
     return SFTConfig(
         output_dir=output_dir,
         overwrite_output_dir=False,
-        report_to="wandb",
+        report_to="none",
         hub_model_id=None,
         learning_rate=1e-6,
         warmup_steps=50,
