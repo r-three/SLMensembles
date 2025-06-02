@@ -17,24 +17,24 @@ base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
 
 # Training parameters
-total_rounds = 3  # number of ensemble models
+total_rounds = 4  # number of ensemble models
 steps_per_round = 10
 kl_temperature = 1.0
 eval_batch_size = 8
 
 # Logging Arguments
-#  columns.py
 CSV_COLUMNS = [
+    "function",             # function name where the logging occured
     "timestamp",            # e.g. "2025-06-01 12:34:56"
-    "overall_elapsed",        # float (seconds; from start-of-all-rounds)
+    "overall_elapsed",      # float (seconds; from start-of-all-rounds)
     "round_duration",       # float
     "ensemble_size",        # int (how many models are in the ensemble so far)
     "round",                # distillation round (0, 1, 2, …)
     "phase",                # e.g. "train", "eval"
     "role",                 # e.g. "student", "teacher", "ensemble"
     "step",                 # training step within the round
-    "train_loss",           # float (or None)
-    "kl_loss",              # float (or None)
+    "train_loss",           # next token prediction loss during training
+    "kl_loss",              # KL divergence loss
     "eval_loss",            # float (or None)
     "perplexity",           # float (only on eval rows)
 ]
@@ -42,10 +42,14 @@ CSV_COLUMNS = [
 
 def get_directory(output_dir):
     # Get current date in YYYY-MM-DD format
-    current_date = datetime.now().strftime("%Y-%m-%d")
+    current_date = datetime.now().strftime("%d-%m-%Y")
 
     # Create a date-specific directory path
     date_dir = os.path.join(output_dir, current_date)
+    
+    # return before making a separate run directory
+    if output_dir == log_dir:
+        return date_dir
 
     # Find existing run directories for today
     existing_runs = []

@@ -2,6 +2,7 @@ import gc
 import os
 import csv
 import time
+import glob
 
 import numpy as np
 import torch
@@ -52,8 +53,6 @@ def evaluate_model(model, eval_dataset, collator, round_num, max_eval_samples=No
     total_tokens = 0
     total_examples = 0
 
-    start_time = time.time()
-
     with torch.no_grad():
         for batch in eval_dataloader:
             input_ids = batch["input_ids"].to(device)
@@ -68,29 +67,34 @@ def evaluate_model(model, eval_dataset, collator, round_num, max_eval_samples=No
             total_tokens += valid_tokens
             total_examples += input_ids.size(0)
 
-    runtime = time.time() - start_time
     avg_loss = total_loss / total_tokens if total_tokens > 0 else float("inf")
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
-    num_steps = len(eval_dataloader)
-    steps_per_sec = num_steps / runtime
-    tokens_per_sec = total_tokens / runtime
-    samples_per_sec = total_examples / runtime
 
     return {
         "eval_loss": avg_loss,
         "perplexity": perplexity,
-        "num_tokens": total_tokens,
-        "eval_runtime": runtime,
-        "eval_tokens_per_second": tokens_per_sec,
-        "eval_samples_per_second": samples_per_sec,
-        "eval_steps_per_second": steps_per_sec,
     }
 
 
 class CSVLogger:
     def __init__(self, log_dir, fieldnames: list, filename: str="metrics.csv"):
         os.makedirs(log_dir, exist_ok=True)
+        
+        existing_runs = []
+        run_dirs = glob.glob(os.path.join(log_dir, "run_*"))
+        next_run = 1
+        for dir_path in run_dirs:
+            try:
+                run_num = int(os.path.basename(dir_path).split("_")[1])
+                existing_runs.append(run_num)
+            except (ValueError, IndexError):
+                continue
+        if existing_runs:
+            next_run = max(existing_runs) + 1
+
+        filename = f"run_{next_run}_{filename}"
         self.filepath = os.path.join(log_dir, filename)
+        
         self.fieldnames = fieldnames
         
         if os.path.exists(self.filepath):
@@ -110,15 +114,73 @@ class CSVLogger:
         with open(self.filepath, mode="a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
             writer.writerow(row)
-        print("logged information")
+
+
+class LoggingCallback(TrainerCallback):
+    def __init__(self, logger, round_num, overall_start_time):
+        self.logger = logger
+        self.round_num = round_num,
+        self.overall_start_time = overall_start_time
+    
+    def on_step_end(self, args, state, control, **kwargs):
+        # Called after every optimizer.step() (i.e., after a training step)
+        # state.log_history contains a dict per log event, often with "loss" key.
+        # TODO: log traiing loss and the gradient backprop here
+        if len(state.log_history) > 0:
+            last_log = state.log_history[-1]
+            if "loss" in last_log:
+                step = state.global_step
+                loss = last_log["loss"]
+                self.logger.log({
+                    "function": "on_step_end",
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "overall_elapsed": time.time() - self.overall_start_time,
+                    "round_duration": None,
+                    "ensemble_size": len(ensemble_model.models) if ensemble_model else 0,
+                    "round": self.round_num,
+                    "phase": "train",
+                    "role": "student",
+                    "step": step,
+                    "train_loss": loss,
+                    "kl_loss": loss,
+                    "eval_loss": None,
+                    "perplexity": None,
+                })
+
+    def on_prediction_step_end(self, args, state, control, **kwargs):
+        # Called after each eval/prediction step
+        # The 'loss' for this eval batch is passed in kwargs
+        loss = kwargs.get("loss", None)
+        if loss is not None:
+            self.logger.log({
+                "function": "on_prediction_step_end",
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "overall_elapsed": time.time() - self.overall_start_time,
+                "round_duration": None,
+                "ensemble_size": len(ensemble_model.models) if ensemble_model else 0,
+                "round": self.round_num,
+                "phase": "eval",
+                "role": "student",
+                "step": state.global_step,
+                "train_loss": None,
+                "kl_loss": None,
+                "eval_loss": loss.mean().item(),
+                "perplexity": None,
+            })
 
 
 class DistillationTrainer(SFTTrainer):
     def __init__(self, *args, **kwargs):
         self.round_num = kwargs.pop("round_num")
         self.steps_per_round = kwargs.pop("steps_per_round")
+        self.overall_start_time = kwargs.pop("overall_start_time")
         self.extra_logging_info = {}
+        self.logger = kwargs.pop("logger") 
         super().__init__(*args, **kwargs)
+
+    # def training_step():
+    #     # TODO: log gradient norm, learning rate + step count
+    #     
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         input_ids = inputs["input_ids"].to(device)
@@ -133,11 +195,29 @@ class DistillationTrainer(SFTTrainer):
             if ensemble_model is not None:
                 ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
 
-        current_model_logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-
-        # Distill teacher into current model
-        loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
+        current_model_output = model(input_ids=input_ids, attention_mask=attention_mask)
+        current_model_logits = current_model_output.logits
+        loss = current_model_output.loss
+        print(f"\n\nLoss:\n {loss}\n\n")
         
+        # Distill teacher into current model
+        kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
+        print(f"\n\nKL Loss:\n {kl_loss}\n\n")
+        self.logger.log({
+            "function": "compute_loss",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "round_duration": None,
+            "ensemble_size": len(ensemble_model.models) if ensemble_model else 0,
+            "round": self.round_num,
+            "phase": "train",
+            "role": "student",
+            "step": self.state.global_step,
+            "train_loss": loss.item(),
+            "kl_loss": kl_loss.item(),
+            "eval_loss": None,
+            "perplexity": None,
+        })
+
         return (loss, current_model_logits) if return_outputs else loss
 
     def compute_kl_loss(self, student_logits, ensemble_logits, teacher_logits, mask, temperature=1.0):
@@ -181,6 +261,23 @@ class DistillationTrainer(SFTTrainer):
             labels=labels,
             vocab_size=model.config.vocab_size,
         )
+        
+        # TODO: log here eval loss per batch, eval metric per batch
+        # self.logger.log({
+        #     "function": "prediction_step",
+        #     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        #     "overall_elapsed": time.time() - self.overall_start_time,
+        #     "round_duration": None,
+        #     "ensemble_size": len(ensemble_model.models) if ensemble_model else 0,
+        #     "round": self.round_num,
+        #     "phase": "eval",
+        #     "role": "student",
+        #     "step": self.state.global_step,
+        #     "train_loss": None,
+        #     "kl_loss": None,
+        #     "eval_loss": loss.item(),
+        #     "perplexity": None,
+        # })
 
         # kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
         # if "kl_losses" not in self.extra_logging_info:
@@ -235,6 +332,7 @@ def main():
 
     teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, round_num=0, end=True)
     logger.log({
+        "function": "main",
         "timestamp": overall_start_datetime,
         "round": 0,
         "phase": "eval",
@@ -267,11 +365,17 @@ def main():
             round_num=round_num,
             steps_per_round=config.steps_per_round,
             model=student_model,
+            logger=logger,
+            overall_start_time=overall_start_time,
             train_dataset=dataset["train"],
             eval_dataset=dataset["test"],
             data_collator=collator,
             args=training_args,
+            callbacks=[LoggingCallback(logger, round_num, overall_start_time)],
         )
+        
+        # TODO: compute metrics function?
+        # Why not use the trainer.predict method instead of the whole evaluation function
 
         trainer.train()
         trainer.model.save_pretrained(round_output_dir)
@@ -313,12 +417,40 @@ def main():
 
         # End of round logging
         logger.log({
+            "function": "main", 
             "timestamp": round_end_datetime,
             "round": round_num,
             "phase": "eval",
             "role": "ensemble",
+            "step": trainer.state.global_step,
             "eval_loss": ensemble_eval_results["eval_loss"],
             "perplexity": ensemble_eval_results["perplexity"],
+            "round_duration": round_duration,
+            "overall_elapsed": overall_elapsed,
+            "ensemble_size": len(ensemble_model.models),
+        })
+        logger.log({
+            "function": "main",
+            "timestamp": round_end_datetime,
+            "round": round_num,
+            "phase": "eval",
+            "role": "student",
+            "step": trainer.state.global_step,
+            "eval_loss": student_eval_results["eval_loss"],
+            "perplexity": student_eval_results["perplexity"],
+            "round_duration": round_duration,
+            "overall_elapsed": overall_elapsed,
+            "ensemble_size": len(ensemble_model.models),
+        })
+        logger.log({
+            "function": "main",
+            "timestamp": round_end_datetime,
+            "round": round_num,
+            "phase": "eval",
+            "role": "teacher",
+            "eval_loss": teacher_eval_results["eval_loss"],
+            "perplexity": teacher_eval_results["perplexity"],
+            "ensemble_size": 0,
             "round_duration": round_duration,
             "overall_elapsed": overall_elapsed,
             "ensemble_size": len(ensemble_model.models),
