@@ -4,10 +4,7 @@ from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, Gene
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 
-# Manges multiple models as an ensemble
 class ModelEnsemble(PreTrainedModel, GenerationMixin):
-    # PreTrainedModel = implements the common methods for loading/saving a model either from a local file or directory, or from a pretrained model configuration provided by the library
-    # GenerationMixin = a mixin designed to integrate text generation functionalities into model classes
     def __init__(
         self,
         model_names,

@@ -1,5 +1,6 @@
 import gc
 import os
+import csv
 import time
 
 import numpy as np
@@ -8,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import datasets
 from torch.utils.data import DataLoader
-from datetime import datetime, timedelta
+from datetime import datetime
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -45,7 +46,7 @@ def evaluate_model(model, eval_dataset, collator, round_num, max_eval_samples=No
     if max_eval_samples:
         eval_dataset = torch.utils.data.Subset(eval_dataset, range(max_eval_samples))
     
-    eval_dataloader = DataLoader(eval_dataset, eval_batch_size, collate_fn=collator)
+    eval_dataloader = DataLoader(eval_dataset, config.eval_batch_size, collate_fn=collator)
 
     total_loss = 0
     total_tokens = 0
@@ -84,6 +85,32 @@ def evaluate_model(model, eval_dataset, collator, round_num, max_eval_samples=No
         "eval_samples_per_second": samples_per_sec,
         "eval_steps_per_second": steps_per_sec,
     }
+
+
+class CSVLogger:
+    def __init__(self, log_dir, fieldnames: list, filename: str="metrics.csv"):
+        os.makedirs(log_dir, exist_ok=True)
+        self.filepath = os.path.join(log_dir, filename)
+        self.fieldnames = fieldnames
+        
+        if os.path.exists(self.filepath):
+            self.headers_written = True
+        else:
+            with open(self.filepath, mode="w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writeheader()
+            self.headers_written = True  # we just wrote them
+
+    def log(self, data: dict):
+        row = {}
+        for key in self.fieldnames:
+            row[key] = data.get(key, None)
+        
+        # Append the row
+        with open(self.filepath, mode="a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+            writer.writerow(row)
+        print("logged information")
 
 
 class DistillationTrainer(SFTTrainer):
@@ -186,10 +213,13 @@ def main():
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\nStarting training at: {overall_start_datetime}")
 
-    output_path = config.get_run_directory()
+    output_path = config.get_directory(config.base_output_dir)
+    log_dir=config.get_directory(config.log_dir)
+    
     run_name = f"{os.path.basename(output_path)}"
+    logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS)
     print(f"Run: {run_name}")
-
+    print(f"Created logging directory: {log_dir}")
     print(f"Models stored in: {output_path}\n")
 
     # Load tokenizer and models
@@ -203,7 +233,16 @@ def main():
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
     # collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
-    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, 0, True)
+    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, round_num=0, end=True)
+    logger.log({
+        "timestamp": overall_start_datetime,
+        "round": 0,
+        "phase": "eval",
+        "role": "teacher",
+        "eval_loss": teacher_eval_results["eval_loss"],
+        "perplexity": teacher_eval_results["perplexity"],
+        "ensemble_size": 0,
+    })
     
     ensemble_eval_results = None
 
@@ -221,6 +260,8 @@ def main():
         
         student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=device)
 
+        # TODO: Evaluate student model performance on the dataset
+        
         training_args = config.get_training_args(round_output_dir)
         trainer = DistillationTrainer(
             round_num=round_num,
@@ -263,13 +304,27 @@ def main():
         overall_elapsed = round_end_time - overall_start_time
         round_duration_str = format_time_elapsed(round_duration)
         overall_elapsed_str = format_time_elapsed(overall_elapsed)
-        round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        round_end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"{'='*50}")
-        print(f"Ending Round {round_num} at: {round_start_datetime}")
+        print(f"Ending Round {round_num} at: {round_end_datetime}")
         print(f"Completed in: {round_duration_str}")
         print(f"Total training time: {overall_elapsed_str}")
         print(f"{'='*50}\n")
 
+        # End of round logging
+        logger.log({
+            "timestamp": round_end_datetime,
+            "round": round_num,
+            "phase": "eval",
+            "role": "ensemble",
+            "eval_loss": ensemble_eval_results["eval_loss"],
+            "perplexity": ensemble_eval_results["perplexity"],
+            "round_duration": round_duration,
+            "overall_elapsed": overall_elapsed,
+            "ensemble_size": len(ensemble_model.models),
+        })
+        print("Done logging!")
+        
         # Reset the student model for the next round and load a fresh copy
         del student_model
         gc.collect()

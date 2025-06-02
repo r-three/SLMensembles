@@ -1,1 +1,0 @@
-{"_runtime":1989.835641471,"_step":90,"eval/teacher_loss":1.035304307937622,"_timestamp":1.74873174670238e+09,"round_0/eval/lm_loss":0.927190899848938,"round_0/eval/kl_loss":0.2157781425552601,"round_0/train/kl_loss":0.12261497229337692,"_wandb":{"runtime":2006}}

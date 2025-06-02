@@ -14,6 +14,7 @@ ensemble_model_names = []
 
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 base_output_dir = "/projects/distilling_llms/model_log"
+log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
 
 # Training parameters
 total_rounds = 3  # number of ensemble models
@@ -21,13 +22,30 @@ steps_per_round = 10
 kl_temperature = 1.0
 eval_batch_size = 8
 
+# Logging Arguments
+#  columns.py
+CSV_COLUMNS = [
+    "timestamp",            # e.g. "2025-06-01 12:34:56"
+    "overall_elapsed",        # float (seconds; from start-of-all-rounds)
+    "round_duration",       # float
+    "ensemble_size",        # int (how many models are in the ensemble so far)
+    "round",                # distillation round (0, 1, 2, …)
+    "phase",                # e.g. "train", "eval"
+    "role",                 # e.g. "student", "teacher", "ensemble"
+    "step",                 # training step within the round
+    "train_loss",           # float (or None)
+    "kl_loss",              # float (or None)
+    "eval_loss",            # float (or None)
+    "perplexity",           # float (only on eval rows)
+]
 
-def get_run_directory():
+
+def get_directory(output_dir):
     # Get current date in YYYY-MM-DD format
     current_date = datetime.now().strftime("%Y-%m-%d")
 
     # Create a date-specific directory path
-    date_dir = os.path.join(base_output_dir, current_date)
+    date_dir = os.path.join(output_dir, current_date)
 
     # Find existing run directories for today
     existing_runs = []

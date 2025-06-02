@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=slm_ensembles                                                            
-#SBATCH --output=/scratch/ssd004/scratch/klambert/slm_ensembles/logs/%x_%j.out                
-#SBATCH --error=/scratch/ssd004/scratch/klambert/slm_ensembles/logs/%x_%j.err 
+#SBATCH --output=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.out                
+#SBATCH --error=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.err 
 #SBATCH --partition=a40                                                                       
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4                                                                     
@@ -10,7 +10,8 @@
 #SBATCH --time=08:00:00 
 
 # srun -c 4 --gres=gpu:1 --partition a40 --mem=10GB --pty --time=8:00:00 bash
-# cd /scratch/ssd004/scratch/klambert/slm_ensembles/logs/
+# cd /scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/
+# cd /scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs
 # cd /projects/distilling_llms/model_log
 
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
