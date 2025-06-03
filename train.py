@@ -24,6 +24,7 @@ from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from ensemble import ModelEnsemble
 import config
 
+n = 0
 teacher_model = None
 ensemble_model = None
 device = config.device
@@ -174,6 +175,7 @@ class DistillationTrainer(SFTTrainer):
         self.overall_start_time = kwargs.pop("overall_start_time")
         self.extra_logging_info = {}
         self.logger = kwargs.pop("logger") 
+        self.n = kwargs.pop("n")
         super().__init__(*args, **kwargs)
 
     # def training_step():
@@ -201,6 +203,12 @@ class DistillationTrainer(SFTTrainer):
         
         hybrid_loss = config.alpha * kl_loss + (1 - config.alpha) * next_token_loss
         
+        if self.n % 20 == 0:
+            print(f"Hybrid Loss: {hybrid_loss}")
+            print(f"KL Loss: {kl_loss}")
+            print(f"Next Token Loss: {next_token_loss}")
+        
+        self.n += 1
         self.logger.log({
             "function": "compute_loss",
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -279,10 +287,10 @@ class DistillationTrainer(SFTTrainer):
         #     "perplexity": None,
         # })
 
-        # kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
-        # if "kl_losses" not in self.extra_logging_info:
-        #     self.extra_logging_info["kl_losses"] = []
-        # self.extra_logging_info["kl_losses"].append(kl_loss.item())
+        kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
+        if "kl_losses" not in self.extra_logging_info:
+            self.extra_logging_info["kl_losses"] = []
+        self.extra_logging_info["kl_losses"].append(kl_loss.item())
 
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
     
@@ -306,6 +314,8 @@ class DistillationTrainer(SFTTrainer):
 def main():
     global teacher_model, ensemble_model, global_step
 
+    global n
+    n = 0
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\nStarting training at: {overall_start_datetime}")
@@ -369,6 +379,7 @@ def main():
             train_dataset=dataset["train"],
             eval_dataset=dataset["test"],
             data_collator=collator,
+            n=n,
             args=training_args,
             callbacks=[LoggingCallback(logger, round_num, overall_start_time)],
         )
