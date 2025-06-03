@@ -37,6 +37,7 @@ CSV_COLUMNS = [
     "kl_loss",              # KL divergence loss
     "eval_loss",            # float (or None)
     "perplexity",           # float (only on eval rows)
+    "learning_rate",
 ]
 
 
@@ -83,7 +84,7 @@ def get_training_args(output_dir):
         overwrite_output_dir=False,
         report_to="none",
         hub_model_id=None,
-        learning_rate=1e-6,
+        learning_rate=5e-5,
         warmup_steps=50,
         per_device_train_batch_size=4,
         per_device_eval_batch_size=eval_batch_size,

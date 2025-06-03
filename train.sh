@@ -26,5 +26,7 @@ module load cuda-12.1
 # Activate the virtual environment
 source /scratch/ssd004/scratch/klambert/slm_ensembles/venv/bin/activate
 
+# TODO: 24 hour run; checpointing; finisnh logging
+
 # Run script
 python -u /h/klambert/slm_ensembles/train.py

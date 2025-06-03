@@ -48,25 +48,16 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
                 logits = logits + outputs.logits.to(device)
                 # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
         logits = logits / len(self.models)  # averages the logits
-
-        # Optionally computes the loss if labels are provided
-        # TODO: does the AutoModelForCausalLM have loss_function?
         
         loss = None
         if labels is not None:
             loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
 
+        print(f"\n\nLoss: {loss}\n\n")
+        
         # Returns a standard output format compatible with HuggingFace models
         return CausalLMOutputWithPast(logits=logits, loss=loss)
 
-    #     def gradient_checkpointing_enable(self, *args, **kwargs):
-    #         for model in self.models:
-    #             model.gradient_checkpointing_enable(*args, **kwargs)
-    #     def gradient_checkpointing_disable(self, *args, **kwargs):
-    #         for model in self.models:
-    #             model.gradient_checkpointing_disable(*args, **kwargs)
-
-    # utility methods for adding or removing a model from the ensemble
     def add_model(self, model_name):
         """
         Add a new model to the ensemble.

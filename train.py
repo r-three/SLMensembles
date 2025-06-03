@@ -195,14 +195,17 @@ class DistillationTrainer(SFTTrainer):
             if ensemble_model is not None:
                 ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
 
-        current_model_output = model(input_ids=input_ids, attention_mask=attention_mask)
+        # don't use the forward method
+        current_model_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         current_model_logits = current_model_output.logits
         loss = current_model_output.loss
-        print(f"\n\nLoss:\n {loss}\n\n")
         
         # Distill teacher into current model
         kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
-        print(f"\n\nKL Loss:\n {kl_loss}\n\n")
+        
+        # combine kl_loss and predict_step loss with alpha
+        # next deliverable: training run with just the kl loss, implemeting the ce loss, and a few jobs with the alpha hyperparameter
+        
         self.logger.log({
             "function": "compute_loss",
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -240,10 +243,11 @@ class DistillationTrainer(SFTTrainer):
         attention_mask = inputs["attention_mask"].to(device)
         labels = inputs["labels"].to(device)
 
+        # Compute_loss add this to calculate loss
         with torch.no_grad():
             student_logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
             teacher_logits = teacher_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
-
+            
             if ensemble_model is not None:
                 num_models = len(ensemble_model.models)
                 ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.detach()
@@ -256,8 +260,9 @@ class DistillationTrainer(SFTTrainer):
         if hasattr(model, "module"):
             model = model.module
 
+        # next token prediction loss 
         loss = model.loss_function(
-            logits=student_logits,
+            logits=total_ensemble_logits,
             labels=labels,
             vocab_size=model.config.vocab_size,
         )
@@ -328,7 +333,6 @@ def main():
     dataset = datasets.load_from_disk(config.dataset_path)
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-    # collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, round_num=0, end=True)
     logger.log({
