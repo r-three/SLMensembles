@@ -52,8 +52,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         loss = None
         if labels is not None:
             loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
-
-        print(f"\n\nLoss: {loss}\n\n")
         
         # Returns a standard output format compatible with HuggingFace models
         return CausalLMOutputWithPast(logits=logits, loss=loss)

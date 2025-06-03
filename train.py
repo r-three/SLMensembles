@@ -148,8 +148,6 @@ class LoggingCallback(TrainerCallback):
                 })
 
     def on_prediction_step_end(self, args, state, control, **kwargs):
-        # Called after each eval/prediction step
-        # The 'loss' for this eval batch is passed in kwargs
         loss = kwargs.get("loss", None)
         if loss is not None:
             self.logger.log({
@@ -195,16 +193,13 @@ class DistillationTrainer(SFTTrainer):
             if ensemble_model is not None:
                 ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
 
-        # don't use the forward method
         current_model_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         current_model_logits = current_model_output.logits
-        loss = current_model_output.loss
+        next_token_loss = current_model_output.loss
         
-        # Distill teacher into current model
         kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
         
-        # combine kl_loss and predict_step loss with alpha
-        # next deliverable: training run with just the kl loss, implemeting the ce loss, and a few jobs with the alpha hyperparameter
+        hybrid_loss = config.alpha * kl_loss + (1 - config.alpha) * next_token_loss
         
         self.logger.log({
             "function": "compute_loss",
@@ -215,13 +210,13 @@ class DistillationTrainer(SFTTrainer):
             "phase": "train",
             "role": "student",
             "step": self.state.global_step,
-            "train_loss": loss.item(),
-            "kl_loss": kl_loss.item(),
+            "train_loss": hybrid_loss,
+            "kl_loss": kl_loss,
             "eval_loss": None,
             "perplexity": None,
         })
 
-        return (loss, current_model_logits) if return_outputs else loss
+        return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
 
     def compute_kl_loss(self, student_logits, ensemble_logits, teacher_logits, mask, temperature=1.0):
         """Computes KL divergence loss between teacher and student model logits."""

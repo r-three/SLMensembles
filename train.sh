@@ -1,16 +1,15 @@
 #!/bin/bash
-
-#SBATCH --job-name=slm_ensembles                                                            
+                                                           
 #SBATCH --output=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.err 
 #SBATCH --partition=a40                                                                       
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4                                                                     
 #SBATCH --mem=16GB                                                  
-#SBATCH --time=08:00:00 
+#SBATCH --time=12:00:00 
 
 # srun -c 4 --gres=gpu:1 --partition a40 --mem=10GB --pty --time=8:00:00 bash
-# cd /scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/
+# cd /scratch/ssd004/scratch/klambert/slm_ensembles/run_logs
 # cd /scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs
 # cd /projects/distilling_llms/model_log
 

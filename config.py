@@ -17,10 +17,11 @@ base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
 
 # Training parameters
-total_rounds = 4  # number of ensemble models
-steps_per_round = 10
+total_rounds = 6  # number of ensemble models
+steps_per_round = 1000
 kl_temperature = 1.0
-eval_batch_size = 8
+eval_batch_size = 4
+alpha = 0.5
 
 # Logging Arguments
 CSV_COLUMNS = [
@@ -82,7 +83,7 @@ def get_training_args(output_dir):
     return SFTConfig(
         output_dir=output_dir,
         overwrite_output_dir=False,
-        report_to="none",
+        report_to="wandb",
         hub_model_id=None,
         learning_rate=5e-5,
         warmup_steps=50,
