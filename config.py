@@ -17,7 +17,7 @@ base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
 
 # Training parameters
-total_rounds = 6  # number of ensemble models
+total_rounds = 16  # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
@@ -29,7 +29,8 @@ CSV_COLUMNS = [
     "timestamp",             
     "overall_elapsed",      
     "round_duration",      
-    "round",                 
+    "round",         
+    "ensemble_num",        
     "phase",                  # eval or train or custom_eval          
     "role",                  
     "step",                  
@@ -41,6 +42,7 @@ CSV_COLUMNS = [
     "perplexity",           
     "learning_rate",
     "alpha",
+    "tags",
     "metadata",
 ]
 
