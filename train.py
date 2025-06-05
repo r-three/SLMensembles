@@ -138,7 +138,7 @@ class CSVLogger:
             "overall_elapsed": time.time() - overall_start_time,
             "round_duration": round_duration,
             "round": round_num,
-            "ensemble_num": len(ensemble_model.models),
+            "ensemble_num": len(ensemble_model.models) if ensemble_model else 0,
             "phase": phase,
             "role": role,
             "step": step,
@@ -196,7 +196,6 @@ class LoggingCallback(TrainerCallback):
 
 class DistillationTrainer(SFTTrainer):
     def __init__(self, *args, **kwargs):
-        self.learing_rate=args.pop("leargning_rate")
         self.round_num = kwargs.pop("round_num")
         self.steps_per_round = kwargs.pop("steps_per_round")
         self.overall_start_time = kwargs.pop("overall_start_time")
@@ -296,6 +295,7 @@ class DistillationTrainer(SFTTrainer):
             round_num=self.round_num,
             phase="eval",
             role="student",
+            learning_rate=self.optimizer.param_groups[0]["lr"],
             step=self.state.global_step,
             eval_loss=loss.item(),
             eval_kl_loss=kl_loss,
@@ -402,12 +402,11 @@ def main():
         student_eval_results = evaluate_model(student_model, dataset["test"], collator, round_num, eval_batch_size, end=True)
         logger.log(
             function="main",
-            round=round_num,
+            round_num=round_num,
             phase="custom_eval",
             role="student",
             eval_loss=student_eval_results["eval_loss"],
             perplexity=student_eval_results["perplexity"],
-            round_duration=round_duration,
             tags=['initial eval'],
         )
         
@@ -469,7 +468,7 @@ def main():
         # End of round logging
         logger.log(
             function="main",
-            round=round_num,
+            round_num=round_num,
             phase="custom_eval",
             role="ensemble",
             eval_loss=ensemble_eval_results["eval_loss"],
@@ -478,7 +477,7 @@ def main():
         )
         logger.log(
             function="main",
-            round=round_num,
+            round_num=round_num,
             phase="custom_eval",
             role="student",
             eval_loss=student_eval_results["eval_loss"],
