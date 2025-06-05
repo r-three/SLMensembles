@@ -224,10 +224,6 @@ class DistillationTrainer(SFTTrainer):
         self.extra_logging_info = {}
         super().__init__(*args, **kwargs)
 
-    # def training_step():
-    #     # TODO: log gradient norm, learning rate + step count
-    #     
-
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         input_ids = inputs["input_ids"].to(device)
         attention_mask = inputs["attention_mask"].to(device)

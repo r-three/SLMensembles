@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=ensembles                                                       
+#SBATCH --job-name=slm_ensembles                                                      
 #SBATCH --output=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.err 
 #SBATCH --partition=a40                                                                       
@@ -23,7 +23,6 @@
 # page(table)
 
 # TODO: launch script with different alpha values
-# set up the repositories to be names after the alpha / run names
 # configure the logging to be occasional so that there's no overhead
 # add metadata
 

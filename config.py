@@ -15,14 +15,14 @@ ensemble_model_names = []
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
-custom_path = "alpha0.5"
+custom_path = "alpha0"
 
 # Training parameters
 total_rounds = 16  # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
-alpha = 0.5
+alpha = 0               # 1 = next_token loss to 0 = kl_loss
 
 # Logging Arguments
 CSV_COLUMNS = [
@@ -79,7 +79,7 @@ def get_directory(output_dir):
         next_run = max(existing_runs) + 1
 
     if custom_path is not None:
-        run_dir = os.path.join(run_dir, f"run_{next_run}_{custom_path}")
+        run_dir = os.path.join(date_dir, f"run_{next_run}_{custom_path}")
     else:
         run_dir = os.path.join(date_dir, f"run_{next_run}")
     
@@ -108,6 +108,6 @@ def get_training_args(output_dir):
         eval_steps=int(steps_per_round / 10),
         eval_on_start=True,
         logging_strategy="steps",
-        logging_steps=1,
+        logging_steps=40,
         save_strategy="no",
     )
