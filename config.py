@@ -25,20 +25,23 @@ alpha = 0.5
 
 # Logging Arguments
 CSV_COLUMNS = [
-    "function",             # function name where the logging occured
-    "timestamp",            # e.g. "2025-06-01 12:34:56"
-    "overall_elapsed",      # float (seconds; from start-of-all-rounds)
-    "round_duration",       # float
-    "ensemble_size",        # int (how many models are in the ensemble so far)
-    "round",                # distillation round (0, 1, 2, …)
-    "phase",                # e.g. "train", "eval"
-    "role",                 # e.g. "student", "teacher", "ensemble"
-    "step",                 # training step within the round
-    "train_loss",           # next token prediction loss during training
-    "kl_loss",              # KL divergence loss
-    "eval_loss",            # float (or None)
-    "perplexity",           # float (only on eval rows)
+    "function",              
+    "timestamp",             
+    "overall_elapsed",      
+    "round_duration",      
+    "round",                 
+    "phase",                  # eval or train or custom_eval          
+    "role",                  
+    "step",                  
+    "train_loss",
+    "train_kl_loss",         
+    "train_next_token_loss",
+    "eval_loss", 
+    "eval_kl_loss",           
+    "perplexity",           
     "learning_rate",
+    "alpha",
+    "metadata",
 ]
 
 

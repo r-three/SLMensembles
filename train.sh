@@ -13,6 +13,8 @@
 # cd /scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs
 # cd /projects/distilling_llms/model_log
 
+ # TODO: ADD CHECKPOINTING!!!
+
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -24,8 +26,6 @@ module load cuda-12.1
 
 # Activate the virtual environment
 source /scratch/ssd004/scratch/klambert/slm_ensembles/venv/bin/activate
-
-# TODO: 24 hour run; checpointing; finisnh logging
 
 # Run script
 python -u /h/klambert/slm_ensembles/train.py
