@@ -15,6 +15,7 @@ ensemble_model_names = []
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
+custom_path = "alpha0.5"
 
 # Training parameters
 total_rounds = 16  # number of ensemble models
@@ -38,7 +39,8 @@ CSV_COLUMNS = [
     "train_kl_loss",         
     "train_next_token_loss",
     "eval_loss", 
-    "eval_kl_loss",           
+    "eval_kl_loss",   
+    "grad_norm",        
     "perplexity",           
     "learning_rate",
     "alpha",
@@ -76,7 +78,11 @@ def get_directory(output_dir):
     if existing_runs:
         next_run = max(existing_runs) + 1
 
-    run_dir = os.path.join(date_dir, f"run_{next_run}")
+    if custom_path is not None:
+        run_dir = os.path.join(run_dir, f"run_{next_run}_{custom_path}")
+    else:
+        run_dir = os.path.join(date_dir, f"run_{next_run}")
+    
     os.makedirs(run_dir, exist_ok=True)
 
     return run_dir

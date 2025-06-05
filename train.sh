@@ -1,5 +1,6 @@
 #!/bin/bash
-                                                           
+
+#SBATCH --job-name=ensembles                                                       
 #SBATCH --output=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/ssd004/scratch/klambert/slm_ensembles/run_logs/%x_%j.err 
 #SBATCH --partition=a40                                                                       
@@ -12,6 +13,19 @@
 # cd /scratch/ssd004/scratch/klambert/slm_ensembles/run_logs
 # cd /scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs
 # cd /projects/distilling_llms/model_log
+
+# from IPython.core.page import page
+# from tabulate import tabulate
+# import pandas as pd
+
+# df = pd.read_csv("metrics.csv")
+# table = tabulate(df.tail(50), headers="keys", tablefmt="fancy_grid")
+# page(table)
+
+# TODO: launch script with different alpha values
+# set up the repositories to be names after the alpha / run names
+# configure the logging to be occasional so that there's no overhead
+# add metadata
 
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"

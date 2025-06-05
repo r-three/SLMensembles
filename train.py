@@ -96,7 +96,10 @@ class CSVLogger:
         if existing_runs:
             next_run = max(existing_runs) + 1
 
-        filename = f"run_{next_run}_{filename}"
+        if config.custom_path is None:
+            filename = f"run_{next_run}_{filename}"
+        else:
+            filename = f"{config.custom_path}_metrics.csv"
         self.filepath = os.path.join(log_dir, filename)
 
         self.fieldnames = fieldnames
@@ -124,6 +127,7 @@ class CSVLogger:
         eval_loss=None,
         eval_kl_loss=None,
         perplexity=None,
+        grad_norm=None,
         learning_rate=None,
         alpha=None,
         tags=None,
@@ -147,6 +151,7 @@ class CSVLogger:
             "train_next_token_loss": train_next_token_loss,
             "eval_loss": eval_loss,
             "eval_kl_loss": eval_kl_loss,
+            "grad_norm": grad_norm,
             "perplexity": perplexity,
             "learning_rate": learning_rate,
             "alpha": alpha,
@@ -193,6 +198,22 @@ class LoggingCallback(TrainerCallback):
                 eval_loss=loss.mean().item(),
             )
 
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        control = super().on_log(args, state, control, logs=logs, **kwargs)
+
+        self.logger.log(
+            function="on_log",
+            round_num=self.round_num,
+            phase="train",
+            role="student",
+            step=state.global_step,
+            train_loss=logs.get("loss"),
+            learning_rate=logs.get("learning_rate"),
+            grad_norm=logs.get('grad_norm'),
+        )
+
+        return control
+
 
 class DistillationTrainer(SFTTrainer):
     def __init__(self, *args, **kwargs):
@@ -200,6 +221,7 @@ class DistillationTrainer(SFTTrainer):
         self.steps_per_round = kwargs.pop("steps_per_round")
         self.overall_start_time = kwargs.pop("overall_start_time")
         self.logger = kwargs.pop("logger") 
+        self.extra_logging_info = {}
         super().__init__(*args, **kwargs)
 
     # def training_step():
@@ -232,11 +254,11 @@ class DistillationTrainer(SFTTrainer):
             phase="train",
             role="student",
             step=self.state.global_step,
-            train_loss=hybrid_loss,
-            train_next_token_loss=next_token_loss,
-            train_kl_loss=kl_loss,
+            train_loss=hybrid_loss.item(),
+            train_next_token_loss=next_token_loss.item(),
+            train_kl_loss=kl_loss.item(),
             alpha=config.alpha,
-            learning_rate=self.learning_rate,
+            learning_rate=self._get_learning_rate(),
         )
 
         return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
@@ -295,10 +317,9 @@ class DistillationTrainer(SFTTrainer):
             round_num=self.round_num,
             phase="eval",
             role="student",
-            learning_rate=self.optimizer.param_groups[0]["lr"],
             step=self.state.global_step,
             eval_loss=loss.item(),
-            eval_kl_loss=kl_loss,
+            eval_kl_loss=kl_loss.item(),
         )
 
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
@@ -306,19 +327,7 @@ class DistillationTrainer(SFTTrainer):
     def evaluation_loop(self, dataloader, description, prediction_loss_only=None, ignore_keys=None, metric_key_prefix="eval"):
         output = super().evaluation_loop(dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix)
         return output
-
-#     def log(self, logs, start_time=None):
-#         if self.state.epoch is not None:
-#             logs["epoch"] = self.state.epoch
-#         if self.args.include_num_input_tokens_seen:
-#             logs["num_input_tokens_seen"] = self.state.num_input_tokens_seen
-#             if start_time is not None:
-#                 speed_metrics("train", start_time, num_tokens=self.state.num_input_tokens_seen)
-# 
-#         output = {**logs}
-#         self.state.log_history.append(output)
-#         self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
-        
+   
 
 def main():
     global teacher_model, ensemble_model, overall_start_time
@@ -326,9 +335,10 @@ def main():
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\nStarting training at: {overall_start_datetime}")
-
+    
     log_dir=config.get_directory(config.log_dir)
     logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS)
+
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
     
