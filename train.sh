@@ -9,7 +9,7 @@
 #SBATCH --mem=16GB                                                  
 #SBATCH --time=16:00:00 
 
-# srun -c 4 --gres=gpu:1 --partition a40 --mem=10GB --pty --time=24:00:00 bash
+# srun -c 4 --gres=gpu:1 --partition a40 --mem=10GB --pty --time=16:00:00 bash
 # cd /scratch/ssd004/scratch/klambert/slm_ensembles/run_logs
 # cd /scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs
 # cd /projects/distilling_llms/model_log

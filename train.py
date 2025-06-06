@@ -21,6 +21,7 @@ from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from ensemble import ModelEnsemble
 import config
 
+n = 0
 overall_start_time = None
 teacher_model = None
 ensemble_model = None
@@ -172,20 +173,6 @@ class LoggingCallback(TrainerCallback):
         self.round_num = round_num,
         self.overall_start_time = overall_start_time
 
-    def on_step_end(self, args, state, control, **kwargs):
-        if len(state.log_history) > 0:
-            last_log = state.log_history[-1]
-            if "loss" in last_log:
-                step = state.global_step
-                loss = last_log["loss"]
-                self.logger.log(function="on_step_end",
-                    round_num=self.round_num,
-                    phase="train",
-                    role="student",
-                    step=step,
-                    train_loss=loss,
-                )
-
     def on_prediction_step_end(self, args, state, control, **kwargs):
         loss = kwargs.get("loss", None)
         if loss is not None:
@@ -220,7 +207,7 @@ class DistillationTrainer(SFTTrainer):
         self.round_num = kwargs.pop("round_num")
         self.steps_per_round = kwargs.pop("steps_per_round")
         self.overall_start_time = kwargs.pop("overall_start_time")
-        self.logger = kwargs.pop("logger") 
+        self.logger = kwargs.pop("logger")
         self.extra_logging_info = {}
         super().__init__(*args, **kwargs)
 
@@ -244,18 +231,23 @@ class DistillationTrainer(SFTTrainer):
         kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
         hybrid_loss = (1 - config.alpha) * kl_loss + config.alpha * next_token_loss
 
-        self.logger.log(
-            function="compute_loss",
-            round_num=self.round_num,
-            phase="train",
-            role="student",
-            step=self.state.global_step,
-            train_loss=hybrid_loss.item(),
-            train_next_token_loss=next_token_loss.item(),
-            train_kl_loss=kl_loss.item(),
-            alpha=config.alpha,
-            learning_rate=self._get_learning_rate(),
-        )
+        global n
+        if n % self.args.logging_steps == 0:
+
+            self.logger.log(
+                function="compute_loss",
+                round_num=self.round_num,
+                phase="train",
+                role="student",
+                step=self.state.global_step,
+                train_loss=hybrid_loss.item(),
+                train_next_token_loss=next_token_loss.item(),
+                train_kl_loss=kl_loss.item(),
+                alpha=config.alpha,
+                learning_rate=self._get_learning_rate(),
+            )
+        
+        n += 1
 
         return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
 
@@ -302,21 +294,26 @@ class DistillationTrainer(SFTTrainer):
             labels=labels,
             vocab_size=model.config.vocab_size,
         )
+        
+        global n
+        if n % self.args.logging_steps == 0:
 
-        kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
-        if "kl_losses" not in self.extra_logging_info:
-            self.extra_logging_info["kl_losses"] = []
-        self.extra_logging_info["kl_losses"].append(kl_loss.item())
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
+            if "kl_losses" not in self.extra_logging_info:
+                self.extra_logging_info["kl_losses"] = []
+            self.extra_logging_info["kl_losses"].append(kl_loss.item())
 
-        self.logger.log(
-            function="prediction_step",
-            round_num=self.round_num,
-            phase="eval",
-            role="student",
-            step=self.state.global_step,
-            eval_loss=loss.item(),
-            eval_kl_loss=kl_loss.item(),
-        )
+            self.logger.log(
+                function="prediction_step",
+                round_num=self.round_num,
+                phase="eval",
+                role="student",
+                step=self.state.global_step,
+                eval_loss=loss.item(),
+                eval_kl_loss=kl_loss.item(),
+            )
+        
+        n += 1
 
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
     
@@ -326,7 +323,7 @@ class DistillationTrainer(SFTTrainer):
    
 
 def main():
-    global teacher_model, ensemble_model, overall_start_time
+    global teacher_model, ensemble_model, overall_start_time, n
 
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -364,33 +361,39 @@ def main():
     
     # TODO: how is my eval statement different from the trainer and how do I align them
 
-    existing_rounds = []
-    for i in range(config.total_rounds):
-        round_path = get_round_path(output_path, i)
-        model_file = os.path.join(round_path, "config.json")
-        if os.path.exists(model_file):
-            existing_rounds.append(i)
+    existing_models = []
+    for run_dir in config.past_run_dirs:
+        for i in range(config.total_rounds):
+            round_dir = os.path.join(run_dir, f"round_{i}")
+            model_file = os.path.join(round_dir, "config.json")
+            if os.path.exists(model_file):
+                existing_models.append((i, round_dir))
 
-    start_round = max(existing_rounds) + 1 if existing_rounds else 0
-    print(f"Start round: {start_round}")
+    # Sort by round index
+    existing_models.sort(key=lambda x: x[0])
 
-    ensemble_model_names = [get_round_path(output_path, i) for i in existing_rounds]
+    # Load ensemble model
+    start_round = (max(i for i, _ in existing_models) + 1) if existing_models else 0
+    ensemble_model_names = [path for _, path in existing_models]
     ensemble_model = None
+
     if ensemble_model_names:
-        print(f"Ensemble model names: {ensemble_model_names}")
+        print(f"Resuming from ensemble with {len(ensemble_model_names)} models")
         temp_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-            device_map=device
+            device_map=device,
         )
         ensemble_model = ModelEnsemble(
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
             device_map=device,
-            vocab_size=temp_model.vocab_size
+            vocab_size=temp_model.vocab_size,
         )
         ensemble_model.requires_grad_(False)
         del temp_model
+
+    print(f"Resuming training from round: {start_round}")
 
     for round_num in range(start_round, config.total_rounds):
         round_start_time = time.time()
@@ -416,6 +419,7 @@ def main():
             tags=['initial eval'],
         )
         
+        n = 0
         training_args = config.get_training_args(round_output_dir)
         trainer = DistillationTrainer(
             round_num=round_num,
@@ -492,7 +496,7 @@ def main():
         )
         logger.log(
             function="main",
-            round=round_num,
+            round_num=round_num,
             phase="custom_eval",
             role="teacher",
             eval_loss=teacher_eval_results["eval_loss"],
