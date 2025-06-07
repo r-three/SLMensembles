@@ -373,7 +373,7 @@ def main():
     existing_models.sort(key=lambda x: x[0])
 
     # Load ensemble model
-    start_round = (max(i for i, _ in existing_models) + 1) if existing_models else 0
+    start_round = max((r for r, _ in existing_models), default=-1) + 1
     ensemble_model_names = [path for _, path in existing_models]
     ensemble_model = None
 
@@ -392,8 +392,6 @@ def main():
         )
         ensemble_model.requires_grad_(False)
         del temp_model
-
-    print(f"Resuming training from round: {start_round}")
 
     for round_num in range(start_round, config.total_rounds):
         round_start_time = time.time()

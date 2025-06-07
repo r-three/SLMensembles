@@ -18,15 +18,45 @@ log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
 custom_path = "alpha1"
 
 past_run_dirs = [
-    # "/projects/distilling_llms/model_log/05-06-2025/run_1_alpha0",
-    # "/projects/distilling_llms/model_log/05-06-2025/run_2_alpha02",
-    # "/projects/distilling_llms/model_log/05-06-2025/run_3_alpha05",
-    # "/projects/distilling_llms/model_log/05-06-2025/run_4_alpha08",
-    "/projects/distilling_llms/model_log/05-06-2025/run_5_alpha1",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha1_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/run_11_alpha1"cd 
 ]
 
+past_run_dirs = [
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_first",
+    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_second",
+    "/projects/distilling_llms/model_log/06-06-2025/alpha1_first",
+    "/projects/distilling_llms/model_log/06-06-2025/alpha1_second",
+    # "/projects/distilling_llms/model_log/06-06-2025/run_12_alpha0",
+    # "/projects/distilling_llms/model_log/06-06-2025/run_13_alpha02",
+    # "/projects/distilling_llms/model_log/06-06-2025/run_14_alpha05",
+    # "/projects/distilling_llms/model_log/07-06-2025/run_1_alpha08",
+]
+
+# TODO before each run:
+    # change alpha value
+    # change custom_path
+    # clean up and safely store csv files
+    # remove empty directories in past_run_dirs
+    # uncomment and comment out past_run_dirs
+    # launch the sbatch script with custom names
+
 # Training parameters
-total_rounds = 16       # number of ensemble models
+total_rounds = 16         # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
