@@ -165,6 +165,8 @@ class CSVLogger:
         with open(self.filepath, mode="a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
             writer.writerow(row)
+        # TODO: fix the opening and closing of file frequency
+        # singal handler for slurm manager?
 
 
 class LoggingCallback(TrainerCallback):
@@ -212,23 +214,29 @@ class DistillationTrainer(SFTTrainer):
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        input_ids = inputs["input_ids"].to(device)
-        attention_mask = inputs["attention_mask"].to(device)
-        labels = inputs["labels"].to(device)
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+        labels = inputs["labels"]
         
-        # Get the teacher and ensemble predictions
+        input_ids_s = input_ids.to(config.student_device)
+        attention_mask_s = attention_mask.to(config.student_device)
+        labels_s = labels.to(config.student_device)
+        
+        input_ids_t = input_ids.to(config.teacher_device)
+        attention_mask_t = attention_mask.to(config.teacher_device)
+        
         with torch.no_grad():
-            teacher_logits = teacher_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
+            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits.to(config.student_device)
 
             ensemble_logits = None
             if ensemble_model is not None:
-                ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
+                ensemble_logits = ensemble_model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits.to(config.student_device)
 
-        current_model_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        current_model_output = model(input_ids=input_ids_s, attention_mask=attention_mask_s, labels=labels_s)
         current_model_logits = current_model_output.logits
         next_token_loss = current_model_output.loss
         
-        kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, labels != -100)
+        kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
         hybrid_loss = (1 - config.alpha) * kl_loss + config.alpha * next_token_loss
 
         global n
@@ -246,9 +254,8 @@ class DistillationTrainer(SFTTrainer):
                 alpha=config.alpha,
                 learning_rate=self._get_learning_rate(),
             )
-        
         n += 1
-
+        
         return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
 
     def compute_kl_loss(self, student_logits, ensemble_logits, teacher_logits, mask, temperature=1.0):
@@ -267,18 +274,25 @@ class DistillationTrainer(SFTTrainer):
 
     def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
         """Model eval"""
-        input_ids = inputs["input_ids"].to(device)
-        attention_mask = inputs["attention_mask"].to(device)
-        labels = inputs["labels"].to(device)
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+        labels = inputs["labels"]
+        
+        input_ids_s = input_ids.to(config.student_device)
+        attention_mask_s = attention_mask.to(config.student_device)
+        labels_s = labels.to(config.student_device)
+        
+        input_ids_t = input_ids.to(config.teacher_device)
+        attention_mask_t = attention_mask.to(config.teacher_device)
 
         # Compute_loss add this to calculate loss
         with torch.no_grad():
-            student_logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-            teacher_logits = teacher_model(input_ids=input_ids, attention_mask=attention_mask).logits.to(device)
+            student_logits = model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits
+            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits.to(config.student_device)
             
             if ensemble_model is not None:
                 num_models = len(ensemble_model.models)
-                ensemble_logits = ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits.detach()
+                ensemble_logits = ensemble_model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits.detach() # prevents gradient tracking for backprop
                 total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
             else:
                 ensemble_logits = None
@@ -296,9 +310,9 @@ class DistillationTrainer(SFTTrainer):
         )
         
         global n
+        
         if n % self.args.logging_steps == 0:
-
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, labels != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
             if "kl_losses" not in self.extra_logging_info:
                 self.extra_logging_info["kl_losses"] = []
             self.extra_logging_info["kl_losses"].append(kl_loss.item())
@@ -312,7 +326,6 @@ class DistillationTrainer(SFTTrainer):
                 eval_loss=loss.item(),
                 eval_kl_loss=kl_loss.item(),
             )
-        
         n += 1
 
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
@@ -341,7 +354,7 @@ def main():
 
     # Load tokenizer and models
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    teacher_model = AutoModelForCausalLM.from_pretrained(config.teacher_model_name, torch_dtype=torch.bfloat16, device_map=device)
+    teacher_model = AutoModelForCausalLM.from_pretrained(config.teacher_model_name, torch_dtype=torch.bfloat16, device_map=config.teacher_device)
     teacher_model.requires_grad_(False)
 
     # Load dataset and setup data collator
@@ -382,12 +395,12 @@ def main():
         temp_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-            device_map=device,
+            device_map=config.student_device,
         )
         ensemble_model = ModelEnsemble(
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
-            device_map=device,
+            device_map=config.student_device,
             vocab_size=temp_model.vocab_size,
         )
         ensemble_model.requires_grad_(False)
@@ -405,7 +418,7 @@ def main():
         round_output_dir = get_round_path(output_path, round_num)
         print(f"Round '{round_num}' model stored in: {round_output_dir}")
         
-        student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=device)
+        student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=config.student_device)
         student_eval_results = evaluate_model(student_model, dataset["test"], collator, round_num, eval_batch_size, end=True)
         logger.log(
             function="main",
@@ -443,7 +456,7 @@ def main():
             ensemble_model = ModelEnsemble(
                 [round_output_dir],
                 torch_dtype=torch.bfloat16,
-                device_map=device,
+                device_map=config.student_device,
                 vocab_size=student_model.vocab_size,
             )
             ensemble_model.requires_grad_(False)
@@ -504,6 +517,7 @@ def main():
         
         del student_model
         gc.collect()
+        torch.cuda.set_device(config.student_device)
         torch.cuda.empty_cache()
 
     # Record overall end time

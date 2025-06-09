@@ -5,9 +5,11 @@ import glob
 
 # Model and dataset setup
 seed = 42
-device = "cuda" if torch.cuda.is_available() else "cpu"
 teacher_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
 student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+teacher_device = "cuda:0"
+student_device = "cuda:1"
+
 tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
 dataset_name = "allenai/tulu-3-sft-mixture"
 ensemble_model_names = []
