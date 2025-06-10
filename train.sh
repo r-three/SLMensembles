@@ -35,4 +35,4 @@ module load cuda-12.1
 source /scratch/ssd004/scratch/klambert/slm_ensembles/venv/bin/activate
 
 # Run script
-python -u /h/klambert/slm_ensembles/train.py
+python -u /h/klambert/slm_ensembles/main.py

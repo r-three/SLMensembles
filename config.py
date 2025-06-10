@@ -33,7 +33,7 @@ total_rounds = 16         # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
-alpha = 1               # 1 = next_token loss to 0 = kl_loss
+alpha = 1                 # 1 = next_token loss to 0 = kl_loss
 
 # Logging Arguments
 CSV_COLUMNS = [
