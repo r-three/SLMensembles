@@ -410,6 +410,9 @@ def main():
     # Load tokenizer and models
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     teacher_model = AutoModelForCausalLM.from_pretrained(config.teacher_model_name, torch_dtype=torch.bfloat16, device_map=config.teacher_device)
+    student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map="cuda:0")
+    teacher_model.resize_token_embeddings(new_num_tokens=student_model.vocab_size)
+    del student_model
     teacher_model.requires_grad_(False)
 
     # Load dataset and setup data collator

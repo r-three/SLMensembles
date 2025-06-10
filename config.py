@@ -16,7 +16,7 @@ ensemble_model_names = []
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
-custom_path = "alpha0"
+custom_path = "alpha1"
 
 past_run_dirs = []
 
@@ -33,7 +33,7 @@ total_rounds = 16         # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
-alpha = 0               # 1 = next_token loss to 0 = kl_loss
+alpha = 1               # 1 = next_token loss to 0 = kl_loss
 
 # Logging Arguments
 CSV_COLUMNS = [
