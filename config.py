@@ -1,26 +1,7 @@
 import os
+import datasets
 from datetime import datetime
 import glob
-
-# Model and dataset setup
-seed = 42
-teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
-student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-teacher_device = "cuda:0"
-student_device = "cuda:1"
-
-tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
-dataset_name = "allenai/tulu-3-sft-mixture"
-ensemble_model_names = []
-
-dataset_path = (
-    "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
-)
-base_output_dir = "/projects/distilling_llms/model_log"
-log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
-custom_path = "alpha1"
-
-past_run_dirs = []
 
 # TODO before each run:
 # change alpha value
@@ -30,12 +11,32 @@ past_run_dirs = []
 # uncomment and comment out past_run_dirs
 # launch the sbatch script with custom names
 
+# Model and dataset setup
+seed = 42
+teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
+student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
+dataset_name = "allenai/tulu-3-sft-mixture"
+dataset_type = "single"  # "single" or "batch" or "full"
+teacher_device = "cuda:0"
+student_device = "cuda:1"
+
+dataset_path = (
+    "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
+)
+base_output_dir = "/projects/distilling_llms/model_log"
+log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
+custom_path = "alpha1"
+
+ensemble_model_names = []
+past_run_dirs = []
+
 # Training parameters
+alpha = 1  # 1 = next_token loss to 0 = kl_loss
 total_rounds = 16  # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
-alpha = 1  # 1 = next_token loss to 0 = kl_loss
 
 # Logging Arguments
 CSV_COLUMNS = [
@@ -45,7 +46,7 @@ CSV_COLUMNS = [
     "round_duration",
     "round",
     "ensemble_num",
-    "phase",  # eval or train or custom_eval
+    "phase",
     "role",
     "step",
     "train_loss",
@@ -60,6 +61,15 @@ CSV_COLUMNS = [
     "tags",
     "metadata",
 ]
+
+
+def get_dataset():
+    dataset = datasets.load_from_disk(dataset_path)
+    if dataset_type == "single":
+        return dataset["train"].select([0])
+    elif dataset_type == "batch":
+        return dataset["train"].select(range(10))
+    return dataset
 
 
 def get_directory(output_dir):
@@ -111,7 +121,7 @@ def get_training_args(output_dir):
         hub_model_id=None,
         learning_rate=5e-5,
         warmup_steps=50,
-        per_device_train_batch_size=4,
+        per_device_train_batch_size=1,  # 4
         per_device_eval_batch_size=eval_batch_size,
         gradient_accumulation_steps=8,
         gradient_checkpointing=False,

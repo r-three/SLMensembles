@@ -10,37 +10,47 @@ from train import DistillationTrainer, LoggingCallback
 from utils import CSVLogger, evaluate_model, format_time_elapsed, get_round_path
 from ensemble import ModelEnsemble
 
+
 def main():
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\nStarting training at: {overall_start_datetime}")
-    
+
     log_dir = config.get_directory(config.log_dir)
     logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS)
     import atexit
+
     atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
-    
+
     print(f"Run: {run_name}")
     print(f"Created logging directory: {log_dir}")
     print(f"Models stored in: {output_path}\n")
 
     # Load tokenizer and models
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    teacher_model = AutoModelForCausalLM.from_pretrained(config.teacher_model_name, torch_dtype=torch.bfloat16, device_map=config.teacher_device)
-    student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map="cuda:0")
+    teacher_model = AutoModelForCausalLM.from_pretrained(
+        config.teacher_model_name,
+        torch_dtype=torch.bfloat16,
+        device_map=config.teacher_device,
+    )
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name, torch_dtype=torch.bfloat16, device_map="cuda:0"
+    )
     teacher_model.resize_token_embeddings(new_num_tokens=student_model.vocab_size)
     del student_model
     teacher_model.requires_grad_(False)
 
     # Load dataset and setup data collator
-    dataset = datasets.load_from_disk(config.dataset_path)
+    dataset = get_dataset()
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+    collator = DataCollatorForCompletionOnlyLM(
+        response_template_ids, tokenizer=tokenizer
+    )
 
-    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, end=True)
+    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator)
     logger.log(
         function="main",
         round_num=0,
@@ -93,9 +103,13 @@ def main():
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
         round_output_dir = get_round_path(output_path, round_num)
         print(f"Round '{round_num}' model stored in: {round_output_dir}")
-        
-        student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=config.student_device)
-        student_eval_results = evaluate_model(student_model, dataset["test"], collator, eval_batch_size, end=True)
+
+        student_model = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name,
+            torch_dtype=torch.bfloat16,
+            device_map=config.student_device,
+        )
+        student_eval_results = evaluate_model(student_model, dataset["test"], collator)
         logger.log(
             function="main",
             round_num=round_num,
@@ -103,9 +117,9 @@ def main():
             role="student",
             eval_loss=student_eval_results["eval_loss"],
             perplexity=student_eval_results["perplexity"],
-            tags=['initial eval'],
+            tags=["initial eval"],
         )
-        
+
         training_args = config.get_training_args(round_output_dir)
         trainer = DistillationTrainer(
             teacher_model=teacher_model,
@@ -125,7 +139,7 @@ def main():
         trainer.train()
         logger.flush()
         trainer.model.save_pretrained(round_output_dir)
-        
+
         # Add model to the ensemble
         if ensemble_model is None:
             ensemble_model = ModelEnsemble(
@@ -140,12 +154,20 @@ def main():
 
         # Evaluate
         student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
-        ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
+        ensemble_eval_results = evaluate_model(
+            ensemble_model, dataset["test"], collator
+        )
 
         print(f"\n{'-'*25}")
-        print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
-        print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
-        print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
+        print(
+            f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}"
+        )
+        print(
+            f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}"
+        )
+        print(
+            f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}"
+        )
         print(f"{'-'*25}")
 
         # After training, record round end time
@@ -189,9 +211,9 @@ def main():
             perplexity=teacher_eval_results["perplexity"],
             round_duration=round_duration,
         )
-        
+
         logger.flush()
-        
+
         del student_model
         gc.collect()
         torch.cuda.set_device(config.student_device)
@@ -208,6 +230,6 @@ def main():
     print(f"Total training time: {overall_duration_str}")
     print(f"{'='*50}")
 
+
 if __name__ == "__main__":
     main()
-    
