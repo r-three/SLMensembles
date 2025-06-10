@@ -397,6 +397,8 @@ def main():
     
     log_dir=config.get_directory(config.log_dir)
     logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS)
+    import atexit
+    atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
@@ -586,7 +588,6 @@ def main():
     print(f"Training completed at: {end_datetime}")
     print(f"Total training time: {overall_duration_str}")
     print(f"{'='*50}")
-
 
 if __name__ == "__main__":
     main()
