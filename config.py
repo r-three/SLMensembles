@@ -1,11 +1,10 @@
 import os
-import torch
 from datetime import datetime
 import glob
 
 # Model and dataset setup
 seed = 42
-teacher_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
+teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
 student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
 teacher_device = "cuda:0"
 student_device = "cuda:1"
@@ -17,37 +16,9 @@ ensemble_model_names = []
 dataset_path = "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
-custom_path = "alpha1"
+custom_path = "alpha0"
 
-past_run_dirs = [
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha1_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/run_11_alpha1"cd 
-]
-
-past_run_dirs = [
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha0_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha02_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha05_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_first",
-    # "/projects/distilling_llms/model_log/06-06-2025/alpha08_second",
-    "/projects/distilling_llms/model_log/06-06-2025/alpha1_first",
-    "/projects/distilling_llms/model_log/06-06-2025/alpha1_second",
-    # "/projects/distilling_llms/model_log/06-06-2025/run_12_alpha0",
-    # "/projects/distilling_llms/model_log/06-06-2025/run_13_alpha02",
-    # "/projects/distilling_llms/model_log/06-06-2025/run_14_alpha05",
-    # "/projects/distilling_llms/model_log/07-06-2025/run_1_alpha08",
-]
+past_run_dirs = []
 
 # TODO before each run:
     # change alpha value
@@ -62,7 +33,7 @@ total_rounds = 16         # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
-alpha = 1               # 1 = next_token loss to 0 = kl_loss
+alpha = 0               # 1 = next_token loss to 0 = kl_loss
 
 # Logging Arguments
 CSV_COLUMNS = [

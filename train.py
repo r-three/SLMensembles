@@ -4,9 +4,7 @@ import csv
 import time
 import glob
 
-import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import datasets
 from torch.utils.data import DataLoader
@@ -25,7 +23,6 @@ n = 0
 overall_start_time = None
 teacher_model = None
 ensemble_model = None
-device = config.device
 eval_batch_size = config.eval_batch_size
 
 
@@ -40,21 +37,20 @@ def get_round_path(output_path, round_num):
     return os.path.join(output_path, f"round_{round_num}")
 
 
-def evaluate_model(
-    model, eval_dataset, collator, round_num, max_eval_samples=None, end=False
-):
-    if end == True:
+def evaluate_model(model, eval_dataset, collator, max_eval_samples=None, end=False):
+    if end:
         model.eval()
     if max_eval_samples:
         eval_dataset = torch.utils.data.Subset(eval_dataset, range(max_eval_samples))
+    
+    device = next(model.parameters()).device
 
     eval_dataloader = DataLoader(
         eval_dataset, config.eval_batch_size, collate_fn=collator
     )
 
-    total_loss = 0
+    total_loss = 0.0
     total_tokens = 0
-    total_examples = 0
 
     with torch.no_grad():
         for batch in eval_dataloader:
@@ -70,7 +66,6 @@ def evaluate_model(
             valid_tokens = (labels != -100).sum().item()
             total_loss += outputs.loss.item() * valid_tokens
             total_tokens += valid_tokens
-            total_examples += input_ids.size(0)
 
     avg_loss = total_loss / total_tokens if total_tokens > 0 else float("inf")
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
@@ -85,6 +80,10 @@ class CSVLogger:
     def __init__(self, log_dir, fieldnames: list, filename: str = "metrics.csv"):
         os.makedirs(log_dir, exist_ok=True)
 
+        self.fieldnames = fieldnames
+        self.buffer = []
+        
+        # Create file path
         existing_runs = []
         run_dirs = glob.glob(os.path.join(log_dir, "run_*"))
         next_run = 1
@@ -96,18 +95,16 @@ class CSVLogger:
                 continue
         if existing_runs:
             next_run = max(existing_runs) + 1
-
+        
         if config.custom_path is None:
             filename = f"run_{next_run}_{filename}"
         else:
             filename = f"{config.custom_path}_metrics.csv"
         self.filepath = os.path.join(log_dir, filename)
 
-        self.fieldnames = fieldnames
-
-        if os.path.exists(self.filepath):
-            self.headers_written = True
-        else:
+        # Write header if the file doesn't exist
+        self.headers_written = os.path.exists(self.filepath)
+        if not self.headers_written:
             with open(self.filepath, mode="w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=self.fieldnames)
                 writer.writeheader()
@@ -115,59 +112,73 @@ class CSVLogger:
 
     def log(
         self,
-        function,
-        phase,
-        role,
-        round_num,
-        *,
-        round_duration=None,
-        step=None,
-        train_loss=None,
-        train_kl_loss=None,
-        train_next_token_loss=None,
-        eval_loss=None,
-        eval_kl_loss=None,
-        perplexity=None,
-        grad_norm=None,
-        learning_rate=None,
-        alpha=None,
-        tags=None,
-        metadata=None,
+        **kwargs
+        # function,
+        # phase,
+        # role,
+        # round_num,
+        # *,
+        # round_duration=None,
+        # step=None,
+        # train_loss=None,
+        # train_kl_loss=None,
+        # train_next_token_loss=None,
+        # eval_loss=None,
+        # eval_kl_loss=None,
+        # perplexity=None,
+        # grad_norm=None,
+        # learning_rate=None,
+        # alpha=None,
+        # tags=None,
+        # metadata=None,
     ):
-        if tags is not None and not isinstance(tags, str):
-            tags = "|".join(tags)  # list as "tag1|tag2|tag3"
-
-        data = {
-            "function": function,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "overall_elapsed": time.time() - overall_start_time,
-            "round_duration": round_duration,
-            "round": round_num,
-            "ensemble_num": len(ensemble_model.models) if ensemble_model else 0,
-            "phase": phase,
-            "role": role,
-            "step": step,
-            "train_loss": train_loss,
-            "train_kl_loss": train_kl_loss,
-            "train_next_token_loss": train_next_token_loss,
-            "eval_loss": eval_loss,
-            "eval_kl_loss": eval_kl_loss,
-            "grad_norm": grad_norm,
-            "perplexity": perplexity,
-            "learning_rate": learning_rate,
-            "alpha": alpha,
-            "tags": tags,
-            "metadata": metadata,
-        }
-
-        row = {key: data.get(key, None) for key in self.fieldnames}
-
+        row = {key: kwargs.get(key, None) for key in self.fieldnames}
+        row["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        row["overall_elapsed"] = time.time() - overall_start_time
+        self.buffer.append(row)
+        
+        
+        
+        
+#         if tags is not None and not isinstance(tags, str):
+#             tags = "|".join(tags)  # list as "tag1|tag2|tag3"
+# 
+#         data = {
+#             "function": function,
+#             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+#             "overall_elapsed": time.time() - overall_start_time,
+#             "round_duration": round_duration,
+#             "round": round_num,
+#             "ensemble_num": len(ensemble_model.models) if ensemble_model else 0,
+#             "phase": phase,
+#             "role": role,
+#             "step": step,
+#             "train_loss": train_loss,
+#             "train_kl_loss": train_kl_loss,
+#             "train_next_token_loss": train_next_token_loss,
+#             "eval_loss": eval_loss,
+#             "eval_kl_loss": eval_kl_loss,
+#             "grad_norm": grad_norm,
+#             "perplexity": perplexity,
+#             "learning_rate": learning_rate,
+#             "alpha": alpha,
+#             "tags": tags,
+#             "metadata": metadata,
+#         }
+# 
+#         row = {key: data.get(key, None) for key in self.fieldnames}
+# 
+#         with open(self.filepath, mode="a", newline="") as f:
+#             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+#             writer.writerow(row)
+    def flush(self):
+        """Write the buffered log entries to file."""
+        if not self.buffer:
+            return
         with open(self.filepath, mode="a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
-            writer.writerow(row)
-        # TODO: fix the opening and closing of file frequency
-        # singal handler for slurm manager?
-
+            writer.writerows(self.buffer)
+        self.buffer.clear()
 
 class LoggingCallback(TrainerCallback):
     def __init__(self, logger, round_num, overall_start_time):
@@ -214,28 +225,50 @@ class DistillationTrainer(SFTTrainer):
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
         
-        input_ids_s = input_ids.to(config.student_device)
-        attention_mask_s = attention_mask.to(config.student_device)
-        labels_s = labels.to(config.student_device)
-        
-        input_ids_t = input_ids.to(config.teacher_device)
-        attention_mask_t = attention_mask.to(config.teacher_device)
-        
+        # -------------------------
+        # Run teacher forward pass
+        # -------------------------
         with torch.no_grad():
-            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits.to(config.student_device)
+            teacher_device = next(teacher_model.parameters()).device
+            input_ids_t = input_ids.to(teacher_device)
+            attention_mask_t = attention_mask.to(teacher_device)
+            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
 
-            ensemble_logits = None
-            if ensemble_model is not None:
-                ensemble_logits = ensemble_model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits.to(config.student_device)
+        # -------------------------
+        # Run ensemble forward pass
+        # -------------------------
+        ensemble_logits = None
+        if ensemble_model is not None:
+            with torch.no_grad():
+                ensemble_device = next(ensemble_model.parameters()).device
+                input_ids_e = input_ids.to(ensemble_device)
+                attention_mask_e = attention_mask.to(ensemble_device)
+                ensemble_logits = ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits
+
+        # -------------------------
+        # Run student forward pass
+        # -------------------------
+        student_device = next(model.parameters()).device
+        input_ids_s = input_ids.to(student_device)
+        attention_mask_s = attention_mask.to(student_device)
+        labels_s = labels.to(student_device)
 
         current_model_output = model(input_ids=input_ids_s, attention_mask=attention_mask_s, labels=labels_s)
         current_model_logits = current_model_output.logits
         next_token_loss = current_model_output.loss
-        
+
+        # -------------------------
+        # Move logits to student device for KL computation
+        # -------------------------
+        teacher_logits = teacher_logits.to(student_device)
+        if ensemble_logits is not None:
+            ensemble_logits = ensemble_logits.to(student_device)
+
         kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
         hybrid_loss = (1 - config.alpha) * kl_loss + config.alpha * next_token_loss
 
@@ -278,34 +311,55 @@ class DistillationTrainer(SFTTrainer):
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
         
-        input_ids_s = input_ids.to(config.student_device)
-        attention_mask_s = attention_mask.to(config.student_device)
-        labels_s = labels.to(config.student_device)
+        # -------------------------
+        # Move inputs to student model's device
+        # -------------------------
+        student_device = next(model.parameters()).device
+        input_ids_s = input_ids.to(student_device)
+        attention_mask_s = attention_mask.to(student_device)
+        labels_s = labels.to(student_device)
         
-        input_ids_t = input_ids.to(config.teacher_device)
-        attention_mask_t = attention_mask.to(config.teacher_device)
-
-        # Compute_loss add this to calculate loss
+        # -------------------------
+        # Run teacher model
+        # -------------------------
         with torch.no_grad():
-            student_logits = model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits
-            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits.to(config.student_device)
-            
+            teacher_device = next(teacher_model.parameters()).device
+            input_ids_t = input_ids.to(teacher_device)
+            attention_mask_t = attention_mask.to(teacher_device)
+            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
+            teacher_logits = teacher_logits.to(student_device)
+        
+            # -------------------------
+            # Run ensemble model
+            # -------------------------
+            ensemble_logits = None
             if ensemble_model is not None:
+                ensemble_device = next(ensemble_model.parameters()).device
+                input_ids_e = input_ids.to(ensemble_device)
+                attention_mask_e = attention_mask.to(ensemble_device)
+                ensemble_logits = ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits.detach()
+                ensemble_logits = ensemble_logits.to(student_device)
+
+            # -------------------------
+            # Run student model
+            # -------------------------
+            student_logits = model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits
+
+            # Aggregate logits
+            if ensemble_logits is not None:
                 num_models = len(ensemble_model.models)
-                ensemble_logits = ensemble_model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits.detach() # prevents gradient tracking for backprop
                 total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
             else:
-                ensemble_logits = None
                 total_ensemble_logits = student_logits
-
-        # Handle potential model wrapping (DataParallel/DistributedDataParallel)
+            
+        # Handle potential DDP wrapping
         if hasattr(model, "module"):
             model = model.module
 
-        # next token prediction loss 
+        # Compute next-token prediction loss
         loss = model.loss_function(
             logits=total_ensemble_logits,
-            labels=labels,
+            labels=labels_s,
             vocab_size=model.config.vocab_size,
         )
         
@@ -313,9 +367,8 @@ class DistillationTrainer(SFTTrainer):
         
         if n % self.args.logging_steps == 0:
             kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
-            if "kl_losses" not in self.extra_logging_info:
-                self.extra_logging_info["kl_losses"] = []
-            self.extra_logging_info["kl_losses"].append(kl_loss.item())
+            self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
+
 
             self.logger.log(
                 function="prediction_step",
@@ -362,7 +415,7 @@ def main():
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, round_num=0, end=True)
+    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator, end=True)
     logger.log(
         function="main",
         round_num=0,
@@ -419,7 +472,7 @@ def main():
         print(f"Round '{round_num}' model stored in: {round_output_dir}")
         
         student_model = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16, device_map=config.student_device)
-        student_eval_results = evaluate_model(student_model, dataset["test"], collator, round_num, eval_batch_size, end=True)
+        student_eval_results = evaluate_model(student_model, dataset["test"], collator, eval_batch_size, end=True)
         logger.log(
             function="main",
             round_num=round_num,
@@ -449,6 +502,7 @@ def main():
         # TODO: refactor code
 
         trainer.train()
+        logger.flush()
         trainer.model.save_pretrained(round_output_dir)
         
         # Add model to the ensemble
@@ -464,8 +518,8 @@ def main():
             ensemble_model.add_model(round_output_dir)
 
         # Evaluate
-        student_eval_results = evaluate_model(trainer.model, dataset["test"], collator, round_num, eval_batch_size, end=True)
-        ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator, round_num, eval_batch_size, end=True)
+        student_eval_results = evaluate_model(trainer.model, dataset["test"], collator, eval_batch_size, end=True)
+        ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator, eval_batch_size, end=True)
 
         print(f"\n{'-'*25}")
         print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
@@ -514,6 +568,8 @@ def main():
             perplexity=teacher_eval_results["perplexity"],
             round_duration=round_duration,
         )
+        
+        logger.flush()
         
         del student_model
         gc.collect()
