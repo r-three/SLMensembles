@@ -15,7 +15,7 @@ def main():
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\nStarting training at: {overall_start_datetime}")
     
-    log_dir=config.get_directory(config.log_dir)
+    log_dir = config.get_directory(config.log_dir)
     logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS)
     import atexit
     atexit.register(logger.flush)

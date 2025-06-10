@@ -68,7 +68,6 @@ class DistillationTrainer(SFTTrainer):
         self.round_num = round_num
         self.overall_start_time = overall_start_time
         self.extra_logging_info = {}
-        self.n = 0
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
@@ -119,8 +118,7 @@ class DistillationTrainer(SFTTrainer):
         kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
         hybrid_loss = (1 - config.alpha) * kl_loss + config.alpha * next_token_loss
 
-        if self.n % self.args.logging_steps == 0:
-
+        if self.state.global_step % self.args.logging_steps == 0:
             self.logger.log(
                 function="compute_loss",
                 round_num=self.round_num,
@@ -133,7 +131,6 @@ class DistillationTrainer(SFTTrainer):
                 alpha=config.alpha,
                 learning_rate=self._get_learning_rate(),
             )
-        self.n += 1
         
         return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
 
@@ -203,16 +200,16 @@ class DistillationTrainer(SFTTrainer):
             model = model.module
 
         # Compute next-token prediction loss
+        assert hasattr(model, "loss_function"), "Model must implement a 'loss_function' method"
         loss = model.loss_function(
             logits=total_ensemble_logits,
             labels=labels_s,
             vocab_size=model.config.vocab_size,
         )
         
-        if self.n % self.args.logging_steps == 0:
+        if self.state.global_step % self.args.logging_steps == 0:
             kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
-
 
             self.logger.log(
                 function="prediction_step",
@@ -223,12 +220,8 @@ class DistillationTrainer(SFTTrainer):
                 eval_loss=loss.item(),
                 eval_kl_loss=kl_loss.item(),
             )
-        self.n += 1
 
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
     
-    def evaluation_loop(self, dataloader, description, prediction_loss_only=None, ignore_keys=None, metric_key_prefix="eval"):
-        output = super().evaluation_loop(dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix)
-        return output
    
 
