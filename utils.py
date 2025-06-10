@@ -61,7 +61,7 @@ def format_time_elapsed(seconds):
 def get_round_path(output_path, round_num):
     return os.path.join(output_path, f"round_{round_num}")
 
-def evaluate_model(model, eval_dataset, collator, device, batch_size):
+def evaluate_model(model, eval_dataset, collator):
     model.eval()
     dataloader = DataLoader(eval_dataset, batch_size=config.eval_batch_size, collate_fn=collator)
     total_loss, total_tokens = 0, 0

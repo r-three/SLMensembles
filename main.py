@@ -49,8 +49,6 @@ def main():
         eval_loss=teacher_eval_results["eval_loss"],
         perplexity=teacher_eval_results["perplexity"],
     )
-    
-    # TODO: how is my eval statement different from the trainer and how do I align them
 
     existing_models = []
     for run_dir in config.past_run_dirs:
@@ -108,23 +106,21 @@ def main():
             tags=['initial eval'],
         )
         
-        n = 0
         training_args = config.get_training_args(round_output_dir)
         trainer = DistillationTrainer(
-            round_num=round_num,
-            steps_per_round=config.steps_per_round,
-            model=student_model,
+            teacher_model=teacher_model,
+            ensemble_model=ensemble_model,
+            student_model=student_model,
             logger=logger,
+            round_num=round_num,
             overall_start_time=overall_start_time,
+            model=student_model,
             train_dataset=dataset["train"],
             eval_dataset=dataset["test"],
             data_collator=collator,
             args=training_args,
             callbacks=[LoggingCallback(logger, round_num, overall_start_time)],
         )
-        
-        # TODO: Why not use the trainer.predict method instead of the whole evaluation function
-        # TODO: refactor code
 
         trainer.train()
         logger.flush()
@@ -143,8 +139,8 @@ def main():
             ensemble_model.add_model(round_output_dir)
 
         # Evaluate
-        student_eval_results = evaluate_model(trainer.model, dataset["test"], collator, eval_batch_size, end=True)
-        ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator, eval_batch_size, end=True)
+        student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
+        ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
 
         print(f"\n{'-'*25}")
         print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")

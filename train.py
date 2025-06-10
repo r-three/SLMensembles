@@ -14,12 +14,6 @@ from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from ensemble import ModelEnsemble
 import config
 
-n = 0
-overall_start_time = None
-teacher_model = None
-ensemble_model = None
-
-
 class LoggingCallback(TrainerCallback):
     def __init__(self, logger, round_num, overall_start_time):
         self.logger = logger
@@ -56,9 +50,20 @@ class LoggingCallback(TrainerCallback):
 
 
 class DistillationTrainer(SFTTrainer):
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        teacher_model,
+        ensemble_model,
+        student_model,
+        logger,
+        round_num,
+        overall_start_time,
+        *args,
+        **kwargs
+    ):
         self.teacher_model = teacher_model
         self.ensemble_model = ensemble_model
+        self.student_model = student_model
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
@@ -76,21 +81,21 @@ class DistillationTrainer(SFTTrainer):
         # Run teacher forward pass
         # -------------------------
         with torch.no_grad():
-            teacher_device = next(teacher_model.parameters()).device
+            teacher_device = next(self.teacher_model.parameters()).device
             input_ids_t = input_ids.to(teacher_device)
             attention_mask_t = attention_mask.to(teacher_device)
-            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
+            teacher_logits = self.teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
 
         # -------------------------
         # Run ensemble forward pass
         # -------------------------
         ensemble_logits = None
-        if ensemble_model is not None:
+        if self.ensemble_model is not None:
             with torch.no_grad():
-                ensemble_device = next(ensemble_model.parameters()).device
+                ensemble_device = next(self.ensemble_model.parameters()).device
                 input_ids_e = input_ids.to(ensemble_device)
                 attention_mask_e = attention_mask.to(ensemble_device)
-                ensemble_logits = ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits
+                ensemble_logits = self.ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits
 
         # -------------------------
         # Run student forward pass
@@ -137,7 +142,7 @@ class DistillationTrainer(SFTTrainer):
 
         # Combines the model predictions with the ensemble
         if ensemble_logits is not None:
-            num_models = len(ensemble_model.models)
+            num_models = len(self.ensemble_model.models)
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
 
         # Compute KL Loss
@@ -164,21 +169,21 @@ class DistillationTrainer(SFTTrainer):
         # Run teacher model
         # -------------------------
         with torch.no_grad():
-            teacher_device = next(teacher_model.parameters()).device
+            teacher_device = next(self.teacher_model.parameters()).device
             input_ids_t = input_ids.to(teacher_device)
             attention_mask_t = attention_mask.to(teacher_device)
-            teacher_logits = teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
+            teacher_logits = self.teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
             teacher_logits = teacher_logits.to(student_device)
         
             # -------------------------
             # Run ensemble model
             # -------------------------
             ensemble_logits = None
-            if ensemble_model is not None:
-                ensemble_device = next(ensemble_model.parameters()).device
+            if self.ensemble_model is not None:
+                ensemble_device = next(self.ensemble_model.parameters()).device
                 input_ids_e = input_ids.to(ensemble_device)
                 attention_mask_e = attention_mask.to(ensemble_device)
-                ensemble_logits = ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits.detach()
+                ensemble_logits = self.ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits.detach()
                 ensemble_logits = ensemble_logits.to(student_device)
 
             # -------------------------
@@ -188,7 +193,7 @@ class DistillationTrainer(SFTTrainer):
 
             # Aggregate logits
             if ensemble_logits is not None:
-                num_models = len(ensemble_model.models)
+                num_models = len(self.ensemble_model.models)
                 total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
             else:
                 total_ensemble_logits = student_logits
@@ -204,9 +209,7 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=model.config.vocab_size,
         )
         
-        global n
-        
-        if n % self.args.logging_steps == 0:
+        if self.n % self.args.logging_steps == 0:
             kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
@@ -220,7 +223,7 @@ class DistillationTrainer(SFTTrainer):
                 eval_loss=loss.item(),
                 eval_kl_loss=kl_loss.item(),
             )
-        n += 1
+        self.n += 1
 
         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
     
