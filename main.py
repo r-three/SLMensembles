@@ -17,7 +17,9 @@ def main():
     print(f"\nStarting training at: {overall_start_datetime}")
 
     log_dir = config.get_directory(config.log_dir)
-    logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS)
+    logger = CSVLogger(
+        log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time
+    )
     import atexit
 
     atexit.register(logger.flush)
@@ -44,7 +46,7 @@ def main():
     teacher_model.requires_grad_(False)
 
     # Load dataset and setup data collator
-    dataset = get_dataset()
+    dataset = config.get_dataset()
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(
         response_template_ids, tokenizer=tokenizer

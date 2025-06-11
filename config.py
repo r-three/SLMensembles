@@ -17,7 +17,7 @@ teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
 student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
 tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
 dataset_name = "allenai/tulu-3-sft-mixture"
-dataset_type = "single"  # "single" or "batch" or "full"
+dataset_type = "batch"  # "single" or "batch" or "full"
 teacher_device = "cuda:0"
 student_device = "cuda:1"
 
@@ -26,7 +26,7 @@ dataset_path = (
 )
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
-custom_path = "alpha1"
+custom_path = "batch"
 
 ensemble_model_names = []
 past_run_dirs = []
@@ -66,9 +66,15 @@ CSV_COLUMNS = [
 def get_dataset():
     dataset = datasets.load_from_disk(dataset_path)
     if dataset_type == "single":
-        return dataset["train"].select([0])
+        return {
+            "train": dataset["train"].select([0]),
+            "test": dataset["test"].select([0]),
+        }
     elif dataset_type == "batch":
-        return dataset["train"].select(range(10))
+        return {
+            "train": dataset["train"].select(range(10)),
+            "test": dataset["test"].select(range(10)),
+        }
     return dataset
 
 
@@ -145,5 +151,5 @@ def get_training_args(output_dir):
 # From Qwen2.5 technical report: Ultimately, we construct a dataset of over 1 million SFT examples. The model is fine-tuned for two epochs
 # with a sequence length of 32,768 tokens. To optimize learning, the learning rate is gradually decreased
 # from 7 × 10−6 to 7 × 10−7. To address overfitting, we apply a weight decay of 0.1, and gradient norms are clipped at a maximum value of 1.0.
-#
+
 # It is for SFT but might be helpful in the distillation setting as well!
