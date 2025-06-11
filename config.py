@@ -44,7 +44,7 @@ CSV_COLUMNS = [
     "timestamp",
     "overall_elapsed",
     "round_duration",
-    "round",
+    "round_num",
     "ensemble_num",
     "phase",
     "role",
