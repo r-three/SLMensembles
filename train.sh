@@ -17,7 +17,6 @@
 # from IPython.core.page import page
 # from tabulate import tabulate
 # import pandas as pd
-
 # df = pd.read_csv("metrics.csv")
 # table = tabulate(df.tail(50), headers="keys", tablefmt="fancy_grid")
 # page(table)

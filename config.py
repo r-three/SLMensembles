@@ -1,26 +1,7 @@
 import os
+import datasets
 from datetime import datetime
 import glob
-
-# Model and dataset setup
-seed = 42
-teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
-student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-teacher_device = "cuda:0"
-student_device = "cuda:1"
-
-tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
-dataset_name = "allenai/tulu-3-sft-mixture"
-ensemble_model_names = []
-
-dataset_path = (
-    "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
-)
-base_output_dir = "/projects/distilling_llms/model_log"
-log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
-custom_path = "alpha1"
-
-past_run_dirs = []
 
 # TODO before each run:
 # change alpha value
@@ -30,12 +11,32 @@ past_run_dirs = []
 # uncomment and comment out past_run_dirs
 # launch the sbatch script with custom names
 
+# Model and dataset setup
+seed = 42
+teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
+student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
+dataset_name = "allenai/tulu-3-sft-mixture"
+dataset_type = "batch"  # "single" or "batch" or "full"
+teacher_device = "cuda:0"
+student_device = "cuda:1"
+
+dataset_path = (
+    "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
+)
+base_output_dir = "/projects/distilling_llms/model_log"
+log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
+custom_path = "batch"
+
+ensemble_model_names = []
+past_run_dirs = []
+
 # Training parameters
+alpha = 1  # 1 = next_token loss to 0 = kl_loss
 total_rounds = 16  # number of ensemble models
 steps_per_round = 1000
 kl_temperature = 1.0
 eval_batch_size = 4
-alpha = 1  # 1 = next_token loss to 0 = kl_loss
 
 # Logging Arguments
 CSV_COLUMNS = [
@@ -43,9 +44,9 @@ CSV_COLUMNS = [
     "timestamp",
     "overall_elapsed",
     "round_duration",
-    "round",
+    "round_num",
     "ensemble_num",
-    "phase",  # eval or train or custom_eval
+    "phase",
     "role",
     "step",
     "train_loss",
@@ -60,6 +61,21 @@ CSV_COLUMNS = [
     "tags",
     "metadata",
 ]
+
+
+def get_dataset():
+    dataset = datasets.load_from_disk(dataset_path)
+    if dataset_type == "single":
+        return {
+            "train": dataset["train"].select([0]),
+            "test": dataset["test"].select([0]),
+        }
+    elif dataset_type == "batch":
+        return {
+            "train": dataset["train"].select(range(10)),
+            "test": dataset["test"].select(range(10)),
+        }
+    return dataset
 
 
 def get_directory(output_dir):
@@ -111,7 +127,7 @@ def get_training_args(output_dir):
         hub_model_id=None,
         learning_rate=5e-5,
         warmup_steps=50,
-        per_device_train_batch_size=4,
+        per_device_train_batch_size=1,  # 4
         per_device_eval_batch_size=eval_batch_size,
         gradient_accumulation_steps=8,
         gradient_checkpointing=False,
@@ -135,5 +151,5 @@ def get_training_args(output_dir):
 # From Qwen2.5 technical report: Ultimately, we construct a dataset of over 1 million SFT examples. The model is fine-tuned for two epochs
 # with a sequence length of 32,768 tokens. To optimize learning, the learning rate is gradually decreased
 # from 7 × 10−6 to 7 × 10−7. To address overfitting, we apply a weight decay of 0.1, and gradient norms are clipped at a maximum value of 1.0.
-#
+
 # It is for SFT but might be helpful in the distillation setting as well!
