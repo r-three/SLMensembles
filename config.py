@@ -4,8 +4,10 @@ from datetime import datetime
 import glob
 
 # TODO before each run:
-# change alpha value
-# change custom_path
+# change hyperparameter
+# change custom_run_name
+# change description
+# change job name in train.sh
 # clean up and safely store csv files
 # remove empty directories in past_run_dirs
 # uncomment and comment out past_run_dirs
@@ -26,15 +28,18 @@ dataset_path = (
 )
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
-custom_path = "batch"
+id_string = "Experiment with hyperparameters for faster convergence to 0 loss"
+description = "Learning rate tweaking: lr = 1e-5"
+custom_run_name = "lr1e-5_hyperparameters"
 
 ensemble_model_names = []
 past_run_dirs = []
 
-# Training parameters
-alpha = 1  # 1 = next_token loss to 0 = kl_loss
-total_rounds = 16  # number of ensemble models
-steps_per_round = 1000
+# Hyperparameters
+learning_rate = 1e-5
+alpha = 0.5  # 1 = next_token loss to 0 = kl_loss
+total_rounds = 6  # number of ensemble models
+steps_per_round = 400
 kl_temperature = 1.0
 eval_batch_size = 4
 
@@ -45,7 +50,6 @@ CSV_COLUMNS = [
     "overall_elapsed",
     "round_duration",
     "round_num",
-    "ensemble_num",
     "phase",
     "role",
     "step",
@@ -107,8 +111,8 @@ def get_directory(output_dir):
     if existing_runs:
         next_run = max(existing_runs) + 1
 
-    if custom_path is not None:
-        run_dir = os.path.join(date_dir, f"run_{next_run}_{custom_path}")
+    if custom_run_name is not None:
+        run_dir = os.path.join(date_dir, f"run_{next_run}_{custom_run_name}")
     else:
         run_dir = os.path.join(date_dir, f"run_{next_run}")
 
@@ -125,9 +129,9 @@ def get_training_args(output_dir):
         overwrite_output_dir=False,
         report_to="none",
         hub_model_id=None,
-        learning_rate=5e-5,
+        learning_rate=learning_rate,
         warmup_steps=50,
-        per_device_train_batch_size=1,  # 4
+        per_device_train_batch_size=4,
         per_device_eval_batch_size=eval_batch_size,
         gradient_accumulation_steps=8,
         gradient_checkpointing=False,
@@ -140,16 +144,3 @@ def get_training_args(output_dir):
         logging_steps=40,
         save_strategy="no",
     )
-
-
-# TODO:
-# learning rate
-# batch size
-# steps
-# check that the student can reach 0 loss (Eval) (single batch / example); add second student & keep the first student static (untrained) and check how the loss goes down
-
-# From Qwen2.5 technical report: Ultimately, we construct a dataset of over 1 million SFT examples. The model is fine-tuned for two epochs
-# with a sequence length of 32,768 tokens. To optimize learning, the learning rate is gradually decreased
-# from 7 × 10−6 to 7 × 10−7. To address overfitting, we apply a weight decay of 0.1, and gradient norms are clipped at a maximum value of 1.0.
-
-# It is for SFT but might be helpful in the distillation setting as well!

@@ -35,10 +35,10 @@ class CSVLogger:
             + 1
         )
 
-        if config.custom_path is None:
+        if config.custom_run_name is None:
             filename = f"run_{next_run}_{filename}"
         else:
-            filename = f"{config.custom_path}_metrics.csv"
+            filename = f"{config.custom_run_name}_metrics.csv"
 
         self.filepath = os.path.join(log_dir, filename)
 
