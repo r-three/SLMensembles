@@ -19,7 +19,7 @@ teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
 student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
 tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
 dataset_name = "allenai/tulu-3-sft-mixture"
-dataset_type = "batch"  # "single" or "batch" or "full"
+dataset_type = "single"  # "single" or "batch" or "full"
 teacher_device = "cuda:0"
 student_device = "cuda:1"
 
@@ -29,14 +29,14 @@ dataset_path = (
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
 id_string = "Experiment with hyperparameters for faster convergence to 0 loss"
-description = "Learning rate tweaking: lr = 1e-6"
-custom_run_name = "lr1e-6_hyperparameters"
+description = "Learning rate tweaking: lr = 5e-5"
+custom_run_name = "lr5e-5_hyperparameters"
 
 ensemble_model_names = []
 past_run_dirs = []
 
 # Hyperparameters
-learning_rate = 1e-6
+learning_rate = 5e-5
 alpha = 0.5  # 1 = next_token loss to 0 = kl_loss
 total_rounds = 6  # number of ensemble models
 steps_per_round = 400

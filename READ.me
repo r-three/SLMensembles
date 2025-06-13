@@ -1,0 +1,157 @@
+# Distilling Large Language Models into Small LM Ensembles
+
+This project investigates whether ensembles of small language models (LMs) can match the performance of large LMs through knowledge distillation. By sequentially training and aggregating multiple student models, we aim to create lightweight, highly parallelizable alternatives to monolithic large models, ideal for decentralized inference.
+
+---
+
+## Motivation
+
+Running large LMs (e.g., 100B+ parameters) requires expensive, high-bandwidth multi-GPU systems. In contrast, small models can run on commodity hardware, but are less powerful. This project explores whether a large LM's capabilities can be **distilled into an ensemble** of smaller models using a carefully designed hybrid loss and KL divergence training loop.
+
+---
+
+## Project Structure
+
+```
+slm_ensembles/
+├── main.py               # Orchestrates multi-round distillation training
+├── train.py              # Implements DistillationTrainer with hybrid loss
+├── ensemble.py           # ModelEnsemble class that averages logits across models
+├── utils.py              # Logging, evaluation, and helper functions
+├── config.example        # Configurable hyperparameters and paths
+├── preprocess_dataset.py # Dataset formatting, tokenization, and filtering
+├── train.sh              # SLURM script for launching jobs
+├── SLM_ensembles.ipynb   # Visualization and analysis of logs
+```
+
+---
+
+## Quickstart
+
+### Requirements
+
+* Python 3.10+
+* PyTorch + CUDA
+* [Transformers](https://github.com/huggingface/transformers)
+* [TRL](https://github.com/huggingface/trl)
+* Datasets: Hugging Face's `allenai/tulu-3-sft-mixture` (loaded as part of script)
+
+Install dependencies (in virtual env):
+
+```bash
+pip install -r requirements.txt
+```
+
+### 🔧 Preprocess Dataset
+
+```bash
+python preprocess_dataset.py
+```
+
+This will:
+
+* Apply chat template to conversation samples
+* Tokenize and mask tokens for assistant-only supervision
+* Filter out truncated examples
+* Save the dataset to disk
+
+Update `config.py` → `dataset_path` accordingly.
+
+### 🏁 Start Training
+
+```bash
+python main.py
+```
+
+Or via SLURM:
+
+```bash
+sbatch train.sh
+```
+
+This launches iterative rounds of distillation. Each round:
+
+* Trains a new student model
+* Adds it to the ensemble
+* Evaluates student, teacher, and ensemble on the test set
+* Logs all metrics to CSV
+
+You can change the number of rounds, learning rate, alpha, etc., in `config.py`.
+
+---
+
+## Evaluation
+
+### Logging & Metrics
+
+All logs are stored in `/csv_logs/YYYY-MM-DD/run_X/`, including:
+
+* Hybrid loss
+* KL divergence
+* Next-token loss
+* Eval loss and perplexity (for teacher, student, and ensemble)
+
+### Visualization
+
+Use `slm_ensembles_(5).py` to plot training/eval curves:
+
+```python
+# Open in Colab or run locally
+python slm_ensembles_(5).py
+```
+
+---
+
+## Configuration
+
+All paths, hyperparameters, and job-specific settings are defined in `config.py`:
+
+* `teacher_model_name` / `student_model_name`
+* `alpha` (KL vs. NLL blend)
+* `steps_per_round`
+* `total_rounds`
+* Logging behavior and output paths
+
+Before each run, ensure:
+
+* You set a unique `custom_run_name`
+* You update `train.sh` job name
+* You clean old logs if needed
+
+---
+
+## Research Questions Addressed
+
+* Can ensembles of small LMs match a large LM’s performance?
+* How do training strategies (boosting, hybrid loss) affect ensemble quality?
+* What are the scaling laws for ensemble size vs. performance?
+* How can we efficiently distill large LM knowledge with minimal compute?
+
+See [Distilling Large LMs into Small LM Ensembles (paper)](./Distilling%20Large%20LMs%20into%20Small%20LM%20Ensembles%20%281%29.pdf) for more.
+
+---
+
+## Advanced Features
+
+* ✅ KL-based hybrid distillation loss
+* ✅ Custom logging via `CSVLogger`
+* ✅ Resumable ensemble training (via `past_run_dirs`)
+* ✅ Evaluation via `evaluate_model`
+* ✅ Modular codebase for extension
+
+---
+
+## Suggested Additional Sections
+
+You may consider adding:
+
+* **Citation** – for when you’re ready to publish
+* **Pretrained Checkpoints** – for models saved to Hugging Face
+* **Ablation Results** – key figures/tables summarizing experimental findings
+* **System Diagram** – architecture of teacher → student → ensemble workflow
+* **License & Contributions** – for open-source/public release
+
+---
+
+
+
