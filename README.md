@@ -104,5 +104,3 @@ All logs are stored in `/csv_logs/YYYY-MM-DD/custom_filename.csv`, including:
 
 Use `SLM_ensembles.py` to plot training/eval curves. Ensure to change the directory names in the script as well. Change variables such as `side_by_side` and `multiple` to control the number of files loaded as well as the logging. 
 
-
-
