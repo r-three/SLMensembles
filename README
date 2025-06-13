@@ -5,7 +5,6 @@ This project investigates whether ensembles of small language models (LMs) can m
 ---
 
 ## Motivation
-
 Running large LMs (e.g., 100B+ parameters) requires expensive, high-bandwidth multi-GPU systems. In contrast, small models can run on commodity hardware, but are less powerful. This project explores whether a large LM's capabilities can be **distilled into an ensemble** of smaller models using a carefully designed hybrid loss and KL divergence training loop.
 
 ---
