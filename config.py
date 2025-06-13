@@ -3,16 +3,6 @@ import datasets
 from datetime import datetime
 import glob
 
-# TODO before each run:
-# change hyperparameter
-# change custom_run_name
-# change description
-# change job name in train.sh
-# clean up and safely store csv files
-# remove empty directories in past_run_dirs
-# uncomment and comment out past_run_dirs
-# launch the sbatch script with custom names
-
 # Model and dataset setup
 seed = 42
 teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"

@@ -1,5 +1,4 @@
 # Distilling Large Language Models into Small LM Ensembles
-
 This project investigates whether ensembles of small language models (LMs) can match the performance of large LMs through knowledge distillation. By sequentially training and aggregating multiple student models, we aim to create lightweight, highly parallelizable alternatives to monolithic large models, ideal for decentralized inference.
 
 ---
@@ -42,20 +41,30 @@ Install dependencies (in virtual env):
 pip install -r requirements.txt
 ```
 
-### 🔧 Preprocess Dataset
+Preprocess Dataset:
 
 ```bash
 python preprocess_dataset.py
 ```
 
-This will:
+This applies chat template to conversation samples, tokenizes and masks tokens for assistant-only supervision, filters out truncated examples and saves the dataset to disk.
 
-* Apply chat template to conversation samples
-* Tokenize and mask tokens for assistant-only supervision
-* Filter out truncated examples
-* Save the dataset to disk
+## Configuration
 
-Update `config.py` → `dataset_path` accordingly.
+All paths, hyperparameters, and job-specific settings are defined in `config.py`:
+
+* `teacher_model_name` / `student_model_name`
+* `alpha` (KL vs. NTP blend)
+* `steps_per_round`
+* `total_rounds`
+* Logging behavior and output paths
+
+Before each run, ensure:
+
+* Update the loggin directory to match your system
+* You set a unique `custom_run_name`, `description`, and if doing several runs, group them by the same `id_string`
+* You update `train.sh` job name
+* You clean old logs if needed
 
 ### 🏁 Start Training
 
@@ -84,7 +93,7 @@ You can change the number of rounds, learning rate, alpha, etc., in `config.py`.
 
 ### Logging & Metrics
 
-All logs are stored in `/csv_logs/YYYY-MM-DD/run_X/`, including:
+All logs are stored in `/csv_logs/YYYY-MM-DD/custom_filename.csv`, including:
 
 * Hybrid loss
 * KL divergence
@@ -93,65 +102,7 @@ All logs are stored in `/csv_logs/YYYY-MM-DD/run_X/`, including:
 
 ### Visualization
 
-Use `slm_ensembles_(5).py` to plot training/eval curves:
-
-```python
-# Open in Colab or run locally
-python slm_ensembles_(5).py
-```
-
----
-
-## Configuration
-
-All paths, hyperparameters, and job-specific settings are defined in `config.py`:
-
-* `teacher_model_name` / `student_model_name`
-* `alpha` (KL vs. NLL blend)
-* `steps_per_round`
-* `total_rounds`
-* Logging behavior and output paths
-
-Before each run, ensure:
-
-* You set a unique `custom_run_name`
-* You update `train.sh` job name
-* You clean old logs if needed
-
----
-
-## Research Questions Addressed
-
-* Can ensembles of small LMs match a large LM’s performance?
-* How do training strategies (boosting, hybrid loss) affect ensemble quality?
-* What are the scaling laws for ensemble size vs. performance?
-* How can we efficiently distill large LM knowledge with minimal compute?
-
-See [Distilling Large LMs into Small LM Ensembles (paper)](./Distilling%20Large%20LMs%20into%20Small%20LM%20Ensembles%20%281%29.pdf) for more.
-
----
-
-## Advanced Features
-
-* ✅ KL-based hybrid distillation loss
-* ✅ Custom logging via `CSVLogger`
-* ✅ Resumable ensemble training (via `past_run_dirs`)
-* ✅ Evaluation via `evaluate_model`
-* ✅ Modular codebase for extension
-
----
-
-## Suggested Additional Sections
-
-You may consider adding:
-
-* **Citation** – for when you’re ready to publish
-* **Pretrained Checkpoints** – for models saved to Hugging Face
-* **Ablation Results** – key figures/tables summarizing experimental findings
-* **System Diagram** – architecture of teacher → student → ensemble workflow
-* **License & Contributions** – for open-source/public release
-
----
+Use `SLM_ensembles.py` to plot training/eval curves. Ensure to change the directory names in the script as well. Change variables such as `side_by_side` and `multiple` to control the number of files loaded as well as the logging. 
 
 
 
