@@ -4,15 +4,11 @@
 # Python cache files
 __pycache__/
 
-# Generated files
-requirements.txt
-
 # Build and output directories
 from/
 import/
 trl/
 .vscode/
 
-# Original files 
-og_train.py
-notes.py
+# Original files
+notes.txt
