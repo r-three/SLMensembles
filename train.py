@@ -224,9 +224,6 @@ class DistillationTrainer(SFTTrainer):
             model = model.module
 
         # Compute next-token prediction loss
-        assert hasattr(
-            model, "loss_function"
-        ), "Model must implement a 'loss_function' method"
         loss = model.loss_function(
             logits=total_ensemble_logits,
             labels=labels_s,
