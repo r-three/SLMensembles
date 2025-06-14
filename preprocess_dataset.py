@@ -175,9 +175,7 @@ print(
 
 # Save the processed dataset
 print("\n=== SAVING DATASET ===")
-save_path = (
-    "/scratch/ssd004/scratch/klambert/slm_ensembles/tulu-3-sft-mixture-pretokenized"
-)
+save_path = dataset_path
 final_dataset.save_to_disk(save_path)
 print(f"Dataset saved to: {save_path}")
 print("Dataset processing complete!")
