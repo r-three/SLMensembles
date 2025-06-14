@@ -2,8 +2,9 @@ import torch
 import numpy as np
 import random
 import datasets
-from transformers import AutoTokenizer
-from config import seed, dataset_name, dataset_path, tokenizer_name
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import config
+import torch.nn.functional as F
 
 
 def create_response_labels(input_ids):
@@ -78,10 +79,10 @@ def add_labels(sample):
     return sample
 
 
-tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name)
 
 print("\n=== LOADING DATASET ===")
-dataset = datasets.load_dataset(dataset_name, split="train")
+dataset = datasets.load_dataset(config.dataset_name, split="train")
 print(f"Original dataset size: {len(dataset)}")
 print(f"Original dataset features: {dataset.features}")
 print(f"Example raw message format:")
@@ -92,7 +93,7 @@ random_idx = random.randint(0, len(dataset) - 1)
 print(dataset[random_idx]["messages"])
 
 # Shuffle and sample the dataset
-dataset = dataset.shuffle(seed)
+dataset = dataset.shuffle(config.seed)
 dataset = dataset.select(range(200_000))
 dataset = dataset.train_test_split(test_size=2000)
 print(
@@ -175,7 +176,51 @@ print(
 
 # Save the processed dataset
 print("\n=== SAVING DATASET ===")
-save_path = dataset_path
+save_path = config.dataset_path
 final_dataset.save_to_disk(save_path)
 print(f"Dataset saved to: {save_path}")
 print("Dataset processing complete!")
+
+
+# -------------------------------
+# Synthetic Data Curation
+# -------------------------------
+
+teacher = AutoModelForCausalLM.from_pretrained(
+    config.teacher_model_name,
+    torch_dtype=torch.bfloat16,
+    device_map=config.teacher_device,
+)
+student = AutoModelForCausalLM.from_pretrained(
+    config.student_model_name, torch_dtype=torch.bfloat16, device_map="cuda:0"
+)
+teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
+del student
+teacher.eval()
+
+
+def add_teacher_logits(example):
+    with torch.no_grad():
+        input_ids = example["input_ids"].unsqueeze(0).to(config.teacher_device)
+        attention_mask = (
+            example["attention_mask"].unsqueeze(0).to(config.teacher_device)
+        )
+        labels = example["labels"].unsqueeze(0).to(config.teacher_device)
+
+        teacher_logits = self.teacher_model(
+            input_ids=input_ids_t, attention_mask=attention_mask_t
+        ).logits
+
+        outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
+        logits = outputs.logits.squeeze(0).cpu()  # shape: [seq_len, vocab_size]
+
+        # Store logits as soft targets (float32)
+        sample["teacher_logits"] = logits.float().numpy()
+
+    return sample
+
+
+if config.data_curation:
+    print("\n=== GENERATING TEACHER LOGITS ===")
+    tokenized_dataset = tokenized_dataset.map(add_teacher_logits)
+    tokenized_dataset.save_to_disk(config.synthetic_dataset_path)
