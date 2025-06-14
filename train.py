@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
 import datasets
 from torch.utils.data import DataLoader
 from datetime import datetime
@@ -252,8 +253,21 @@ class DistillationTrainer(SFTTrainer):
             else (loss, student_logits, labels)
         )
 
-    def evaluation_loop(self, dataloader, description, prediction_loss_only=None, ignore_keys=None, metric_key_prefix="eval"):
-        output = super().evaluation_loop(dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix)
+    def evaluation_loop(
+        self,
+        dataloader,
+        description,
+        prediction_loss_only=None,
+        ignore_keys=None,
+        metric_key_prefix="eval",
+    ):
+        output = super().evaluation_loop(
+            dataloader,
+            description,
+            prediction_loss_only,
+            ignore_keys,
+            metric_key_prefix,
+        )
         # This will be logged out every `eval_steps` steps
         self.logger.log(
             function="evaluation_loop",
@@ -261,8 +275,8 @@ class DistillationTrainer(SFTTrainer):
             phase="eval",
             role="student",
             step=self.state.global_step,
-            eval_loss=output.metrics["eval_loss"], # This is the next-token-prediction loss on the eval dataset
-            eval_kl_loss=np.mean(self.extra_logging_info["kl_losses"]) # This is the kl loss on the eval dataset
+            eval_loss=output.metrics["eval_loss"],
+            eval_kl_loss=np.mean(self.extra_logging_info["kl_losses"]),
         )
         self.extra_logging_info = {}
         return output
