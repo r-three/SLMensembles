@@ -1,0 +1,29 @@
+
+# TODO before each run:
+# change hyperparameter
+# change custom_run_name
+# change description
+# change job name in train.sh
+# clean up and safely store csv files
+# remove empty directories in past_run_dirs
+# uncomment and comment out past_run_dirs
+# launch the sbatch script with custom names
+ 
+TODO immediate: 
+[] find the best learning rate (convergence)         [1e-6 1e-5 5e-5 1e-4 4e-4 4e-3]
+[] compare alpha values (distillation)               [0, 0.5, 0.8, 1]
+[] steps per round (more steps = more overfit)       [200, 500, 1000, 1200, 2000]
+[] batch size (number of smaples per optimization)   [2, 4, 8]
+[] KL temperature (later for distillation)           [0.5, 0.7, 1.0, 1.5, 2.0]
+
+TODO next:
+[] run pure SFT
+[] dataset curation - generate predictions with the teacher
+[] C-BTM - train specialized ensemble members
+
+TODO near future:
+[] Explore other methods to make the ensemble better
+[] Feedback-based distillation
+[] Benchmark GPU usage and inference costs
+[] Paper
+

@@ -78,6 +78,12 @@ Or via SLURM:
 sbatch train.sh
 ```
 
+Real-time output to terminal:
+```bash
+srun -c 4 --gres=gpu:2 --partition a40 --mem=10GB --pty --time=16:00:00 bash
+./train.sh
+```
+
 This launches iterative rounds of distillation. Each round:
 
 * Trains a new student model
