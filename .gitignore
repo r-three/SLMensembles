@@ -10,5 +10,6 @@ import/
 trl/
 .vscode/
 
-# Original files
-notes.txt
+# Local files
+train.sh
+config.py

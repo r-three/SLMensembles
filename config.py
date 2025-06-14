@@ -19,17 +19,17 @@ dataset_path = (
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/scratch/ssd004/scratch/klambert/slm_ensembles/csv_logs"
 id_string = "Experiment with hyperparameters for faster convergence to 0 loss"
-description = "Learning rate tweaking: lr = 5e-5"
-custom_run_name = "lr5e-5_hyperparameters"
+description = "Learning rate tweaking: lr = 1e-5"
+custom_run_name = "lr1e-5_hyperparameters"
 
 ensemble_model_names = []
 past_run_dirs = []
 
 # Hyperparameters
-learning_rate = 5e-5
-alpha = 0.5  # 1 = next_token loss to 0 = kl_loss
+learning_rate = 1e-5  # 1e=6 1e-5 5e-5 1e-4 4e-4 4e-3
+alpha = 1  # 1 = next_token loss to 0 = kl_loss
 total_rounds = 6  # number of ensemble models
-steps_per_round = 400
+steps_per_round = 1200
 kl_temperature = 1.0
 eval_batch_size = 4
 
