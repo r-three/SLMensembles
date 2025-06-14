@@ -50,7 +50,6 @@ python preprocess_dataset.py
 This applies chat template to conversation samples, tokenizes and masks tokens for assistant-only supervision, filters out truncated examples and saves the dataset to disk.
 
 ## Configuration
-
 All paths, hyperparameters, and job-specific settings are defined in `config.py`:
 
 * `teacher_model_name` / `student_model_name`
@@ -61,19 +60,18 @@ All paths, hyperparameters, and job-specific settings are defined in `config.py`
 
 Before each run, ensure:
 
-* Update the loggin directory to match your system
-* You set a unique `custom_run_name`, `description`, and if doing several runs, group them by the same `id_string`
-* You update `train.sh` job name
-* You clean old logs if needed
+* Rename `config.py.example` to `config.py`
+* Update the logging directories to match your system
+* Set a unique `custom_run_name`, `description`, and if doing several runs, group them by the same `id_string`
+* Update `train.sh` job name
+* Clean old logs if needed
 
 ### 🏁 Start Training
-
 ```bash
 python main.py
 ```
 
 Or via SLURM:
-
 ```bash
 sbatch train.sh
 ```
