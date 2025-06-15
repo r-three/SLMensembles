@@ -18,7 +18,10 @@ class CSVLogger:
         filename: str = "metrics.csv",
         flush_every: int = 10,
     ):
-        os.makedirs(log_dir, exist_ok=True)
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except:
+            print(f"File {filename} already exists")
 
         self.fieldnames = fieldnames
         self.overall_start_time = overall_start_time

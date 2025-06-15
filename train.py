@@ -68,7 +68,7 @@ class DistillationTrainer(SFTTrainer):
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
-        self.extra_logging_info = {}
+        self.extra_logging_info = {"kl_losses": []}
         super().__init__(*args, **kwargs)
 
     def compute_loss(
@@ -231,12 +231,12 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=model.config.vocab_size,
         )
 
-        if self.state.global_step % self.args.logging_steps == 0:
-            kl_loss = self.compute_kl_loss(
-                student_logits, ensemble_logits, teacher_logits, mask=labels_s != -100
-            )
-            self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
+        kl_loss = self.compute_kl_loss(
+            student_logits, ensemble_logits, teacher_logits, mask=labels_s != -100
+        )
+        self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
+        if self.state.global_step % self.args.logging_steps == 0:
             self.logger.log(
                 function="prediction_step",
                 round_num=self.round_num,
@@ -278,5 +278,5 @@ class DistillationTrainer(SFTTrainer):
             eval_loss=output.metrics["eval_loss"],
             eval_kl_loss=np.mean(self.extra_logging_info["kl_losses"]),
         )
-        self.extra_logging_info = {}
+        self.extra_logging_info = {"kl_losses": []}
         return output

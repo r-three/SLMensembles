@@ -15,6 +15,7 @@ TODO immediate:
 [] steps per round (more steps = more overfit)       [1000, 1200, 2000, 5000]
 [] batch size (number of smaples per optimization)   [2, 4, 8]
 [] KL temperature (later for distillation)           [0.5, 0.7, 1.0, 1.5, 2.0]
+[] fix the eval logging in SLM_ensembles
 
 TODO next:
 [] identify whether sequential training works at all:
@@ -22,8 +23,8 @@ TODO next:
     [] add a second model and see what we can do to make it better
 
 [] run pure SFT
-[] dataset curation - generate predictions with the teacher
-[] C-BTM - train specialized ensemble members
+[] dataset curation - generate predictions with the teacher (if distillation works)
+[] C-BTM - train specialized ensemble members, but with instruction tunning data
 
 TODO near future:
 [] Explore other methods to make the ensemble better
