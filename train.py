@@ -268,7 +268,7 @@ class DistillationTrainer(SFTTrainer):
             ignore_keys,
             metric_key_prefix,
         )
-        # This will be logged out every `eval_steps` steps
+        
         self.logger.log(
             function="evaluation_loop",
             round_num=self.round_num,
