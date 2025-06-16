@@ -206,8 +206,35 @@ def add_teacher_logits(batch):
     attention_mask = batch["attention_mask"].to(config.teacher_device)
 
     with torch.no_grad():
-        outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
-        logits = outputs.logits.cpu().to(torch.float32)
+        # forward function instead
+        # test in the notebook; play around with the parameters
+        # temperature = 0.5
+        inputs = tokenizer("Hello, my dog is cute and ", return_tensors="pt")
+        generation_output = model.generate(
+            **inputs, return_dict_in_generate=True, max_new_tokens=20
+        )
+
+        # logits = None
+        # # iterates through all models in an ensemble
+        # for model in self.models:
+        #     device = model.get_input_embeddings().weight.device
+        #     outputs = model(input_ids.to(device), attention_mask=attention_mask.to(device), **kwargs)
+        #     if logits is None:
+        #         logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
+        #     else:
+        #         logits = logits + outputs.logits.to(device)
+        #         # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
+        # logits = logits / len(self.models)  # averages the logits
+        #
+        # loss = None
+        # if labels is not None:
+        #     loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
+        #
+        # # Returns a standard output format compatible with HuggingFace models
+        # return CausalLMOutputWithPast(logits=logits, loss=loss)
+
+        # outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
+        # logits = outputs.logits.cpu().to(torch.float32)
 
     batch["teacher_logits"] = [logit for logit in logits]
     return batch
