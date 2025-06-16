@@ -192,35 +192,30 @@ teacher = AutoModelForCausalLM.from_pretrained(
     device_map=config.teacher_device,
 )
 student = AutoModelForCausalLM.from_pretrained(
-    config.student_model_name, torch_dtype=torch.bfloat16, device_map="cuda:0"
+    config.student_model_name,
+    torch_dtype=torch.bfloat16,
+    device_map=config.teacher_device,
 )
 teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
 del student
 teacher.eval()
 
 
-def add_teacher_logits(example):
+def add_teacher_logits(batch):
+    input_ids = batch["input_ids"].to(config.teacher_device)
+    attention_mask = batch["attention_mask"].to(config.teacher_device)
+
     with torch.no_grad():
-        input_ids = example["input_ids"].unsqueeze(0).to(config.teacher_device)
-        attention_mask = (
-            example["attention_mask"].unsqueeze(0).to(config.teacher_device)
-        )
-        labels = example["labels"].unsqueeze(0).to(config.teacher_device)
-
-        teacher_logits = self.teacher_model(
-            input_ids=input_ids_t, attention_mask=attention_mask_t
-        ).logits
-
         outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
-        logits = outputs.logits.squeeze(0).cpu()  # shape: [seq_len, vocab_size]
+        logits = outputs.logits.cpu().to(torch.float32)
 
-        # Store logits as soft targets (float32)
-        sample["teacher_logits"] = logits.float().numpy()
-
-    return sample
+    batch["teacher_logits"] = [logit for logit in logits]
+    return batch
 
 
 if config.data_curation:
     print("\n=== GENERATING TEACHER LOGITS ===")
-    tokenized_dataset = tokenized_dataset.map(add_teacher_logits)
+    tokenized_dataset = tokenized_dataset.map(
+        add_teacher_logits, batched=True, batch_size=8
+    )
     tokenized_dataset.save_to_disk(config.synthetic_dataset_path)
