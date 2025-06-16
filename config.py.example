@@ -1,5 +1,6 @@
 import os
 import datasets
+import torch
 from datetime import datetime
 import glob
 
@@ -10,26 +11,32 @@ student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
 tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
 dataset_name = "allenai/tulu-3-sft-mixture"
 dataset_type = "full"  # "single" or "batch" or "full"
-teacher_device = "cuda:0"
-student_device = "cuda:1"
+teacher_device = device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+student_device = device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
+data_curation = False
 dataset_path = "/your_directory/slm_ensembles/tulu-3-sft-mixture-pretokenized"
+synthetic_dataset_path = "/your_directory/slm_ensembles/synthetic_dataset"
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/your_directory/slm_ensembles/csv_logs"
-id_string = "Experiment with hyperparameters for faster convergence to 0 loss"
-description = "Learning rate tweaking: lr = 5e-5"
-custom_run_name = "lr5e-5_hyperparameters"
+id_string = "Experiment with hyperparameters to check if distillation works"
+description = "Alpha tweaking: alpha = 0.8"
+custom_run_name = "alpha08_hyperparameters"
 
 ensemble_model_names = []
 past_run_dirs = []
 
 # Hyperparameters
 learning_rate = 5e-5
-alpha = 1  # 1 = next_token loss to 0 = kl_loss
+alpha = 0.8  # 1 = next_token loss to 0 = kl_loss
 total_rounds = 1  # number of ensemble models
 steps_per_round = 5000
+eval_steps = 40
+logging_steps = 40
 kl_temperature = 1.0
 eval_batch_size = 4
+gradient_accumulation_steps = 8
+
 
 # Logging Arguments
 CSV_COLUMNS = [
@@ -56,7 +63,10 @@ CSV_COLUMNS = [
 
 
 def get_dataset():
-    dataset = datasets.load_from_disk(dataset_path)
+    if not data_curation:
+        dataset = datasets.load_from_disk(dataset_path)
+    else:
+        dataset = datasets.load_from_disk(synthetic_dataset_path)
     if dataset_type == "single":
         return {
             "train": dataset["train"].select([0]),
@@ -110,17 +120,18 @@ def get_training_args(output_dir):
         report_to="none",
         hub_model_id=None,
         learning_rate=learning_rate,
+        lr_scheduler_type="constant",
         warmup_steps=50,
         per_device_train_batch_size=4,
         per_device_eval_batch_size=eval_batch_size,
-        gradient_accumulation_steps=8,
+        gradient_accumulation_steps=gradient_accumulation_steps,
         gradient_checkpointing=False,
         bf16=True,
         max_steps=steps_per_round,
         eval_strategy="steps",
-        eval_steps=int(steps_per_round / 10),
-        eval_on_start=True,
+        eval_steps=eval_steps,
+        eval_on_start=False,
         logging_strategy="steps",
-        logging_steps=40,
+        logging_steps=logging_steps,
         save_strategy="no",
     )
