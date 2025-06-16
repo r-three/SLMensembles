@@ -22,9 +22,7 @@ def create_response_labels(input_ids):
         input_ids = torch.tensor(input_ids)
 
     labels = input_ids.clone()  # Clone input_ids to create labels
-    response_ids = tokenizer("<|im_start|>assistant\n")[
-        "input_ids"
-    ]  # Get the assistant response template IDs
+    response_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]  # Get the assistant response template IDs
 
     # By default, mask everything with -100
     labels.fill_(-100)
@@ -48,9 +46,7 @@ def format_chat_data(sample):
     """
     Formats chat data using the tokenizer's chat template.
     """
-    return {
-        "chat_text": tokenizer.apply_chat_template(sample["messages"], tokenize=False)
-    }
+    return {"chat_text": tokenizer.apply_chat_template(sample["messages"], tokenize=False)}
 
 
 def tokenize_text(sample):
@@ -96,9 +92,7 @@ print(dataset[random_idx]["messages"])
 dataset = dataset.shuffle(config.seed)
 dataset = dataset.select(range(200_000))
 dataset = dataset.train_test_split(test_size=2000)
-print(
-    f"\nAfter sampling - Train size: {len(dataset['train'])}, Test size: {len(dataset['test'])}"
-)
+print(f"\nAfter sampling - Train size: {len(dataset['train'])}, Test size: {len(dataset['test'])}")
 
 # TODO: split into the train, validation, and test sets
 
@@ -106,25 +100,15 @@ print(
 print("\n=== APPLYING CHAT TEMPLATE ===")
 processed_dataset = dataset.map(format_chat_data)
 print(f"Examples after chat formatting:")
-print(
-    f"Train example chat_text (first 300 chars):\n{processed_dataset['train'][0]['chat_text'][:300]}..."
-)
-print(
-    f"Test example chat_text (first 300 chars):\n{processed_dataset['test'][0]['chat_text'][:300]}..."
-)
+print(f"Train example chat_text (first 300 chars):\n{processed_dataset['train'][0]['chat_text'][:300]}...")
+print(f"Test example chat_text (first 300 chars):\n{processed_dataset['test'][0]['chat_text'][:300]}...")
 
 # Tokenize the text
 print("\n=== TOKENIZING TEXT ===")
-tokenized_dataset = processed_dataset.map(
-    tokenize_text, remove_columns=["messages", "id", "source"]
-)
+tokenized_dataset = processed_dataset.map(tokenize_text, remove_columns=["messages", "id", "source"])
 print(f"Dataset features after tokenization: {tokenized_dataset['train'].features}")
-print(
-    f"Train example input_ids shape: {torch.tensor(tokenized_dataset['train'][0]['input_ids']).shape}"
-)
-print(
-    f"Train example attention_mask shape: {torch.tensor(tokenized_dataset['train'][0]['attention_mask']).shape}"
-)
+print(f"Train example input_ids shape: {torch.tensor(tokenized_dataset['train'][0]['input_ids']).shape}")
+print(f"Train example attention_mask shape: {torch.tensor(tokenized_dataset['train'][0]['attention_mask']).shape}")
 
 
 print("\n=== ADDING LABELS ===")
@@ -132,9 +116,7 @@ labeled_dataset = tokenized_dataset.map(add_labels)
 print(f"Dataset features after adding labels: {labeled_dataset['train'].features}")
 
 # Set format for PyTorch
-labeled_dataset.set_format(
-    type="torch", columns=["input_ids", "attention_mask", "labels"]
-)
+labeled_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
 # Filter out samples which were truncated
 print("\n=== FILTERING EXAMPLES ===")
@@ -145,12 +127,7 @@ def contains_complete_response_template(sample):
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
 
     for start_idx in range(len(sample["input_ids"]) - len(response_template_ids) + 1):
-        if (
-            sample["input_ids"][
-                start_idx : start_idx + len(response_template_ids)
-            ].tolist()
-            == response_template_ids
-        ):
+        if sample["input_ids"][start_idx : start_idx + len(response_template_ids)].tolist() == response_template_ids:
             return True
     return False
 
@@ -170,9 +147,7 @@ print(
 
 # Apply the filter
 final_dataset = labeled_dataset.filter(contains_complete_response_template)
-print(
-    f"Dataset size after filtering - Train: {len(final_dataset['train'])}, Test: {len(final_dataset['test'])}"
-)
+print(f"Dataset size after filtering - Train: {len(final_dataset['train'])}, Test: {len(final_dataset['test'])}")
 
 # Save the processed dataset
 print("\n=== SAVING DATASET ===")
@@ -185,64 +160,60 @@ print("Dataset processing complete!")
 # -------------------------------
 # Synthetic Data Curation
 # -------------------------------
-
-teacher = AutoModelForCausalLM.from_pretrained(
-    config.teacher_model_name,
-    torch_dtype=torch.bfloat16,
-    device_map=config.teacher_device,
-)
-student = AutoModelForCausalLM.from_pretrained(
-    config.student_model_name,
-    torch_dtype=torch.bfloat16,
-    device_map=config.teacher_device,
-)
-teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
-del student
-teacher.eval()
-
-
-def add_teacher_logits(batch):
-    input_ids = batch["input_ids"].to(config.teacher_device)
-    attention_mask = batch["attention_mask"].to(config.teacher_device)
-
-    with torch.no_grad():
-        # forward function instead
-        # test in the notebook; play around with the parameters
-        # temperature = 0.5
-        inputs = tokenizer("Hello, my dog is cute and ", return_tensors="pt")
-        generation_output = model.generate(
-            **inputs, return_dict_in_generate=True, max_new_tokens=20
-        )
-
-        # logits = None
-        # # iterates through all models in an ensemble
-        # for model in self.models:
-        #     device = model.get_input_embeddings().weight.device
-        #     outputs = model(input_ids.to(device), attention_mask=attention_mask.to(device), **kwargs)
-        #     if logits is None:
-        #         logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
-        #     else:
-        #         logits = logits + outputs.logits.to(device)
-        #         # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
-        # logits = logits / len(self.models)  # averages the logits
-        #
-        # loss = None
-        # if labels is not None:
-        #     loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
-        #
-        # # Returns a standard output format compatible with HuggingFace models
-        # return CausalLMOutputWithPast(logits=logits, loss=loss)
-
-        # outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
-        # logits = outputs.logits.cpu().to(torch.float32)
-
-    batch["teacher_logits"] = [logit for logit in logits]
-    return batch
-
-
-if config.data_curation:
-    print("\n=== GENERATING TEACHER LOGITS ===")
-    tokenized_dataset = tokenized_dataset.map(
-        add_teacher_logits, batched=True, batch_size=8
-    )
-    tokenized_dataset.save_to_disk(config.synthetic_dataset_path)
+#
+# teacher = AutoModelForCausalLM.from_pretrained(
+#     config.teacher_model_name,
+#     torch_dtype=torch.bfloat16,
+#     device_map=config.teacher_device,
+# )
+# student = AutoModelForCausalLM.from_pretrained(
+#     config.student_model_name,
+#     torch_dtype=torch.bfloat16,
+#     device_map=config.teacher_device,
+# )
+# teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
+# del student
+# teacher.eval()
+#
+#
+# def add_teacher_logits(batch):
+#     input_ids = batch["input_ids"].to(config.teacher_device)
+#     attention_mask = batch["attention_mask"].to(config.teacher_device)
+#
+#     with torch.no_grad():
+#         # forward function instead
+#         # test in the notebook; play around with the parameters
+#         # temperature = 0.5
+#         inputs = tokenizer("Hello, my dog is cute and ", return_tensors="pt")
+#         generation_output = model.generate(**inputs, return_dict_in_generate=True, max_new_tokens=20)
+#
+#         # logits = None
+#         # # iterates through all models in an ensemble
+#         # for model in self.models:
+#         #     device = model.get_input_embeddings().weight.device
+#         #     outputs = model(input_ids.to(device), attention_mask=attention_mask.to(device), **kwargs)
+#         #     if logits is None:
+#         #         logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
+#         #     else:
+#         #         logits = logits + outputs.logits.to(device)
+#         #         # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
+#         # logits = logits / len(self.models)  # averages the logits
+#         #
+#         # loss = None
+#         # if labels is not None:
+#         #     loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
+#         #
+#         # # Returns a standard output format compatible with HuggingFace models
+#         # return CausalLMOutputWithPast(logits=logits, loss=loss)
+#
+#         # outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
+#         # logits = outputs.logits.cpu().to(torch.float32)
+#
+#     batch["teacher_logits"] = [logit for logit in logits]
+#     return batch
+#
+#
+# if config.data_curation:
+#     print("\n=== GENERATING TEACHER LOGITS ===")
+#     tokenized_dataset = tokenized_dataset.map(add_teacher_logits, batched=True, batch_size=8)
+#     tokenized_dataset.save_to_disk(config.synthetic_dataset_path)
