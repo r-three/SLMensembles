@@ -16,7 +16,7 @@ TODO immediate:
 [] steps per round (more steps = more overfit)                          [1000, 1200, 2000, 5000]
 [] batch size (number of smaples per optimization)                      [2, 4, 8]
 [] KL temperature (later for distillation)                              [0.5, 0.7, 1.0, 1.5, 2.0]
-[] set up better eval metrics for the ensembles
+[x] set up better eval metrics for the ensembles
 [] finds ways to concatenate csv file metrics
 [] save the config files
 

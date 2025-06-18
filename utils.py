@@ -18,11 +18,7 @@ class CSVLogger:
         filename: str = "metrics.csv",
         flush_every: int = 10,
     ):
-        try:
-            os.makedirs(log_dir)
-        except Exception as e:
-            print(f"Fatal error: {e}")
-            sys.exit(1)
+        os.makedirs(log_dir, exist_ok=True)
 
         self.fieldnames = fieldnames
         self.overall_start_time = overall_start_time
@@ -45,6 +41,9 @@ class CSVLogger:
             with open(self.filepath, mode="w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=self.fieldnames)
                 writer.writeheader()
+        else:
+            print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
+            sys.exit(1)
 
     def log(self, **kwargs):
         row = {key: kwargs.get(key, None) for key in self.fieldnames}
