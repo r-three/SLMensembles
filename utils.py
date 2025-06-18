@@ -1,5 +1,5 @@
 # utils.py
-import os, csv, time, glob
+import os, csv, time, glob, sys
 from datetime import datetime
 import torch
 from torch.utils.data import DataLoader
@@ -19,9 +19,10 @@ class CSVLogger:
         flush_every: int = 10,
     ):
         try:
-            os.makedirs(log_dir, exist_ok=True)
-        except:
-            print(f"File {filename} already exists")
+            os.makedirs(log_dir)
+        except Exception as e:
+            print(f"Fatal error: {e}")
+            sys.exit(1)
 
         self.fieldnames = fieldnames
         self.overall_start_time = overall_start_time
@@ -30,13 +31,7 @@ class CSVLogger:
         self.counter = 0
 
         run_dirs = glob.glob(os.path.join(log_dir, "run_*"))
-        next_run = (
-            max(
-                [int(os.path.basename(d).split("_")[1]) for d in run_dirs if "_" in d]
-                + [0]
-            )
-            + 1
-        )
+        next_run = max([int(os.path.basename(d).split("_")[1]) for d in run_dirs if "_" in d] + [0]) + 1
 
         if config.custom_run_name is None:
             filename = f"run_{next_run}_{filename}"
@@ -82,9 +77,7 @@ def get_round_path(output_path, round_num):
 
 def evaluate_model(model, eval_dataset, collator):
     model.eval()
-    dataloader = DataLoader(
-        eval_dataset, batch_size=config.eval_batch_size, collate_fn=collator
-    )
+    dataloader = DataLoader(eval_dataset, batch_size=config.eval_batch_size, collate_fn=collator)
     total_loss, total_tokens = 0, 0
 
     device = next(model.parameters()).device
@@ -94,9 +87,7 @@ def evaluate_model(model, eval_dataset, collator):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
-            outputs = model(
-                input_ids=input_ids, attention_mask=attention_mask, labels=labels
-            )
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
             valid_tokens = (labels != -100).sum().item()
             total_loss += outputs.loss.item() * valid_tokens
             total_tokens += valid_tokens
