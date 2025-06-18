@@ -160,60 +160,60 @@ print("Dataset processing complete!")
 # -------------------------------
 # Synthetic Data Curation
 # -------------------------------
-#
-# teacher = AutoModelForCausalLM.from_pretrained(
-#     config.teacher_model_name,
-#     torch_dtype=torch.bfloat16,
-#     device_map=config.teacher_device,
-# )
-# student = AutoModelForCausalLM.from_pretrained(
-#     config.student_model_name,
-#     torch_dtype=torch.bfloat16,
-#     device_map=config.teacher_device,
-# )
-# teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
-# del student
-# teacher.eval()
-#
-#
-# def add_teacher_logits(batch):
-#     input_ids = batch["input_ids"].to(config.teacher_device)
-#     attention_mask = batch["attention_mask"].to(config.teacher_device)
-#
-#     with torch.no_grad():
-#         # forward function instead
-#         # test in the notebook; play around with the parameters
-#         # temperature = 0.5
-#         inputs = tokenizer("Hello, my dog is cute and ", return_tensors="pt")
-#         generation_output = model.generate(**inputs, return_dict_in_generate=True, max_new_tokens=20)
-#
-#         # logits = None
-#         # # iterates through all models in an ensemble
-#         # for model in self.models:
-#         #     device = model.get_input_embeddings().weight.device
-#         #     outputs = model(input_ids.to(device), attention_mask=attention_mask.to(device), **kwargs)
-#         #     if logits is None:
-#         #         logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
-#         #     else:
-#         #         logits = logits + outputs.logits.to(device)
-#         #         # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
-#         # logits = logits / len(self.models)  # averages the logits
-#         #
-#         # loss = None
-#         # if labels is not None:
-#         #     loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
-#         #
-#         # # Returns a standard output format compatible with HuggingFace models
-#         # return CausalLMOutputWithPast(logits=logits, loss=loss)
-#
-#         # outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
-#         # logits = outputs.logits.cpu().to(torch.float32)
-#
-#     batch["teacher_logits"] = [logit for logit in logits]
-#     return batch
-#
-#
-# if config.data_curation:
-#     print("\n=== GENERATING TEACHER LOGITS ===")
-#     tokenized_dataset = tokenized_dataset.map(add_teacher_logits, batched=True, batch_size=8)
-#     tokenized_dataset.save_to_disk(config.synthetic_dataset_path)
+
+teacher = AutoModelForCausalLM.from_pretrained(
+    config.teacher_model_name,
+    torch_dtype=torch.bfloat16,
+    device_map=config.teacher_device,
+)
+student = AutoModelForCausalLM.from_pretrained(
+    config.student_model_name,
+    torch_dtype=torch.bfloat16,
+    device_map=config.teacher_device,
+)
+teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
+del student
+teacher.eval()
+
+
+def add_teacher_logits(batch):
+    input_ids = batch["input_ids"].to(config.teacher_device)
+    attention_mask = batch["attention_mask"].to(config.teacher_device)
+
+    with torch.no_grad():
+        # forward function instead
+        # test in the notebook; play around with the parameters
+        # temperature = 0.5
+        inputs = tokenizer("Hello, my dog is cute and ", return_tensors="pt")
+        generation_output = model.generate(**inputs, return_dict_in_generate=True, max_new_tokens=20)
+
+        # logits = None
+        # # iterates through all models in an ensemble
+        # for model in self.models:
+        #     device = model.get_input_embeddings().weight.device
+        #     outputs = model(input_ids.to(device), attention_mask=attention_mask.to(device), **kwargs)
+        #     if logits is None:
+        #         logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
+        #     else:
+        #         logits = logits + outputs.logits.to(device)
+        #         # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
+        # logits = logits / len(self.models)  # averages the logits
+        #
+        # loss = None
+        # if labels is not None:
+        #     loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
+        #
+        # # Returns a standard output format compatible with HuggingFace models
+        # return CausalLMOutputWithPast(logits=logits, loss=loss)
+
+        # outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
+        # logits = outputs.logits.cpu().to(torch.float32)
+
+    batch["teacher_logits"] = [logit for logit in logits]
+    return batch
+
+
+if config.data_curation:
+    print("\n=== GENERATING TEACHER LOGITS ===")
+    tokenized_dataset = tokenized_dataset.map(add_teacher_logits, batched=True, batch_size=8)
+    tokenized_dataset.save_to_disk(config.synthetic_dataset_path)

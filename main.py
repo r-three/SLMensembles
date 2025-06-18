@@ -18,9 +18,7 @@ def main():
     print(f"\nStarting training at: {overall_start_datetime}")
 
     log_dir = config.get_directory(config.log_dir)
-    logger = CSVLogger(
-        log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time
-    )
+    logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
 
     atexit.register(logger.flush)
 
@@ -92,9 +90,7 @@ def main():
 
     dataset = config.get_dataset()
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(
-        response_template_ids, tokenizer=tokenizer
-    )
+    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator)
     logger.log(
@@ -107,11 +103,11 @@ def main():
     )
 
     # ----------------------------------
-    # Load Existing Ensemble Models
+    # Load Existing Models
     # ----------------------------------
 
     existing_models = []
-    for run_dir in config.past_run_dirs:
+    for run_dir in config.ensemble_members:
         for i in range(config.total_rounds):
             round_dir = os.path.join(run_dir, f"round_{i}")
             model_file = os.path.join(round_dir, "config.json")
@@ -140,6 +136,8 @@ def main():
         ensemble_model.requires_grad_(False)
         del temp_model
 
+    config.checkpoint_path and print(f"Resuming training from checkpoint: {config.checkpoint_path}")
+
     # ----------------------------------
     # Outer Training Loop
     # ----------------------------------
@@ -165,6 +163,7 @@ def main():
             torch_dtype=torch.bfloat16,
             device_map=config.student_device,
         )
+
         student_eval_results = evaluate_model(student_model, dataset["test"], collator)
         logger.log(
             function="main",
@@ -179,6 +178,10 @@ def main():
         # ----------------------------------
         # Inner Training Loop
         # ----------------------------------
+
+        import pdb
+
+        breakpoint()
 
         training_args = config.get_training_args(round_output_dir)
         trainer = DistillationTrainer(
@@ -196,7 +199,7 @@ def main():
             callbacks=[LoggingCallback(logger, round_num, overall_start_time)],
         )
 
-        trainer.train()
+        trainer.train(resume_from_checkpoint=config.checkpoint_path)
         logger.flush()
         trainer.model.save_pretrained(round_output_dir)
 
@@ -220,20 +223,12 @@ def main():
         # ----------------------------------
 
         student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
-        ensemble_eval_results = evaluate_model(
-            ensemble_model, dataset["test"], collator
-        )
+        ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
 
         print(f"\n{'-'*25}")
-        print(
-            f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}"
-        )
-        print(
-            f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}"
-        )
-        print(
-            f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}"
-        )
+        print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
+        print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
+        print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
         print(f"{'-'*25}")
 
         round_end_time = time.time()
