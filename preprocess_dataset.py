@@ -181,39 +181,23 @@ def add_teacher_logits(batch):
     attention_mask = batch["attention_mask"].to(config.teacher_device)
 
     with torch.no_grad():
-        # forward function instead
-        # test in the notebook; play around with the parameters
-        # temperature = 0.5
-        inputs = tokenizer("Hello, my dog is cute and ", return_tensors="pt")
-        generation_output = model.generate(**inputs, return_dict_in_generate=True, max_new_tokens=20)
+        generation_output = teacher.generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            temperature=0.5,
+            max_new_tokens=70,
+        )
+        generated_sequences = generation_output.sequences
+        gen_only = generated_sequences[:, input_ids.shape[1] :]
 
-        # logits = None
-        # # iterates through all models in an ensemble
-        # for model in self.models:
-        #     device = model.get_input_embeddings().weight.device
-        #     outputs = model(input_ids.to(device), attention_mask=attention_mask.to(device), **kwargs)
-        #     if logits is None:
-        #         logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
-        #     else:
-        #         logits = logits + outputs.logits.to(device)
-        #         # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
-        # logits = logits / len(self.models)  # averages the logits
-        #
-        # loss = None
-        # if labels is not None:
-        #     loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
-        #
-        # # Returns a standard output format compatible with HuggingFace models
-        # return CausalLMOutputWithPast(logits=logits, loss=loss)
+        pad = torch.full((gen_only.size(0), input_ids.size(1)), fill_value=-100, dtype=gen_only.dtype)
+        labels = torch.cat([pad, gen_only], dim=1)
 
-        # outputs = teacher(input_ids=input_ids, attention_mask=attention_mask)
-        # logits = outputs.logits.cpu().to(torch.float32)
-
-    batch["teacher_logits"] = [logit for logit in logits]
-    return batch
+        batch["labels"] = labels
+        return batch
 
 
 if config.data_curation:
     print("\n=== GENERATING TEACHER LOGITS ===")
-    tokenized_dataset = tokenized_dataset.map(add_teacher_logits, batched=True, batch_size=8)
-    tokenized_dataset.save_to_disk(config.synthetic_dataset_path)
+    tokenized_final = final_dataset.map(add_teacher_logits, batched=True, batch_size=8)
+    tokenized_final.save_to_disk(config.synthetic_dataset_path)

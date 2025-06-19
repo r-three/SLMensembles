@@ -13,3 +13,4 @@ trl/
 # Local files
 train.sh
 config.py
+test.ipynb
