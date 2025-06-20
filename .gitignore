@@ -1,16 +1,11 @@
 # Temporary files and editor backups
 *.swp
-
-# Python cache files
 __pycache__/
-
-# Build and output directories
 from/
 import/
 trl/
 .vscode/
-
-# Local files
+.venv/
 train.sh
 config.py
 test.ipynb
