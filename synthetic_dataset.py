@@ -1,10 +1,11 @@
+import psutil
 import torch
 import datasets
 from transformers import AutoModelForCausalLM
 import config
 import torch.nn.functional as F
 
-dataset = datasets.load_from_disk(config.synthetic_dataset_path)
+dataset = datasets.load_from_disk(config.dataset_path)
 
 teacher = AutoModelForCausalLM.from_pretrained(
     config.teacher_model_name,
@@ -19,9 +20,11 @@ student = AutoModelForCausalLM.from_pretrained(
 teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
 del student
 teacher.eval()
+batch_num = 0
 
 
 def add_teacher_logits(batch):
+    batch_num += 2
     input_ids = batch["input_ids"].to(config.teacher_device)
     attention_mask = batch["attention_mask"].to(config.teacher_device)
 
@@ -30,8 +33,9 @@ def add_teacher_logits(batch):
             input_ids=input_ids,
             attention_mask=attention_mask,
             temperature=0.5,
-            max_new_tokens=70,
+            max_new_tokens=60,
         )
+        print(f"Memory: {psutil.Process().memory_info().rss / (1024 * 1024)}, batch: {batch_num}")
         generated_sequences = generation_output.sequences
         gen_only = generated_sequences[:, input_ids.shape[1] :]
 
@@ -43,5 +47,5 @@ def add_teacher_logits(batch):
 
 
 print("\n=== GENERATING TEACHER LOGITS ===")
-tokenized_final = dataset.map(add_teacher_logits, batched=True, batch_size=8)
+tokenized_final = dataset.map(add_teacher_logits, batched=True, batch_size=2)
 tokenized_final.save_to_disk(config.synthetic_dataset_path)

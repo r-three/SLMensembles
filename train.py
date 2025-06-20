@@ -18,7 +18,7 @@ import config
 class LoggingCallback(TrainerCallback):
     def __init__(self, logger, round_num, overall_start_time):
         self.logger = logger
-        self.round_num = (round_num,)
+        self.round_num = round_num
         self.overall_start_time = overall_start_time
 
     def on_prediction_step_end(self, args, state, control, **kwargs):
