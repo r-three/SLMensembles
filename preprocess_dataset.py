@@ -1,11 +1,9 @@
 import torch
-import numpy as np
 import random
 import datasets
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer
 import config
 import torch.nn.functional as F
-
 
 # ----------------------------------
 # Helper Functions

@@ -36,8 +36,12 @@ class CSVLogger:
 
         self.filepath = os.path.join(log_dir, filename)
 
-        # Write header if the file doesn't exist
-        if not os.path.exists(self.filepath):
+        if config.checkpoint_path:
+            # change the specified log dir to the one corresponding to the checkpointed model
+            self.filepath = os.path.join(config.checkpoint_log_path, f"{config.custom_run_name}_metrics.csv")
+            if not os.path.exists(self.filepath):
+                print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
+        elif not os.path.exists(self.filepath):
             with open(self.filepath, mode="w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=self.fieldnames)
                 writer.writeheader()
