@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM
 import config
 import torch.nn.functional as F
 
-dataset = datasets.load_from_disk(config.synthetic_dataset_path)
+dataset = datasets.load_from_disk(config.dataset_path)
 
 teacher = AutoModelForCausalLM.from_pretrained(
     config.teacher_model_name,
