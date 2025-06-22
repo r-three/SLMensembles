@@ -1,6 +1,7 @@
 import psutil
 import torch
 import datasets
+from tqdm import tqdm
 from transformers import AutoModelForCausalLM
 import config
 import torch.nn.functional as F
@@ -23,10 +24,30 @@ teacher.eval()
 batch_num = 0
 
 
+
+def add_teacher_labels(example):
+    global batch_num
+    batch_num += 2
+    
+    with torch.no_grad():
+        
+
+
+
+
+
+
+
 def add_teacher_logits(batch):
+    global batch_num
+
     batch_num += 2
     input_ids = batch["input_ids"].to(config.teacher_device)
     attention_mask = batch["attention_mask"].to(config.teacher_device)
+
+    import pdb
+
+    breakpoint()
 
     with torch.no_grad():
         generation_output = teacher.generate(
@@ -47,5 +68,5 @@ def add_teacher_logits(batch):
 
 
 print("\n=== GENERATING TEACHER LOGITS ===")
-tokenized_final = dataset.map(add_teacher_logits, batched=True, batch_size=2)
+tokenized_final = dataset.map(add_teacher_logits, batched=True, batch_size=2, num_proc=1, load_from_cache_file=False)
 tokenized_final.save_to_disk(config.synthetic_dataset_path)
