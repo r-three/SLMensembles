@@ -19,16 +19,20 @@ dataset_path = "/your_directory/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 synthetic_dataset_path = "/your_directory/slm_ensembles/synthetic_dataset"
 base_output_dir = "/projects/distilling_llms/model_log"
 log_dir = "/your_directory/slm_ensembles/csv_logs"
+
 id_string = "Experiment with hyperparameters to check if distillation works"
 description = "Alpha tweaking: alpha = 0.8"
 custom_run_name = "alpha08_hyperparameters"
 
 ensemble_model_names = []
-past_run_dirs = []
+ensemble_members = []  # Full path of ensemble models which we want to load
+checkpoint_path = None  # Full path of the model checkpoint from which we want to resume training (else None)
+checkpoint_log_path = None  # exact path of the csv file corresponding to the checkpointed model (else None)
+
 
 # Hyperparameters
 learning_rate = 5e-5
-alpha = 0.8  # 1 = next_token loss to 0 = kl_loss
+alpha = 0.5  # 1 = next_token loss to 0 = kl_loss
 total_rounds = 1  # number of ensemble models
 steps_per_round = 5000
 eval_steps = 40
