@@ -6,6 +6,8 @@ import/
 trl/
 .vscode/
 .venv/
+csv_logs/
+models/
 train.sh
 config.py
 test.ipynb

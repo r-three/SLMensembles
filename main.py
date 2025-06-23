@@ -1,4 +1,4 @@
-import os, gc, time
+import os, gc, time, sys
 import torch
 import datasets
 import atexit
@@ -136,7 +136,11 @@ def main():
         ensemble_model.requires_grad_(False)
         del temp_model
 
-    config.checkpoint_path and print(f"Resuming training from checkpoint: {config.checkpoint_path}")
+    if config.checkpoint_path:
+        if not os.path.exists(config.checkpoint_path):
+            print(f"[WARNING] Checkpointed model does not exist at: {config.checkpoint_path}")
+            sys.exit(1)
+        print(f"Resuming training from checkpoint: {config.checkpoint_path}")
 
     # ----------------------------------
     # Outer Training Loop
