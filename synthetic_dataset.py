@@ -21,42 +21,19 @@ student = AutoModelForCausalLM.from_pretrained(
 teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
 del student
 teacher.eval()
-batch_num = 0
-
-
-
-def add_teacher_labels(example):
-    global batch_num
-    batch_num += 2
-    
-    with torch.no_grad():
-        
-
-
-
-
-
 
 
 def add_teacher_logits(batch):
-    global batch_num
-
-    batch_num += 2
     input_ids = batch["input_ids"].to(config.teacher_device)
     attention_mask = batch["attention_mask"].to(config.teacher_device)
-
-    import pdb
-
-    breakpoint()
 
     with torch.no_grad():
         generation_output = teacher.generate(
             input_ids=input_ids,
             attention_mask=attention_mask,
             temperature=0.5,
-            max_new_tokens=60,
+            max_new_tokens=70,
         )
-        print(f"Memory: {psutil.Process().memory_info().rss / (1024 * 1024)}, batch: {batch_num}")
         generated_sequences = generation_output.sequences
         gen_only = generated_sequences[:, input_ids.shape[1] :]
 
@@ -68,5 +45,13 @@ def add_teacher_logits(batch):
 
 
 print("\n=== GENERATING TEACHER LOGITS ===")
-tokenized_final = dataset.map(add_teacher_logits, batched=True, batch_size=2, num_proc=1, load_from_cache_file=False)
+tokenized_final = dataset.map(
+    add_teacher_logits,
+    batched=True,
+    writer_batch_size=10,
+    batch_size=10,
+    with_rank=True,
+    num_proc=torch.cuda.device_count(),
+    load_from_cache_file=False,
+)
 tokenized_final.save_to_disk(config.synthetic_dataset_path)
