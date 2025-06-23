@@ -27,6 +27,12 @@ TODO next:
 [] dataset curation - generate predictions with the teacher (if distillation works)
 [] C-BTM - train specialized ensemble members, but with instruction tunning data
 
+
+- distil Kit
+- finish alpha past_run_dirs
+- synthetic dataset
+- add new models (second model) (wait for the first model to plateau + count num steps)
+
 TODO near future:
 [] Explore other methods to make the ensemble better
 [] Feedback-based distillation
