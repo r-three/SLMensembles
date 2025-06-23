@@ -40,6 +40,10 @@ def add_teacher_logits(batch):
         pad = torch.full((gen_only.size(0), input_ids.size(1)), fill_value=-100, dtype=gen_only.dtype)
         labels = torch.cat([pad, gen_only], dim=1)
 
+        # Clean up GPU memory
+        del generation_output, generated_sequences, gen_only, pad, input_ids, attention_mask
+        torch.cuda.empty_cache()
+
         batch["labels"] = labels
         return batch
 
