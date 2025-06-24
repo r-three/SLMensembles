@@ -17,8 +17,7 @@ TODO immediate:
 [] batch size (number of smaples per optimization)                      [2, 4, 8]
 [] KL temperature (later for distillation)                              [0.5, 0.7, 1.0, 1.5, 2.0]
 [x] set up better eval metrics for the ensembles
-[] finds ways to concatenate csv file metrics
-[] save the config files
+[x] finds ways to concatenate csv file metrics
 
 TODO next:
 [] identify whether sequential training works at all:
@@ -27,6 +26,12 @@ TODO next:
 [] run pure SFT
 [] dataset curation - generate predictions with the teacher (if distillation works)
 [] C-BTM - train specialized ensemble members, but with instruction tunning data
+
+
+- distil Kit
+- finish alpha past_run_dirs
+- synthetic dataset
+- add new models (second model) (wait for the first model to plateau + count num steps)
 
 TODO near future:
 [] Explore other methods to make the ensemble better
