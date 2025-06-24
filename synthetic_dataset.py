@@ -60,7 +60,7 @@ for batch in tqdm(dataloader):
         )
 
         generated_sequences = generation_output.sequences
-        print(f"generated sequences: {type(generated_sequences)}")
+        print(f"generated sequences: {generated_sequences}")
 
         gen_only = generated_sequences[:, input_ids.shape[1] :]
         print(f"gen_only: {type(gen_only)}")
