@@ -10,5 +10,4 @@ csv_logs/
 models/
 train.sh
 config.py
-test.ipynb
 DistillKit/
