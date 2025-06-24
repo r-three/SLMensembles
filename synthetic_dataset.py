@@ -21,9 +21,9 @@ student = AutoModelForCausalLM.from_pretrained(
 teacher.resize_token_embeddings(new_num_tokens=student.vocab_size)
 del student
 teacher.eval()
+ds = {"input_ids": [], "attention_mask": [], "labels": []}
 
-
-def add_teacher_logits(batch):
+for batch in tqdm(dataset["train"]):
     input_ids = batch["input_ids"].to(config.teacher_device)
     attention_mask = batch["attention_mask"].to(config.teacher_device)
 
@@ -32,8 +32,11 @@ def add_teacher_logits(batch):
             input_ids=input_ids,
             attention_mask=attention_mask,
             temperature=0.5,
-            max_new_tokens=70,
+            max_length=1024,
         )
+        text = tokenizer.decode(generation_output.sequences[0])
+        ds["text"].append(text)
+
         generated_sequences = generation_output.sequences
         gen_only = generated_sequences[:, input_ids.shape[1] :]
 
@@ -45,8 +48,10 @@ def add_teacher_logits(batch):
         torch.cuda.empty_cache()
 
         batch["labels"] = labels
-        return batch
 
+dset = datasets.Dataset.from_dict(ds)  # turn into huggingface dict
+dset.save_to_disk(config.synthetic_dataset_path)
+dset.set_format(type="torch", columns=["text"])
 
 print("\n=== GENERATING TEACHER LOGITS ===")
 tokenized_final = dataset.map(
