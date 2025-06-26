@@ -1,4 +1,5 @@
 import torch
+import os
 import torch.nn.functional as F
 import numpy as np
 import datasets
@@ -51,30 +52,21 @@ class LoggingCallback(TrainerCallback):
 
 
 class DistillationTrainer(SFTTrainer):
-    def __init__(self, teacher_model, ensemble_model, student_model, logger, round_num, overall_start_time, *args, **kwargs):
+    def __init__(self, teacher_model, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
         self.teacher_model = teacher_model
         self.ensemble_model = ensemble_model
-        self.student_model = student_model
+        self.teacher_logits = teacher_logits.to(config.student_device)
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
         self.extra_logging_info = {"kl_losses": []}
+
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
-
-        # -------------------------
-        # Run teacher forward pass
-        # -------------------------
-        if not config.synthetic_data:
-            with torch.no_grad():
-                teacher_device = next(self.teacher_model.parameters()).device
-                input_ids_t = input_ids.to(teacher_device)
-                attention_mask_t = attention_mask.to(teacher_device)
-                teacher_logits = self.teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
 
         # -------------------------
         # Run ensemble forward pass
@@ -108,8 +100,7 @@ class DistillationTrainer(SFTTrainer):
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
-            teacher_logits = teacher_logits.to(student_device)
-            kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
+            kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, mask=labels_s != -100)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # -------------------------
@@ -131,7 +122,7 @@ class DistillationTrainer(SFTTrainer):
 
         return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
 
-    def compute_kl_loss(self, student_logits, ensemble_logits, teacher_logits, mask, temperature=1.0):
+    def compute_kl_loss(self, student_logits, ensemble_logits, mask, temperature=1.0):
         """Computes KL divergence loss between teacher and student model logits."""
 
         # ----------------------------------------
@@ -145,7 +136,7 @@ class DistillationTrainer(SFTTrainer):
         # Compute KL Loss
         # -----------------------
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        teacher_probs = F.log_softmax(teacher_logits / temperature, dim=-1)
+        teacher_probs = F.log_softmax(self.teacher_logits / temperature, dim=-1)
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 
@@ -163,17 +154,7 @@ class DistillationTrainer(SFTTrainer):
         attention_mask_s = attention_mask.to(student_device)
         labels_s = labels.to(student_device)
 
-        # -------------------------
-        # Run teacher model
-        # -------------------------
         with torch.no_grad():
-            if not config.synthetic_data:
-                teacher_device = next(self.teacher_model.parameters()).device
-                input_ids_t = input_ids.to(teacher_device)
-                attention_mask_t = attention_mask.to(teacher_device)
-                teacher_logits = self.teacher_model(input_ids=input_ids_t, attention_mask=attention_mask_t).logits
-                teacher_logits = teacher_logits.to(student_device)
-
             # -------------------------
             # Run ensemble model
             # -------------------------
@@ -210,7 +191,7 @@ class DistillationTrainer(SFTTrainer):
 
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, teacher_logits, mask=labels_s != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, self.teacher_logits, mask=labels_s != -100)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         if self.state.global_step % self.args.logging_steps == 0:
