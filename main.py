@@ -1,9 +1,11 @@
-import os, gc, time, sys
+import os, gc, time, sys, pdb
 import torch
+import numpy as np
 import datasets
 import atexit
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from tqdm import tqdm
 from trl import DataCollatorForCompletionOnlyLM
 
 import config
@@ -24,6 +26,8 @@ def main():
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
+
+    os.makedirs(config.logit_cache_path, exist_ok=True)
 
     # ----------------------------------
     # Metrics
@@ -101,6 +105,30 @@ def main():
         eval_loss=teacher_eval_results["eval_loss"],
         perplexity=teacher_eval_results["perplexity"],
     )
+
+    # ----------------------------------
+    # Cache Teacher Logits
+    # ----------------------------------
+    print("\n==== Generating Teacher Logits ====")
+
+    logit_values = []
+    teacher_logits = []
+
+    with torch.no_grad():
+        for idx, sample in enumerate(tqdm(dataset["train"], desc="Caching Teacher Logits")):
+            input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
+            attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
+            outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+
+            logits = outputs.logits.squeeze(0).cpu()
+            teacher_logits.append(logits)
+
+            logit_values.append(logits.flatten().numpy())
+
+            if idx >= 1000:
+                break
+
+    np.save(os.path.join(config.logit_cache_path, "teacher_logits.npy"), np.concatenate(logit_values))
 
     # ----------------------------------
     # Load Existing Models
@@ -187,7 +215,7 @@ def main():
         trainer = DistillationTrainer(
             teacher_model=teacher_model,
             ensemble_model=ensemble_model,
-            student_model=student_model,
+            teacher_logits=logit_values,
             logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,
