@@ -70,6 +70,23 @@ class CSVLogger:
         self.counter = 0
 
 
+class TeacherLogits(Dataset):
+    def __init__(self, input_ids, attention_masks, teacher_logits):
+        self.input_ids = input_ids
+        self.attention_masks = attention_masks
+        self.teacher_logits = teacher_logits
+
+    def __getitem__(self, idx):
+        input_id = self.input_ids[idx]
+        attention_mask = self.attention_masks[idx]
+        teacher_logit = self.teacher_logits[idx]
+
+        return {"input_ids": input_id, "attention_mask": attention_mask, "teacher_logit": teacher_logit}
+
+    def __len__(self):
+        return len(self.input_ids)
+
+
 def format_time_elapsed(seconds):
     minutes, seconds = divmod(seconds, 60)
     return f"{int(minutes)}m {int(seconds)}s"

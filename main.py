@@ -17,16 +17,14 @@ from ensemble import ModelEnsemble
 def main():
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"\nStarting training at: {overall_start_datetime}")
+    print(f"\n--> Starting training at: {overall_start_datetime}\n")
 
     log_dir = config.get_directory(config.log_dir)
     logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
-
     atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
-
     os.makedirs(config.logit_cache_path, exist_ok=True)
 
     # ----------------------------------
@@ -74,6 +72,7 @@ def main():
     # ----------------------------------
     # Load Tokenizer and Models
     # ----------------------------------
+    print("\n--> Loading Tokenizer and Models")
 
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     teacher_model = AutoModelForCausalLM.from_pretrained(
@@ -91,6 +90,7 @@ def main():
     # ----------------------------------
     # Load dataset and evaluate
     # ----------------------------------
+    print("\n--> Loading Dataset")
 
     dataset = config.get_dataset()
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
@@ -109,12 +109,12 @@ def main():
     # ----------------------------------
     # Cache Teacher Logits
     # ----------------------------------
-    print("\n==== Generating Teacher Logits ====")
 
     logit_values = []
     teacher_logits = []
 
-    if not os.path.join(config.logit_cache_path, "teacher_logits.npy"):
+    if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.npy")):
+        print("\n--> Generating Teacher Logits")
         with torch.no_grad():
             for idx, sample in enumerate(tqdm(dataset["train"], desc="Caching Teacher Logits")):
                 input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
@@ -130,6 +130,11 @@ def main():
                     break
 
         np.save(os.path.join(config.logit_cache_path, "teacher_logits.npy"), np.concatenate(logit_values))
+        print("\n--> Generation Done")
+    else:
+        print("\n--> Loading Teacher Logits")
+        teacher_logits = np.load(os.path.join(config.logit_cache_path, "teacher_logits.npy"))
+        print("\n--> Loading Done")
 
     # ----------------------------------
     # Load Existing Models
@@ -180,7 +185,7 @@ def main():
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         print(f"\n{'='*50}")
-        print(f"Starting Round {round_num} at: {round_start_datetime}")
+        print(f"--> Starting Round {round_num} at: {round_start_datetime}")
         print(f"{'='*50}")
 
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
