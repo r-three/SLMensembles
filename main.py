@@ -114,21 +114,22 @@ def main():
     logit_values = []
     teacher_logits = []
 
-    with torch.no_grad():
-        for idx, sample in enumerate(tqdm(dataset["train"], desc="Caching Teacher Logits")):
-            input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
-            attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
-            outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+    if not os.path.join(config.logit_cache_path, "teacher_logits.npy"):
+        with torch.no_grad():
+            for idx, sample in enumerate(tqdm(dataset["train"], desc="Caching Teacher Logits")):
+                input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
+                attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
+                outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
 
-            logits = outputs.logits.squeeze(0).cpu()
-            teacher_logits.append(logits)
+                logits = outputs.logits.squeeze(0).cpu()
+                teacher_logits.append(logits)
 
-            logit_values.append(logits.flatten().numpy())
+                logit_values.append(logits.float().flatten().numpy())
 
-            if idx >= 1000:
-                break
+                if idx >= 1000:
+                    break
 
-    np.save(os.path.join(config.logit_cache_path, "teacher_logits.npy"), np.concatenate(logit_values))
+        np.save(os.path.join(config.logit_cache_path, "teacher_logits.npy"), np.concatenate(logit_values))
 
     # ----------------------------------
     # Load Existing Models
