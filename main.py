@@ -10,7 +10,7 @@ from trl import DataCollatorForCompletionOnlyLM
 
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, evaluate_model, format_time_elapsed, get_round_path
+from utils import CSVLogger, TeacherLogits, evaluate_model, format_time_elapsed, get_round_path
 from ensemble import ModelEnsemble
 
 
@@ -74,18 +74,14 @@ def main():
     # ----------------------------------
     print("\n--> Loading Tokenizer and Models")
 
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    teacher_model = AutoModelForCausalLM.from_pretrained(
-        config.teacher_model_name,
-        torch_dtype=torch.bfloat16,
-        device_map=config.teacher_device,
-    )
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name, torch_dtype=torch.bfloat16, device_map="cuda:0"
-    )
-    teacher_model.resize_token_embeddings(new_num_tokens=student_model.vocab_size)
-    del student_model
-    teacher_model.requires_grad_(False)
+    # ----------------------------------
+    # Cached Teacher Logits
+    # ----------------------------------
+
+    if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.npy")):
+        print("\n--> Generating Teacher Logits")
+        TeacherLogits().cache_teacher_logits(config.get_dataset())
+        print("\n--> Generation Done")
 
     # ----------------------------------
     # Load dataset and evaluate
@@ -105,36 +101,6 @@ def main():
         eval_loss=teacher_eval_results["eval_loss"],
         perplexity=teacher_eval_results["perplexity"],
     )
-
-    # ----------------------------------
-    # Cache Teacher Logits
-    # ----------------------------------
-
-    logit_values = []
-    teacher_logits = []
-
-    if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.npy")):
-        print("\n--> Generating Teacher Logits")
-        with torch.no_grad():
-            for idx, sample in enumerate(tqdm(dataset["train"], desc="Caching Teacher Logits")):
-                input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
-                attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
-                outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
-
-                logits = outputs.logits.squeeze(0).cpu()
-                teacher_logits.append(logits)
-
-                logit_values.append(logits.float().flatten().numpy())
-
-                if idx >= 1000:
-                    break
-
-        np.save(os.path.join(config.logit_cache_path, "teacher_logits.npy"), np.concatenate(logit_values))
-        print("\n--> Generation Done")
-    else:
-        print("\n--> Loading Teacher Logits")
-        teacher_logits = np.load(os.path.join(config.logit_cache_path, "teacher_logits.npy"))
-        print("\n--> Loading Done")
 
     # ----------------------------------
     # Load Existing Models

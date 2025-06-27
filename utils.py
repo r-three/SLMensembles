@@ -70,18 +70,43 @@ class CSVLogger:
         self.counter = 0
 
 
-class TeacherLogits():
-    def __init__(self):
-        
-    @staticmethod
-    def cache_teacher_logits(self, dataset, n: int = 1000):
+class TeacherLogits:
+    def __init__(self, student):
+        self.dataset = self.get_dataset()
+        self.teacher_model = AutoModelForCausalLM.from_pretrained(
+            config.teacher_model_name,
+            torch_dtype=torch.bfloat16,
+            device_map=config.teacher_device,
+        )
+        self.teacher_model.resize_token_embeddings(new_num_tokens=student.vocab_size)
+        self.teacher_model.requires_grad_(False)
+
+    def get_dataset(self):
+        if not synthetic_data:
+            dataset = datasets.load_from_disk(dataset_path)
+        else:
+            dataset = datasets.load_from_disk(synthetic_dataset_path)
+        if dataset_type == "single":
+            return {
+                "train": dataset["train"].select([0]),
+                "test": dataset["test"].select([0]),
+            }
+        elif dataset_type == "batch":
+            return {
+                "train": dataset["train"].select(range(10)),
+                "test": dataset["test"].select(range(10)),
+            }
+        dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        return dataset
+
+    def cache_teacher_logits(self, n: int = 1000):
         logit_values = []
 
         with torch.no_grad():
-            for idx, sample in enumerate(tqdm(dataset["train"], desc="Caching Teacher Logits")):
+            for idx, sample in enumerate(tqdm(self.dataset["train"], desc="Caching Teacher Logits")):
                 input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
                 attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
-                outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+                outputs = config.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
 
                 logits = outputs.logits.squeeze(0).cpu()
                 logit_values.append(logits)
