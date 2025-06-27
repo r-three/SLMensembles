@@ -52,8 +52,7 @@ class LoggingCallback(TrainerCallback):
 
 
 class DistillationTrainer(SFTTrainer):
-    def __init__(self, teacher_model, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
-        self.teacher_model = teacher_model
+    def __init__(self, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
         self.ensemble_model = ensemble_model
         self.teacher_logits = teacher_logits.to(config.student_device)
         self.logger = logger
@@ -191,7 +190,7 @@ class DistillationTrainer(SFTTrainer):
 
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, self.teacher_logits, mask=labels_s != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels_s != -100)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         if self.state.global_step % self.args.logging_steps == 0:

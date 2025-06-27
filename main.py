@@ -7,10 +7,10 @@ from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
 from trl import DataCollatorForCompletionOnlyLM
-
+ 
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, TeacherLogits, evaluate_model, format_time_elapsed, get_round_path
+from utils import CSVLogger, Dataset, evaluate_model, format_time_elapsed, get_round_path
 from ensemble import ModelEnsemble
 
 
@@ -72,27 +72,17 @@ def main():
     # ----------------------------------
     # Load Tokenizer and Models
     # ----------------------------------
-    print("\n--> Loading Tokenizer and Models")
-
-    # ----------------------------------
-    # Cached Teacher Logits
-    # ----------------------------------
-
-    if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.npy")):
-        print("\n--> Generating Teacher Logits")
-        TeacherLogits().cache_teacher_logits(config.get_dataset())
-        print("\n--> Generation Done")
-
-    # ----------------------------------
-    # Load dataset and evaluate
-    # ----------------------------------
-    print("\n--> Loading Dataset")
-
-    dataset = config.get_dataset()
-    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+    print("\n--> Loading Tokenizer")
+    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
+    response_template_ids = tokenizer("\nassistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    teacher_eval_results = evaluate_model(teacher_model, dataset["test"], collator)
+    print("\n--> Loading Dataset and Logits")
+    dataClass = Dataset(tokenizer, logger)
+    dataset = dataClass.get_dataset()
+    teacher_logits = dataClass.get_teacher_logits()
+
+    teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
     logger.log(
         function="main",
         round_num=0,
@@ -103,8 +93,29 @@ def main():
     )
 
     # ----------------------------------
-    # Load Existing Models
+    # Load Student
     # ----------------------------------
+
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name,
+        torch_dtype=torch.bfloat16,
+        device_map=config.student_device,
+    )
+
+    student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+    logger.log(
+        function="main",
+        round_num=0,
+        phase="custom_eval",
+        role="student",
+        eval_loss=student_eval_results["eval_loss"],
+        perplexity=student_eval_results["perplexity"],
+        tags=["initial eval"],
+    )
+
+    # ----------------------------------
+    # Load Existing Models
+    # ----------------------------------    
 
     existing_models = []
     for run_dir in config.ensemble_members:
@@ -114,31 +125,28 @@ def main():
             if os.path.exists(model_file):
                 existing_models.append((i, round_dir))
 
-    existing_models.sort(key=lambda x: x[0])
-
-    start_round = max((r for r, _ in existing_models), default=-1) + 1
-    ensemble_model_names = [path for _, path in existing_models]
-    ensemble_model = None
-
-    if ensemble_model_names:
-        print(f"Resuming from ensemble with {len(ensemble_model_names)} models")
-        temp_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-            device_map=config.student_device,
-        )
+    if existing_models:
+        existing_models.sort(key=lambda x: x[0])
+        start_round = max((r for r, _ in existing_models)) + 1
+        ensemble_model_names = [path for _, path in existing_models]
         ensemble_model = ModelEnsemble(
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
             device_map=config.student_device,
-            vocab_size=temp_model.vocab_size,
+            vocab_size=student_model.vocab_size,
         )
         ensemble_model.requires_grad_(False)
-        del temp_model
+    else:
+        start_round = 0
+        ensemble_model = None
+
+    # ----------------------------------
+    # Load checkpoint
+    # ----------------------------------
 
     if config.checkpoint_path:
         if not os.path.exists(config.checkpoint_path):
-            print(f"[WARNING] Checkpointed model does not exist at: {config.checkpoint_path}")
+            print(f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}")
             sys.exit(1)
         print(f"Resuming training from checkpoint: {config.checkpoint_path}")
 
@@ -159,35 +167,13 @@ def main():
         print(f"Round '{round_num}' model stored in: {round_output_dir}")
 
         # ----------------------------------
-        # Load Student
-        # ----------------------------------
-
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-            device_map=config.student_device,
-        )
-
-        student_eval_results = evaluate_model(student_model, dataset["test"], collator)
-        logger.log(
-            function="main",
-            round_num=round_num,
-            phase="custom_eval",
-            role="student",
-            eval_loss=student_eval_results["eval_loss"],
-            perplexity=student_eval_results["perplexity"],
-            tags=["initial eval"],
-        )
-
-        # ----------------------------------
         # Inner Training Loop
         # ----------------------------------
 
         training_args = config.get_training_args(round_output_dir)
         trainer = DistillationTrainer(
-            teacher_model=teacher_model,
             ensemble_model=ensemble_model,
-            teacher_logits=logit_values,
+            teacher_logits=teacher_logits,
             logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,
@@ -274,7 +260,7 @@ def main():
         logger.flush()
 
         # ----------------------------------
-        # Reset student model
+        # Reset memory
         # ----------------------------------
 
         del student_model
@@ -282,11 +268,31 @@ def main():
         torch.cuda.set_device(config.student_device)
         torch.cuda.empty_cache()
 
+        # ----------------------------------
+        # Load Student
+        # ----------------------------------
+
+        student_model = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name,
+            torch_dtype=torch.bfloat16,
+            device_map=config.student_device,
+        )
+
+        student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+        logger.log(
+            function="main",
+            round_num=round_num,
+            phase="custom_eval",
+            role="student",
+            eval_loss=student_eval_results["eval_loss"],
+            perplexity=student_eval_results["perplexity"],
+            tags=["initial eval"],
+        )
+
     # ----------------------------------
     # End round
     # ----------------------------------
 
-    # Record overall end time
     overall_end_time = time.time()
     overall_duration = overall_end_time - overall_start_time
     overall_duration_str = format_time_elapsed(overall_duration)
