@@ -1,5 +1,5 @@
 # utils.py
-import os, csv, time, glob, sys
+import os, csv, time, glob, sys, tqdm
 from datetime import datetime
 import torch
 from torch.utils.data import DataLoader
@@ -70,21 +70,32 @@ class CSVLogger:
         self.counter = 0
 
 
-class TeacherLogits(Dataset):
-    def __init__(self, input_ids, attention_masks, teacher_logits):
-        self.input_ids = input_ids
-        self.attention_masks = attention_masks
-        self.teacher_logits = teacher_logits
+class TeacherLogits():
+    def __init__(self):
+        
+    @staticmethod
+    def cache_teacher_logits(self, dataset, n: int = 1000):
+        logit_values = []
 
-    def __getitem__(self, idx):
-        input_id = self.input_ids[idx]
-        attention_mask = self.attention_masks[idx]
-        teacher_logit = self.teacher_logits[idx]
+        with torch.no_grad():
+            for idx, sample in enumerate(tqdm(dataset["train"], desc="Caching Teacher Logits")):
+                input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
+                attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
+                outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
 
-        return {"input_ids": input_id, "attention_mask": attention_mask, "teacher_logit": teacher_logit}
+                logits = outputs.logits.squeeze(0).cpu()
+                logit_values.append(logits)
 
-    def __len__(self):
-        return len(self.input_ids)
+                if idx >= n:
+                    break
+
+        torch.save(logit_values, os.path.join(config.logit_cache_path, "teacher_logits.pt"))
+
+    @staticmethod
+    def load_teacher_logits(self):
+        print("\n--> Loading Teacher Logits")
+        teacher_logits = np.load(os.path.join(config.logit_cache_path, "teacher_logits.npy"))
+        print("\n--> Loading Done")
 
 
 def format_time_elapsed(seconds):
