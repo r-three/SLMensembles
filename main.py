@@ -1,11 +1,8 @@
 import os, gc, time, sys, pdb
 import torch
-import numpy as np
-import datasets
 import atexit
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from tqdm import tqdm
 from trl import DataCollatorForCompletionOnlyLM
  
 import config
@@ -60,7 +57,7 @@ def main():
     for k, v in metadata_dict.items():
         print(f"{k}: {v}")
 
-    print("===========================\n")
+    print("===========================")
 
     logger.log(
         function="main",
@@ -72,12 +69,12 @@ def main():
     # ----------------------------------
     # Load Tokenizer and Models
     # ----------------------------------
-    print("\n--> Loading Tokenizer")
+    print("--> Loading Tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     response_template_ids = tokenizer("\nassistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    print("\n--> Loading Dataset and Logits")
+    print("--> Loading Dataset and Logits")
     dataClass = Dataset(tokenizer, logger)
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None

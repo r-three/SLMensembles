@@ -1,12 +1,12 @@
 # utils.py
-import os, csv, time, glob, sys, tqdm
+import os, csv, time, glob, sys
+from tqdm import tqdm
 from datetime import datetime
 import torch
+import datasets
 from torch.utils.data import DataLoader
 import config
-from datetime import datetime
-import time
-import config
+from transformers import AutoModelForCausalLM
 
 
 class CSVLogger:
@@ -73,14 +73,17 @@ class CSVLogger:
 class Dataset:
     def __init__(self, student, logger):
         self.dataset = self.get_dataset()
-        self.teacher_model = AutoModelForCausalLM.from_pretrained(
-            config.teacher_model_name,
-            torch_dtype=torch.bfloat16,
-            device_map=config.teacher_device,
-        )
-        self.teacher_model.resize_token_embeddings(new_num_tokens=student.vocab_size)
-        self.teacher_model.requires_grad_(False)
         self.logger = logger
+        if not config.synthetic_data:
+            self.teacher_model = AutoModelForCausalLM.from_pretrained(
+                config.teacher_model_name,
+                torch_dtype=torch.bfloat16,
+                device_map=config.teacher_device,
+            )
+            self.teacher_model.resize_token_embeddings(new_num_tokens=student.vocab_size)
+            self.teacher_model.requires_grad_(False)
+        else:
+            self.teacher_model = None
 
     def get_dataset(self):
         if config.synthetic_data:
@@ -111,18 +114,22 @@ class Dataset:
         return logit_values
 
     def __cache_teacher_logits(self):
-        logit_values = []
-
+        logit_values = {}
         with torch.no_grad():
+
             print("\n--> Generating Teacher Logits")
-            for idx, sample in enumerate(tqdm(self.dataset["train"], desc="Caching Teacher Logits")):
+            for split in ["train", "test"]:
+                split_logits = []
 
-                input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
-                attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
-                outputs = config.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+                for sample in tqdm(self.dataset[split], desc=f"Caching Teacher Logits ({split})"):
+                    # import pdb; breakpoint()
+                    input_ids = sample["input_ids"].unsqueeze(0)
+                    attention_mask = sample["attention_mask"].unsqueeze(0)
+                    outputs = self.teacher_model.cpu()(input_ids=input_ids, attention_mask=attention_mask)
+                    logits = outputs.logits.squeeze(0).cpu()
+                    split_logits.append(logits)
 
-                logits = outputs.logits.squeeze(0).cpu()
-                logit_values.append(logits)
+                logit_values[split] = split_logits
 
         torch.save(logit_values, os.path.join(config.logit_cache_path, "teacher_logits.pt"))
         print("\n--> Generation Done")
