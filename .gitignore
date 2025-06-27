@@ -11,3 +11,4 @@ models/
 train.sh
 config.py
 DistillKit/
+tasks-list.txt
