@@ -80,7 +80,7 @@ def main():
     print("\n--> Loading Dataset and Logits")
     dataClass = Dataset(tokenizer, logger)
     dataset = dataClass.get_dataset()
-    teacher_logits = dataClass.get_teacher_logits()
+    teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
     teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
     logger.log(

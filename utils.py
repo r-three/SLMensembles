@@ -82,18 +82,11 @@ class Dataset:
         self.teacher_model.requires_grad_(False)
         self.logger = logger
 
-    def get_dataset(self, generate_logits: bool = False, n: int = 1000):
+    def get_dataset(self):
         if config.synthetic_data:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
         else:
             dataset = datasets.load_from_disk(config.dataset_path)
-
-            if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.pt")) or generate_logits:
-                self.__cache_teacher_logits(n)
-
-            print("\n--> Loading Teacher Logits")
-            dataset = torch.load(os.path.join(config.logit_cache_path, "teacher_logits.pt"))
-            print("\n--> Loading Done")
 
         if config.dataset_type == "single":
             return {
@@ -107,14 +100,22 @@ class Dataset:
             }
         return dataset
 
-    def __cache_teacher_logits(self, n: int = 1000):
+    def get_teacher_logits(self):
+        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.pt")):
+            self.__cache_teacher_logits()
+
+        print("\n--> Loading Teacher Logits")
+        logit_values = torch.load(os.path.join(config.logit_cache_path, "teacher_logits.pt"))
+        print("\n--> Loading Done")
+
+        return logit_values
+
+    def __cache_teacher_logits(self):
         logit_values = []
 
         with torch.no_grad():
             print("\n--> Generating Teacher Logits")
             for idx, sample in enumerate(tqdm(self.dataset["train"], desc="Caching Teacher Logits")):
-                if idx >= n:
-                    break
 
                 input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
                 attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)

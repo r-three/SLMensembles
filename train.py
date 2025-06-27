@@ -54,7 +54,7 @@ class LoggingCallback(TrainerCallback):
 class DistillationTrainer(SFTTrainer):
     def __init__(self, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
         self.ensemble_model = ensemble_model
-        self.teacher_logits = teacher_logits.to(config.student_device)
+        self.teacher_logits = teacher_logits.to(config.student_device) if teacher_logits is not None else None
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
