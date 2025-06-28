@@ -1,29 +1,31 @@
-import os, gc, time, sys
+import os, gc, time, sys, pdb
 import torch
+import numpy as np
 import datasets
 import atexit
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from tqdm import tqdm
 from trl import DataCollatorForCompletionOnlyLM
 
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, evaluate_model, format_time_elapsed, get_round_path
+from utils import CSVLogger, TeacherLogits, evaluate_model, format_time_elapsed, get_round_path
 from ensemble import ModelEnsemble
 
 
 def main():
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"\nStarting training at: {overall_start_datetime}")
+    print(f"\n--> Starting training at: {overall_start_datetime}\n")
 
     log_dir = config.get_directory(config.log_dir)
     logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
-
     atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
+    os.makedirs(config.logit_cache_path, exist_ok=True)
 
     # ----------------------------------
     # Metrics
@@ -70,23 +72,21 @@ def main():
     # ----------------------------------
     # Load Tokenizer and Models
     # ----------------------------------
+    print("\n--> Loading Tokenizer and Models")
 
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    teacher_model = AutoModelForCausalLM.from_pretrained(
-        config.teacher_model_name,
-        torch_dtype=torch.bfloat16,
-        device_map=config.teacher_device,
-    )
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name, torch_dtype=torch.bfloat16, device_map="cuda:0"
-    )
-    teacher_model.resize_token_embeddings(new_num_tokens=student_model.vocab_size)
-    del student_model
-    teacher_model.requires_grad_(False)
+    # ----------------------------------
+    # Cached Teacher Logits
+    # ----------------------------------
+
+    if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.npy")):
+        print("\n--> Generating Teacher Logits")
+        TeacherLogits().cache_teacher_logits(config.get_dataset())
+        print("\n--> Generation Done")
 
     # ----------------------------------
     # Load dataset and evaluate
     # ----------------------------------
+    print("\n--> Loading Dataset")
 
     dataset = config.get_dataset()
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
@@ -151,7 +151,7 @@ def main():
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         print(f"\n{'='*50}")
-        print(f"Starting Round {round_num} at: {round_start_datetime}")
+        print(f"--> Starting Round {round_num} at: {round_start_datetime}")
         print(f"{'='*50}")
 
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
@@ -187,7 +187,7 @@ def main():
         trainer = DistillationTrainer(
             teacher_model=teacher_model,
             ensemble_model=ensemble_model,
-            student_model=student_model,
+            teacher_logits=logit_values,
             logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,
