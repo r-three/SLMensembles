@@ -1,18 +1,8 @@
 import torch
-import os
 import torch.nn.functional as F
 import numpy as np
-import datasets
-from torch.utils.data import DataLoader
-from datetime import datetime
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    TrainerCallback,
-)
-from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
-
-from ensemble import ModelEnsemble
+from transformers import TrainerCallback
+from trl import SFTTrainer
 import config
 
 
@@ -52,10 +42,9 @@ class LoggingCallback(TrainerCallback):
 
 
 class DistillationTrainer(SFTTrainer):
-    def __init__(self, teacher_model, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
-        self.teacher_model = teacher_model
+    def __init__(self, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
         self.ensemble_model = ensemble_model
-        self.teacher_logits = teacher_logits.to(config.student_device)
+        self.teacher_logits = teacher_logits.to(config.student_device) if teacher_logits is not None else None
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
@@ -171,18 +160,21 @@ class DistillationTrainer(SFTTrainer):
             # -------------------------
             student_logits = model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits
 
-            # Aggregate logits
             if ensemble_logits is not None:
                 num_models = len(self.ensemble_model.models)
                 total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
             else:
                 total_ensemble_logits = student_logits
 
+        # ------------------------------
         # Handle potential DDP wrapping
+        # ------------------------------
         if hasattr(model, "module"):
             model = model.module
 
-        # Compute next-token prediction loss
+        # ------------------------------
+        # Compute Loss
+        # ------------------------------
         loss = model.loss_function(
             logits=total_ensemble_logits,
             labels=labels_s,
@@ -191,9 +183,12 @@ class DistillationTrainer(SFTTrainer):
 
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, self.teacher_logits, mask=labels_s != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels_s != -100)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
+        # ------------------------------
+        # Log
+        # ------------------------------
         if self.state.global_step % self.args.logging_steps == 0:
             self.logger.log(
                 function="prediction_step",

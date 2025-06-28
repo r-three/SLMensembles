@@ -1,12 +1,13 @@
 # utils.py
-import os, csv, time, glob, sys, tqdm
+import os, csv, time, glob, sys
+from tqdm import tqdm
 from datetime import datetime
 import torch
+import datasets
 from torch.utils.data import DataLoader
 import config
-from datetime import datetime
-import time
-import config
+from transformers import AutoModelForCausalLM
+import psutil
 
 
 class CSVLogger:
@@ -70,57 +71,72 @@ class CSVLogger:
         self.counter = 0
 
 
-class TeacherLogits:
-    def __init__(self, student):
+class Dataset:
+    def __init__(self, student, logger):
         self.dataset = self.get_dataset()
-        self.teacher_model = AutoModelForCausalLM.from_pretrained(
-            config.teacher_model_name,
-            torch_dtype=torch.bfloat16,
-            device_map=config.teacher_device,
-        )
-        self.teacher_model.resize_token_embeddings(new_num_tokens=student.vocab_size)
-        self.teacher_model.requires_grad_(False)
+        self.logger = logger
+        if not config.synthetic_data:
+            self.teacher_model = AutoModelForCausalLM.from_pretrained(
+                config.teacher_model_name,
+                torch_dtype=torch.bfloat16,
+                device_map=config.teacher_device,
+            )
+            self.teacher_model.resize_token_embeddings(new_num_tokens=student.vocab_size)
+            self.teacher_model.requires_grad_(False)
+        else:
+            self.teacher_model = None
 
     def get_dataset(self):
-        if not synthetic_data:
-            dataset = datasets.load_from_disk(dataset_path)
+        if config.synthetic_data:
+            dataset = datasets.load_from_disk(config.synthetic_dataset_path)
         else:
-            dataset = datasets.load_from_disk(synthetic_dataset_path)
-        if dataset_type == "single":
+            dataset = datasets.load_from_disk(config.dataset_path)
+
+        if config.dataset_type == "single":
             return {
                 "train": dataset["train"].select([0]),
                 "test": dataset["test"].select([0]),
             }
-        elif dataset_type == "batch":
+        elif config.dataset_type == "batch":
             return {
                 "train": dataset["train"].select(range(10)),
                 "test": dataset["test"].select(range(10)),
             }
-        dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         return dataset
 
-    def cache_teacher_logits(self, n: int = 1000):
-        logit_values = []
+    def get_teacher_logits(self):
+        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.pt")):
+            self.__cache_teacher_logits()
 
+        print("\n--> Loading Teacher Logits")
+        logit_values = torch.load(os.path.join(config.logit_cache_path, "teacher_logits.pt"))
+        print("\n--> Loading Done")
+
+        return logit_values
+
+    def __cache_teacher_logits(self):
+        n = 0
+        logit_values = {}
         with torch.no_grad():
-            for idx, sample in enumerate(tqdm(self.dataset["train"], desc="Caching Teacher Logits")):
-                input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
-                attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
-                outputs = config.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+            print("\n--> Generating Teacher Logits")
 
-                logits = outputs.logits.squeeze(0).cpu()
-                logit_values.append(logits)
+            for split in ["train", "test"]:
+                split_logits = []
 
-                if idx >= n:
-                    break
+                for sample in tqdm(self.dataset[split], desc=f"Caching Teacher Logits ({split})"):
+                    n += 1
+                    input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
+                    attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
+                    outputs = self.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+                    logits = outputs.logits.squeeze(0).cpu()
+                    split_logits.append(logits)
+                    if n % 5 == 0:
+                        print(f"\n--> Cached {n} samples")
+
+                logit_values[split] = split_logits
 
         torch.save(logit_values, os.path.join(config.logit_cache_path, "teacher_logits.pt"))
-
-    @staticmethod
-    def load_teacher_logits(self):
-        print("\n--> Loading Teacher Logits")
-        teacher_logits = np.load(os.path.join(config.logit_cache_path, "teacher_logits.npy"))
-        print("\n--> Loading Done")
+        print("\n--> Generation Done")
 
 
 def format_time_elapsed(seconds):
