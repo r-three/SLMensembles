@@ -11,27 +11,26 @@
  
 TODO immediate: 
 [x] find the best learning rate (convergence)                           [5e-5]
-[] Set up model checkpointing and re-run the scripts
-[] compare alpha values (distillation) and see that the loss plateaus   [0, 0.5, 0.8, 1]
-[] steps per round (more steps = more overfit)                          [1000, 1200, 2000, 5000]
-[] batch size (number of smaples per optimization)                      [2, 4, 8]
-[] KL temperature (later for distillation)                              [0.5, 0.7, 1.0, 1.5, 2.0]
+[x] Set up model checkpointing
+[] run the scripts until the loss plateaus
 [x] set up better eval metrics for the ensembles
 [x] finds ways to concatenate csv file metrics
+[x] fix synthetic dataset generation
 
 TODO next:
+[] add LLM mertics and benchmarkings
+[] distil kit
 [] identify whether sequential training works at all:
     [] find the best hyperparameters for a single model which brings the loss down
     [] add a second model and see what we can do to make it better
 [] run pure SFT
+[] comapre:
+    [] steps per round (more steps = more overfit)                          [1000, 1200, 2000, 5000]
+    [] batch size (number of smaples per optimization)                      [2, 4, 8]
+    [] KL temperature (later for distillation)                              [0.5, 0.7, 1.0, 1.5, 2.0]
 [] dataset curation - generate predictions with the teacher (if distillation works)
 [] C-BTM - train specialized ensemble members, but with instruction tunning data
-
-
-- distil Kit
-- finish alpha past_run_dirs
-- synthetic dataset
-- add new models (second model) (wait for the first model to plateau + count num steps)
+[] add new models (second model) (wait for the first model to plateau + count num steps)
 
 TODO near future:
 [] Explore other methods to make the ensemble better
@@ -41,4 +40,14 @@ TODO near future:
 [] Paper
 
 Meeting Questions:
-[] is it worth it setting up GPU profiling?
+[] yaml and 'full' mode error
+
+- cache teacher's predictions & logits !!!
+- data parallel training for student on 4 gpus
+- store top k logits
+- email vector ppl (more storage on killarny cluster) (1T) 
+- graph logit distribution (histogrem) to decide top K logit values to store -> send (around 1000)
+- shift the distribution of the logits; find K that preserves most of the mass of the logits (90% +) -- index; subtract the average value among the top k logits before saving 
+- tgi library
+- reduce precision
+- olmes
