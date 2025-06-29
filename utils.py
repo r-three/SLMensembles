@@ -7,6 +7,7 @@ import datasets
 from torch.utils.data import DataLoader
 import config
 from transformers import AutoModelForCausalLM
+import psutil
 
 
 class CSVLogger:
@@ -78,7 +79,6 @@ class Dataset:
             self.teacher_model = AutoModelForCausalLM.from_pretrained(
                 config.teacher_model_name,
                 torch_dtype=torch.bfloat16,
-                device_map=config.teacher_device,
             )
             self.teacher_model.resize_token_embeddings(new_num_tokens=student.vocab_size)
             self.teacher_model.requires_grad_(False)
@@ -114,20 +114,23 @@ class Dataset:
         return logit_values
 
     def __cache_teacher_logits(self):
+        n = 0
         logit_values = {}
         with torch.no_grad():
-
             print("\n--> Generating Teacher Logits")
+
             for split in ["train", "test"]:
                 split_logits = []
 
                 for sample in tqdm(self.dataset[split], desc=f"Caching Teacher Logits ({split})"):
-                    # import pdb; breakpoint()
-                    input_ids = sample["input_ids"].unsqueeze(0)
-                    attention_mask = sample["attention_mask"].unsqueeze(0)
-                    outputs = self.teacher_model.cpu()(input_ids=input_ids, attention_mask=attention_mask)
+                    n += 1
+                    input_ids = sample["input_ids"].unsqueeze(0).to(config.teacher_device)
+                    attention_mask = sample["attention_mask"].unsqueeze(0).to(config.teacher_device)
+                    outputs = self.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
                     logits = outputs.logits.squeeze(0).cpu()
                     split_logits.append(logits)
+                    if n % 5 == 0:
+                        print(f"\n--> Cached {n} samples")
 
                 logit_values[split] = split_logits
 
@@ -163,3 +166,7 @@ def evaluate_model(model, eval_dataset, collator):
     avg_loss = total_loss / total_tokens if total_tokens else float("inf")
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
     return {"eval_loss": avg_loss, "perplexity": perplexity}
+
+
+def is_main_process():
+    return not dist.is_initialized() or dist.get_rank() == 0
