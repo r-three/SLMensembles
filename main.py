@@ -1,5 +1,6 @@
 import os, gc, time, sys, pdb
 import torch
+import argparse
 import atexit
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -7,7 +8,7 @@ from trl import DataCollatorForCompletionOnlyLM
  
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, Dataset, evaluate_model, format_time_elapsed, get_round_path
+from utils import CSVLogger, Dataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process
 from ensemble import ModelEnsemble
 
 
@@ -16,9 +17,24 @@ def main():
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\n--> Starting training at: {overall_start_datetime}\n")
 
-    log_dir = config.get_directory(config.log_dir)
-    logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
-    atexit.register(logger.flush)
+    # ----------------------------------
+    # Set up distributed training
+    # ----------------------------------
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--local_rank", type=int, default=0)
+    args = parser.parse_args()
+
+    torch.cuda.set_device(args.local_rank)
+    device = torch.device("cuda", args.local_rank)
+
+    # ----------------------------------
+    # Set up logging and run name
+    # ----------------------------------
+    if is_main_process():
+        log_dir = config.get_directory(config.log_dir)
+        logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
+        atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
@@ -28,23 +44,24 @@ def main():
     # Metrics
     # ----------------------------------
 
-    metadata_dict = {
-        "Custom run name": config.custom_run_name,
-        "Description": config.description,
-        "Teacher Model": config.teacher_model_name,
-        "Student Model": config.student_model_name,
-        "Dataset Name": config.dataset_name,
-        "Dataset Type": config.dataset_type,
-        "Alpha": config.alpha,
-        "Learning rate": config.learning_rate,
-        "Total Rounds": config.total_rounds,
-        "Steps per Round": config.steps_per_round,
-        "Eval batch size": config.eval_batch_size,
-        "Start Time": overall_start_datetime,
-        "Model Save Dir": output_path,
-        "ID string": config.id_string,
-        "Description": config.description,
-    }
+    if is_main_process():
+        metadata_dict = {
+            "Custom run name": config.custom_run_name,
+            "Description": config.description,
+            "Teacher Model": config.teacher_model_name,
+            "Student Model": config.student_model_name,
+            "Dataset Name": config.dataset_name,
+            "Dataset Type": config.dataset_type,
+            "Alpha": config.alpha,
+            "Learning rate": config.learning_rate,
+            "Total Rounds": config.total_rounds,
+            "Steps per Round": config.steps_per_round,
+            "Eval batch size": config.eval_batch_size,
+            "Start Time": overall_start_datetime,
+            "Model Save Dir": output_path,
+            "ID string": config.id_string,
+            "Description": config.description,
+        }
     print("\n==== RUN CONFIGURATION ====")
 
     print(f"Run: {run_name}")
@@ -54,16 +71,27 @@ def main():
     print(f"\n{config.id_string}")
     print(f"{config.description}\n")
 
-    for k, v in metadata_dict.items():
-        print(f"{k}: {v}")
+    if is_main_process():
+        for k, v in metadata_dict.items():
+            print(f"{k}: {v}")
 
     print("===========================")
 
-    logger.log(
-        function="main",
-        phase="none",
-        round_num=0,
-        metadata=metadata_dict,
+    if is_main_process():
+        logger.log(
+            function="main",
+            phase="none",
+            round_num=0,
+            metadata=metadata_dict,
+        )
+
+   # ----------------------------------
+    # Load Student
+    # ----------------------------------
+
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name,
+        torch_dtype=torch.bfloat16,
     )
 
     # ----------------------------------
@@ -75,40 +103,20 @@ def main():
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     print("--> Loading Dataset and Logits")
-    dataClass = Dataset(tokenizer, logger)
+    dataClass = Dataset(student_model, logger)
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
-    teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
-    logger.log(
-        function="main",
-        round_num=0,
-        phase="custom_eval",
-        role="teacher",
-        eval_loss=teacher_eval_results["eval_loss"],
-        perplexity=teacher_eval_results["perplexity"],
-    )
-
-    # ----------------------------------
-    # Load Student
-    # ----------------------------------
-
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-        device_map=config.student_device,
-    )
-
-    student_eval_results = evaluate_model(student_model, dataset["test"], collator)
-    logger.log(
-        function="main",
-        round_num=0,
-        phase="custom_eval",
-        role="student",
-        eval_loss=student_eval_results["eval_loss"],
-        perplexity=student_eval_results["perplexity"],
-        tags=["initial eval"],
-    )
+    if is_main_process():
+        teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
+        logger.log(
+            function="main",
+            round_num=0,
+            phase="custom_eval",
+            role="teacher",
+            eval_loss=teacher_eval_results["eval_loss"],
+            perplexity=teacher_eval_results["perplexity"],
+        )
 
     # ----------------------------------
     # Load Existing Models
@@ -129,13 +137,28 @@ def main():
         ensemble_model = ModelEnsemble(
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
-            device_map=config.student_device,
             vocab_size=student_model.vocab_size,
         )
         ensemble_model.requires_grad_(False)
     else:
         start_round = 0
         ensemble_model = None
+
+    # ----------------------------------
+    # Evaluate 
+    # ----------------------------------
+
+    if is_main_process():
+        student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+        logger.log(
+            function="main",
+            round_num=0,
+            phase="custom_eval",
+            role="student",
+            eval_loss=student_eval_results["eval_loss"],
+            perplexity=student_eval_results["perplexity"],
+            tags=["initial eval"],
+        )
 
     # ----------------------------------
     # Load checkpoint
@@ -179,11 +202,11 @@ def main():
             eval_dataset=dataset["test"],
             data_collator=collator,
             args=training_args,
-            callbacks=[LoggingCallback(logger, round_num, overall_start_time)],
+            callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
         )
 
         trainer.train(resume_from_checkpoint=config.checkpoint_path)
-        logger.flush()
+        logger.flush() if is_main_process() else None
         trainer.model.save_pretrained(round_output_dir)
 
         # ----------------------------------
@@ -194,7 +217,6 @@ def main():
             ensemble_model = ModelEnsemble(
                 [round_output_dir],
                 torch_dtype=torch.bfloat16,
-                device_map=config.student_device,
                 vocab_size=student_model.vocab_size,
             )
             ensemble_model.requires_grad_(False)
@@ -205,14 +227,15 @@ def main():
         # Evaluate and log
         # ----------------------------------
 
-        student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
-        ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
+        if is_main_process():
+            student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
+            ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
 
-        print(f"\n{'-'*25}")
-        print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
-        print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
-        print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
-        print(f"{'-'*25}")
+            print(f"\n{'-'*25}")
+            print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
+            print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
+            print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
+            print(f"{'-'*25}")
 
         round_end_time = time.time()
         round_duration = round_end_time - round_start_time
@@ -226,35 +249,39 @@ def main():
         print(f"Total training time: {overall_elapsed_str}")
         print(f"{'='*50}\n")
 
-        logger.log(
-            function="main",
-            round_num=round_num,
-            phase="custom_eval",
-            role="ensemble",
-            eval_loss=ensemble_eval_results["eval_loss"],
-            perplexity=ensemble_eval_results["perplexity"],
-            round_duration=round_duration,
-        )
-        logger.log(
-            function="main",
-            round_num=round_num,
-            phase="custom_eval",
-            role="student",
-            eval_loss=student_eval_results["eval_loss"],
-            perplexity=student_eval_results["perplexity"],
-            round_duration=round_duration,
-        )
-        logger.log(
-            function="main",
-            round_num=round_num,
-            phase="custom_eval",
-            role="teacher",
-            eval_loss=teacher_eval_results["eval_loss"],
-            perplexity=teacher_eval_results["perplexity"],
-            round_duration=round_duration,
-        )
+        if is_main_process():
+            logger.log(
+                function="main",
+                round_num=round_num,
+                phase="custom_eval",
+                role="ensemble",
+                eval_loss=ensemble_eval_results["eval_loss"],
+                perplexity=ensemble_eval_results["perplexity"],
+                round_duration=round_duration,
+                overall_elapsed=overall_elapsed,
+            )
+            logger.log(
+                function="main",
+                round_num=round_num,
+                phase="custom_eval",
+                role="student",
+                eval_loss=student_eval_results["eval_loss"],
+                perplexity=student_eval_results["perplexity"],
+                round_duration=round_duration,
+                overall_elapsed=overall_elapsed,
+            )
+            logger.log(
+                function="main",
+                round_num=round_num,
+                phase="custom_eval",
+                role="teacher",
+                eval_loss=teacher_eval_results["eval_loss"],
+                perplexity=teacher_eval_results["perplexity"],
+                round_duration=round_duration,
+                overall_elapsed=overall_elapsed,
+            )
 
-        logger.flush()
+            logger.flush()
 
         # ----------------------------------
         # Reset memory
@@ -272,19 +299,19 @@ def main():
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-            device_map=config.student_device,
         )
 
-        student_eval_results = evaluate_model(student_model, dataset["test"], collator)
-        logger.log(
-            function="main",
-            round_num=round_num,
-            phase="custom_eval",
+        if is_main_process():
+            student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+            logger.log(
+                function="main",
+                round_num=round_num,
+                phase="custom_eval",
             role="student",
-            eval_loss=student_eval_results["eval_loss"],
-            perplexity=student_eval_results["perplexity"],
-            tags=["initial eval"],
-        )
+                eval_loss=student_eval_results["eval_loss"],
+                perplexity=student_eval_results["perplexity"],
+                tags=["initial eval"],
+            )
 
     # ----------------------------------
     # End round

@@ -4,10 +4,10 @@ from tqdm import tqdm
 from datetime import datetime
 import torch
 import datasets
+import torch.distributed as dist
 from torch.utils.data import DataLoader
 import config
 from transformers import AutoModelForCausalLM
-import psutil
 
 
 class CSVLogger:
@@ -170,3 +170,4 @@ def evaluate_model(model, eval_dataset, collator):
 
 def is_main_process():
     return not dist.is_initialized() or dist.get_rank() == 0
+
