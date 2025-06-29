@@ -191,6 +191,21 @@ def main():
         # ----------------------------------
 
         training_args = config.get_training_args(round_output_dir)
+
+        if is_main_process():
+            training_args.eval_strategy = "steps"
+            training_args.eval_steps = config.eval_steps
+            training_args.eval_on_start = False
+            training_args.logging_strategy = "steps"
+            training_args.logging_steps = config.logging_steps
+            training_args.save_strategy = "steps"
+            training_args.save_steps = config.save_steps
+            training_args.save_total_limit = config.save_total_limit
+        else:
+            training_args.eval_strategy = "no"
+            training_args.logging_strategy = "no"
+            training_args.save_strategy = "no"
+
         trainer = DistillationTrainer(
             ensemble_model=ensemble_model,
             teacher_logits=teacher_logits,
