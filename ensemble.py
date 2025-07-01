@@ -10,7 +10,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         model_names,
         config=None,
         torch_dtype=torch.bfloat16,
-        device_map="auto",
         vocab_size=None,
     ):
         """
@@ -22,12 +21,11 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         super().__init__(config)
 
         self.torch_dtype = torch_dtype
-        self.device_map = device_map
         self.vocab_size = vocab_size
         self.loss_fn = nn.CrossEntropyLoss()
 
         # Loads models from the provided paths/names
-        self.models = nn.ModuleList([AutoModelForCausalLM.from_pretrained(name, torch_dtype=self.torch_dtype, device_map=self.device_map) for name in model_names])
+        self.models = nn.ModuleList([AutoModelForCausalLM.from_pretrained(name, torch_dtype=self.torch_dtype) for name in model_names])
 
         for model in self.models:
             if self.vocab_size is not None:
@@ -53,7 +51,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         if labels is not None:
             loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
         
-        # Returns a standard output format compatible with HuggingFace models
         return CausalLMOutputWithPast(logits=logits, loss=loss)
 
     def add_model(self, model_name):

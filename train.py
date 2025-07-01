@@ -44,7 +44,7 @@ class LoggingCallback(TrainerCallback):
 class DistillationTrainer(SFTTrainer):
     def __init__(self, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
         self.ensemble_model = ensemble_model
-        self.teacher_logits = teacher_logits.to(config.student_device) if teacher_logits is not None else None
+        self.teacher_logits = teacher_logits
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
@@ -52,44 +52,23 @@ class DistillationTrainer(SFTTrainer):
 
         super().__init__(*args, **kwargs)
 
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
-        labels = inputs["labels"]
+    def compute_loss(self, model, inputs, return_outputs=False):
+        labels = inputs.pop("labels")
+        student_outputs = model(**inputs, labels=labels)
+        student_logits = student_outputs.logits
+        next_token_loss = student_outputs.loss
 
-        # -------------------------
-        # Run ensemble forward pass
-        # -------------------------
         ensemble_logits = None
         if self.ensemble_model is not None:
             with torch.no_grad():
-                ensemble_device = next(self.ensemble_model.parameters()).device
-                input_ids_e = input_ids.to(ensemble_device)
-                attention_mask_e = attention_mask.to(ensemble_device)
-                ensemble_logits = self.ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits
-
-        # -------------------------
-        # Run student forward pass
-        # -------------------------
-        student_device = next(model.parameters()).device
-        input_ids_s = input_ids.to(student_device)
-        attention_mask_s = attention_mask.to(student_device)
-        labels_s = labels.to(student_device)
-
-        current_model_output = model(input_ids=input_ids_s, attention_mask=attention_mask_s, labels=labels_s)
-        current_model_logits = current_model_output.logits
-        next_token_loss = current_model_output.loss
-
-        # -------------------------
-        # Compute Loss
-        # -------------------------
-        if ensemble_logits is not None:
-            ensemble_logits = ensemble_logits.to(student_device)
+                ensemble_logits = self.ensemble_model(**inputs).logits
 
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
-        if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(current_model_logits, ensemble_logits, mask=labels_s != -100)
+        if not config.synthetic_data and ensemble_logits is not None:
+            kl_loss = self.compute_kl_loss(
+                student_logits, ensemble_logits, mask=labels != -100
+            )
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # -------------------------
@@ -129,61 +108,39 @@ class DistillationTrainer(SFTTrainer):
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 
-    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+    def prediction_step(
+        self, model, inputs, prediction_loss_only, ignore_keys=None
+    ):
         """Model eval"""
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
-        labels = inputs["labels"]
-
-        # -------------------------------------
-        # Move inputs to student model's device
-        # -------------------------------------
-        student_device = next(model.parameters()).device
-        input_ids_s = input_ids.to(student_device)
-        attention_mask_s = attention_mask.to(student_device)
-        labels_s = labels.to(student_device)
-
+        labels = inputs.pop("labels")
         with torch.no_grad():
-            # -------------------------
-            # Run ensemble model
-            # -------------------------
+            student_logits = model(**inputs).logits
             ensemble_logits = None
             if self.ensemble_model is not None:
-                ensemble_device = next(self.ensemble_model.parameters()).device
-                input_ids_e = input_ids.to(ensemble_device)
-                attention_mask_e = attention_mask.to(ensemble_device)
-                ensemble_logits = self.ensemble_model(input_ids=input_ids_e, attention_mask=attention_mask_e).logits.detach()
-                ensemble_logits = ensemble_logits.to(student_device)
-
-            # -------------------------
-            # Run student model
-            # -------------------------
-            student_logits = model(input_ids=input_ids_s, attention_mask=attention_mask_s).logits
+                ensemble_logits = self.ensemble_model(**inputs).logits
 
             if ensemble_logits is not None:
                 num_models = len(self.ensemble_model.models)
-                total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
+                total_ensemble_logits = student_logits / (
+                    num_models + 1
+                ) + ensemble_logits * (num_models / (num_models + 1))
             else:
                 total_ensemble_logits = student_logits
 
-        # ------------------------------
-        # Handle potential DDP wrapping
-        # ------------------------------
         if hasattr(model, "module"):
             model = model.module
 
-        # ------------------------------
-        # Compute Loss
-        # ------------------------------
         loss = model.loss_function(
             logits=total_ensemble_logits,
-            labels=labels_s,
+            labels=labels,
             vocab_size=model.config.vocab_size,
         )
 
         kl_loss = 0
-        if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels_s != -100)
+        if not config.synthetic_data and ensemble_logits is not None:
+            kl_loss = self.compute_kl_loss(
+                student_logits, ensemble_logits, mask=labels != -100
+            )
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         # ------------------------------

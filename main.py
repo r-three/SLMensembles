@@ -8,7 +8,7 @@ from trl import DataCollatorForCompletionOnlyLM
  
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, Dataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process
+from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process
 from ensemble import ModelEnsemble
 
 
@@ -25,7 +25,6 @@ def main():
     parser.add_argument("--local_rank", type=int, default=0)
     args = parser.parse_args()
 
-    torch.cuda.set_device(args.local_rank)
     device = torch.device("cuda", args.local_rank)
 
     # ----------------------------------
@@ -39,6 +38,17 @@ def main():
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logit_cache_path, exist_ok=True)
+
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name,
+        torch_dtype=torch.bfloat16,
+    ).to(device)
+
+    print("--> Loading Dataset and Logits")
+    dataClass = DistillDataset(student_model, logger, device)
+    dataset = dataClass.get_dataset()
+    teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
+
 
     # ----------------------------------
     # Metrics
@@ -89,10 +99,7 @@ def main():
     # Load Student
     # ----------------------------------
 
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    )
+
 
     # ----------------------------------
     # Load Tokenizer and Models
@@ -101,11 +108,6 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     response_template_ids = tokenizer("\nassistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    print("--> Loading Dataset and Logits")
-    dataClass = Dataset(student_model, logger)
-    dataset = dataClass.get_dataset()
-    teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
     if is_main_process():
         teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
@@ -137,8 +139,8 @@ def main():
         ensemble_model = ModelEnsemble(
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
-            vocab_size=student_model.vocab_size,
-        )
+            vocab_size=student_model.config.vocab_size,
+        ).to(device)
         ensemble_model.requires_grad_(False)
     else:
         start_round = 0
@@ -302,9 +304,8 @@ def main():
         # Reset memory
         # ----------------------------------
 
-        del student_model
+        del student_model, trainer
         gc.collect()
-        torch.cuda.set_device(config.student_device)
         torch.cuda.empty_cache()
 
         # ----------------------------------
@@ -314,7 +315,7 @@ def main():
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-        )
+        ).to(device)
 
         if is_main_process():
             student_eval_results = evaluate_model(student_model, dataset["test"], collator)
