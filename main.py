@@ -22,11 +22,11 @@ def main():
     # Set up distributed training
     # ----------------------------------
     
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument("--local_rank", type=int, default=0)
-#     args = parser.parse_args()
-# 
-#     device = torch.device("cuda", args.local_rank)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--local_rank", type=int, default=0)
+    args = parser.parse_args()
+
+    device = torch.device("cuda", args.local_rank)
 
     # ----------------------------------
     # Set up logging and run name
@@ -43,12 +43,12 @@ def main():
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to("cuda")
+    ).to(device)
 
-    print("--> Loading Dataset and Logits")
-    dataClass = DistillDataset(student_model, logger, "cuda")
+    dataClass = DistillDataset(device)
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
+    
 
     # ----------------------------------
     # Metrics
