@@ -21,19 +21,19 @@ def main():
     # Set up distributed training
     # ----------------------------------
     
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--local_rank", type=int, default=0)
-    args = parser.parse_args()
-
-    device = torch.device("cuda", args.local_rank)
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("--local_rank", type=int, default=0)
+#     args = parser.parse_args()
+# 
+#     device = torch.device("cuda", args.local_rank)
 
     # ----------------------------------
     # Set up logging and run name
     # ----------------------------------
-    if is_main_process():
-        log_dir = config.get_directory(config.log_dir)
-        logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
-        atexit.register(logger.flush)
+    # if is_main_process():
+    log_dir = config.get_directory(config.log_dir)
+    logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
+    atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
@@ -42,13 +42,12 @@ def main():
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to(device)
+    ).to("cuda")
 
     print("--> Loading Dataset and Logits")
-    dataClass = DistillDataset(student_model, logger, device)
+    dataClass = DistillDataset(student_model, logger, "cuda")
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
-
 
     # ----------------------------------
     # Metrics

@@ -131,7 +131,9 @@ class DistillDataset:
                 # save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
                 split_logits = []
 
-                for i, sample in enumerate(tqdm(self.dataset[split], desc=f"Caching Teacher Logits ({split})")):
+                import pdb; breakpoint()
+                
+                for i, sample in enumerate(self.dataset[split]):
                     # apprend the input_ids and attention_mask to save_ds + logit_values and logit_indices
                     input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
                     attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
