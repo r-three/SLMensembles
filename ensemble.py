@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
+import config
 
 
 class ModelEnsemble(PreTrainedModel, GenerationMixin):
@@ -12,10 +13,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         torch_dtype=torch.bfloat16,
         vocab_size=None,
     ):
-        """
-        Args:
-            model_names (list): List of Hugging Face model names to ensemble.
-        """
         if config is None:
             config = AutoConfig.from_pretrained(model_names[0])
         super().__init__(config)
@@ -24,7 +21,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         self.vocab_size = vocab_size
         self.loss_fn = nn.CrossEntropyLoss()
 
-        # Loads models from the provided paths/names
         self.models = nn.ModuleList([AutoModelForCausalLM.from_pretrained(name, torch_dtype=self.torch_dtype) for name in model_names])
 
         for model in self.models:
@@ -32,32 +28,24 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
                 model.resize_token_embeddings(new_num_tokens=self.vocab_size)
 
     def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
-        """
-        Computes the averaged logits over ensemble members.
-        """
-        logits = None
-        # iterates through all models in an ensemble
+        all_logits = []
         for model in self.models:
-            device = model.get_input_embeddings().weight.device
-            outputs = model(input_ids.to(device), attention_mask=attention_mask.to(device), **kwargs)
-            if logits is None:
-                logits = outputs.logits.to(device)  # gets the predictions (logits) for each model
-            else:
-                logits = logits + outputs.logits.to(device)
-                # TODO: logits = torch.stack([model(...) for model in self.models]).mean(dim=0) instead of summing logits?
-        logits = logits / len(self.models)  # averages the logits
-        
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, **kwargs)
+            all_logits.append(outputs.logits)
+        logits = torch.stack(all_logits, dim=0).mean(dim=0)
+
         loss = None
         if labels is not None:
-            loss = self.models[0].loss_function(logits=logits, labels=labels.to(logits.device), vocab_size=self.models[0].config.vocab_size, **kwargs)
-        
+            loss = self.models[0].loss_function(
+                logits=logits,
+                labels=labels.to(logits.device),
+                vocab_size=config.student_vocab_size,
+                **kwargs
+            )
         return CausalLMOutputWithPast(logits=logits, loss=loss)
 
     def add_model(self, model_name):
-        """
-        Add a new model to the ensemble.
-        """
-        new_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.torch_dtype, device_map=self.device_map)
+        new_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.torch_dtype)
         if self.vocab_size is not None:
             new_model.resize_token_embeddings(new_num_tokens=self.vocab_size)
         self.models.append(new_model)
