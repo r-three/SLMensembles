@@ -1,6 +1,9 @@
 # utils.py
 import os, csv, time, glob, sys
 from tqdm import tqdm
+import argparse
+import sys
+import inspect
 from datetime import datetime
 import torch
 import datasets
@@ -72,9 +75,7 @@ class CSVLogger:
 
 
 class DistillDataset:
-    def __init__(self, student, logger, device=None):
-        self.student = student
-        self.logger = logger
+    def __init__(self, device=None):
         self.device = device if device is not None else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dataset = self.get_dataset()
         if not config.synthetic_data:
@@ -84,7 +85,7 @@ class DistillDataset:
                     torch_dtype=torch.bfloat16,
                 ).to(self.device)
             )
-            self.teacher_model.resize_token_embeddings(new_num_tokens=student.config.vocab_size)
+            self.teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
             self.teacher_model.requires_grad_(False)
         else:
             self.teacher_model = None
@@ -109,7 +110,7 @@ class DistillDataset:
 
     def get_teacher_logits(self):
         if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.pt")):
-            self.__cache_teacher_logits()
+            self.cache_teacher_logits()
 
         print("\n--> Loading Teacher Logits")
         logit_values = torch.load(os.path.join(config.logit_cache_path, "teacher_logits.pt"))
@@ -117,40 +118,40 @@ class DistillDataset:
 
         return logit_values
 
-    def __cache_teacher_logits(self):
+    def cache_teacher_logits(self):
         logit_values = {}
 
         with torch.no_grad():
             print("\n--> Generating Teacher Logits")
-
-            # datasets.Dataset.from_dict
             # save_ds = {"train": {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}, "test": save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}}
 
             for split in ["train", "test"]:
-                # TODO:
-                # save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
-                split_logits = []
+                save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
 
                 import pdb; breakpoint()
                 
-                for i, sample in enumerate(self.dataset[split]):
-                    # apprend the input_ids and attention_mask to save_ds + logit_values and logit_indices
+                for idx, sample in enumerate(self.dataset[split]):
                     input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
                     attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
                     labels = sample["labels"].unsqueeze(0).to(self.device)
+                    
                     outputs = self.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
                     logits = outputs.logits.squeeze(0).cpu() # [1024, 151000]
 
                     values, indices = torch.topk(logits, k=100, dim=-1)
-                    split_logits.append((values, indices))
 
-                logit_values[split] = split_logits
-            torch.save(logit_values, os.path.join(config.logit_cache_path, "teacher_logits.pt"))
+                    save_ds["input_ids"].append(input_ids.squeeze(0).cpu())
+                    save_ds["attention_mask"].append(attention_mask.squeeze(0).cpu())
+                    save_ds["labels"].append(labels.squeeze(0).cpu())
+                    save_ds["logit_values"].append(values)
+                    save_ds["logit_indices"].append(indices)
 
-            # save as a huggingface dataset with input_ids, and attention_mask
-            # datasets.Dataset.from_dict(save_ds)
-            # save to disk function for huggingface dataset
-            
+                    if idx % 10 == 0:
+                        print(f"\n--> Generated {idx} Teacher Logits")
+
+                logit_values[split] = save_ds
+                
+            datasets.Dataset.from_dict(logit_values).save_to_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
 
         print("\n--> Generation Done")
 
@@ -188,4 +189,15 @@ def evaluate_model(model, eval_dataset, collator):
 
 def is_main_process():
     return not dist.is_initialized() or dist.get_rank() == 0
+
+
+if __name__ == "__main__":
+    print("--> Loading Dataset and Caching Logits")
+
+    dataClass = DistillDataset()
+    dataset = dataClass.get_dataset()
+    teacher_logits = dataClass.cache_teacher_logits()
+
+
+
 
