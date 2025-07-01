@@ -113,7 +113,13 @@ class DistillDataset:
             self.cache_teacher_logits()
 
         print("\n--> Loading Teacher Logits")
-        logit_values = torch.load(os.path.join(config.logit_cache_path, "teacher_logits.pt"))
+        logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits.pt"))
+
+        print(f"Teacher Logits:")
+        print(logit_values)
+        print(logit_values["train"])
+        print(logit_values["test"])
+
         print("\n--> Loading Done")
 
         return logit_values
@@ -128,7 +134,7 @@ class DistillDataset:
             for split in ["train", "test"]:
                 save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
 
-                import pdb; breakpoint()
+                # import pdb; breakpoint()
                 
                 for idx, sample in enumerate(self.dataset[split]):
                     input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
@@ -204,7 +210,4 @@ if __name__ == "__main__":
     dataClass = DistillDataset()
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.cache_teacher_logits()
-
-
-
 
