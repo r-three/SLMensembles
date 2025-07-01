@@ -147,13 +147,20 @@ class DistillDataset:
                     save_ds["logit_indices"].append(indices)
 
                     if idx % 10 == 0:
-                        print(f"\n--> Generated {idx} Teacher Logits")
+                        print(f"\n--> [{split}] Generated {idx} Teacher Logits")
 
                 logit_values[split] = save_ds
-                
-            datasets.Dataset.from_dict(logit_values).save_to_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
+            
+            train_ds = Dataset.from_dict(logit_values["train"])
+            test_ds = Dataset.from_dict(logit_values["test"])
 
-        print("\n--> Generation Done")
+            dataset = DatasetDict({
+                "train": train_ds,
+                "test": test_ds
+            })
+
+            dataset.save_to_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
+            print("\n--> Generation Done")
 
 def format_time_elapsed(seconds):
     minutes, seconds = divmod(seconds, 60)
