@@ -26,15 +26,16 @@ def main():
     parser.add_argument("--local_rank", type=int, default=0)
     args = parser.parse_args()
 
-    device = torch.device("cuda", args.local_rank)
+    ddp_device = torch.device("cuda", args.local_rank)
 
     # ----------------------------------
     # Set up logging and run name
     # ----------------------------------
-    # if is_main_process():
-    log_dir = config.get_directory(config.log_dir)
-    logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
-    atexit.register(logger.flush)
+
+    if is_main_process():
+        log_dir = config.get_directory(config.log_dir)
+        logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
+        atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
@@ -43,12 +44,11 @@ def main():
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to(device)
+    ).to(ddp_device)
 
-    dataClass = DistillDataset(device)
+    dataClass = DistillDataset(ddp_device)
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
-    
 
     # ----------------------------------
     # Metrics
@@ -95,11 +95,14 @@ def main():
             metadata=metadata_dict,
         )
 
-   # ----------------------------------
+    # ----------------------------------
     # Load Student
     # ----------------------------------
 
-
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name,
+        torch_dtype=torch.bfloat16,
+    ).to(ddp_device)
 
     # ----------------------------------
     # Load Tokenizer and Models
@@ -140,7 +143,7 @@ def main():
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
             vocab_size=student_model.config.vocab_size,
-        ).to(device)
+        ).to(ddp_device)
         ensemble_model.requires_grad_(False)
     else:
         start_round = 0
@@ -315,7 +318,7 @@ def main():
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-        ).to(device)
+        ).to(ddp_device)
 
         if is_main_process():
             student_eval_results = evaluate_model(student_model, dataset["test"], collator)

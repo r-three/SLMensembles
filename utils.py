@@ -129,12 +129,9 @@ class DistillDataset:
 
         with torch.no_grad():
             print("\n--> Generating Teacher Logits")
-            # save_ds = {"train": {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}, "test": save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}}
-
             for split in ["train", "test"]:
-                save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
 
-                # import pdb; breakpoint()
+                save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}       
                 
                 for idx, sample in enumerate(self.dataset[split]):
                     input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
