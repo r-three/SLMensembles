@@ -53,22 +53,30 @@ class DistillationTrainer(SFTTrainer):
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False):
-        labels = inputs.pop("labels")
-        student_outputs = model(**inputs, labels=labels)
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+        labels = inputs["labels"]
+
+        # -------------------------
+        # Compute Student Predictions
+        # -------------------------
+        student_outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         student_logits = student_outputs.logits
         next_token_loss = student_outputs.loss
 
+        # -------------------------
+        # Compute Ensemble Predictions
+        # -------------------------
         ensemble_logits = None
         if self.ensemble_model is not None:
             with torch.no_grad():
-                ensemble_logits = self.ensemble_model(**inputs).logits
+                ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
+                ensemble_logits = ensemble_outputs.logits
 
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
-        if not config.synthetic_data and ensemble_logits is not None:
-            kl_loss = self.compute_kl_loss(
-                student_logits, ensemble_logits, mask=labels != -100
-            )
+        if not config.synthetic_data:
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # -------------------------
@@ -111,25 +119,34 @@ class DistillationTrainer(SFTTrainer):
     def prediction_step(
         self, model, inputs, prediction_loss_only, ignore_keys=None
     ):
-        """Model eval"""
-        labels = inputs.pop("labels")
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+        labels = inputs["labels"]
+
+        # -------------------------
+        # Compute Predictions
+        # -------------------------
         with torch.no_grad():
-            student_logits = model(**inputs).logits
+            student_logits = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels).logits
             ensemble_logits = None
             if self.ensemble_model is not None:
-                ensemble_logits = self.ensemble_model(**inputs).logits
+                ensemble_logits = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits
 
             if ensemble_logits is not None:
                 num_models = len(self.ensemble_model.models)
-                total_ensemble_logits = student_logits / (
-                    num_models + 1
-                ) + ensemble_logits * (num_models / (num_models + 1))
+                total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
             else:
                 total_ensemble_logits = student_logits
 
+        # ------------------------------
+        # Handle potential DDP wrapping
+        # ------------------------------
         if hasattr(model, "module"):
             model = model.module
 
+        # ------------------------------
+        # Compute Loss
+        # ------------------------------
         loss = model.loss_function(
             logits=total_ensemble_logits,
             labels=labels,
@@ -137,10 +154,8 @@ class DistillationTrainer(SFTTrainer):
         )
 
         kl_loss = 0
-        if not config.synthetic_data and ensemble_logits is not None:
-            kl_loss = self.compute_kl_loss(
-                student_logits, ensemble_logits, mask=labels != -100
-            )
+        if not config.synthetic_data:
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels_s != -100)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         # ------------------------------
