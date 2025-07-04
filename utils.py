@@ -42,13 +42,14 @@ class CSVLogger:
             if not os.path.exists(self.filepath):
                 print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
                 sys.exit(1)
-        elif not os.path.exists(self.filepath):
+        elif os.path.exists(self.filepath) and not config.overwrite_csv:
+            print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
+            sys.exit(1)
+        else:
             with open(self.filepath, mode="w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=self.fieldnames)
                 writer.writeheader()
-        else:
-            print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
-            sys.exit(1)
+
 
     def log(self, **kwargs):
         row = {key: kwargs.get(key, None) for key in self.fieldnames}
@@ -145,7 +146,7 @@ class DistillDataset:
                     save_ds["logit_values"].append(values)
                     save_ds["logit_indices"].append(indices)
 
-                    if idx % 10 == 0:
+                    if idx % 100 == 0:
                         print(f"\n--> [{split}] Generated {idx} Teacher Logits")
 
                 logit_values[split] = save_ds
