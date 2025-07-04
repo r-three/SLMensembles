@@ -7,7 +7,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 import config
 from transformers import AutoModelForCausalLM
-from datasets import Dataset
+from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 
 
 class CSVLogger:
