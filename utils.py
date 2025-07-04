@@ -168,20 +168,12 @@ class DistillDataset:
             print("\n--> Generation Done")
 
     def concatenate_logit_chunks(self, split_dir: str):
-        # Find all chunk_* directories, order them numerically
-        dataset_dict = {}
         chunk_paths = sorted(
-            glob.glob(os.path.join(split_dir, "chunk_*")),
+            [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
             key=lambda p: int(os.path.basename(p).split("_")[-1]),
         )
+        print(f"--> Loading {len(chunk_paths)} chunks for '{split_dir}' split")
 
-        print(f"--> Loading {len(chunk_dirs)} chunks for '{split}' split")
-        chunk_dirs = sorted(
-            [os.path.join(split_dir, d) for d in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, d))],
-            key=lambda x: int(os.path.basename(x).split("_")[-1]),  # ensure correct order
-        )
-
-        # Load each chunk and stitch them together
         datasets_list = [load_from_disk(p) for p in chunk_paths]
         combined = concatenate_datasets(datasets_list)
         return combined
