@@ -181,15 +181,6 @@ class DistillDataset:
         dataset_dict = {}
 
         for split in ["train", "test"]:
-            split_dir = os.path.join(base_path, f"teacher_logits_{split}")
-            chunk_dirs = sorted(
-                [os.path.join(split_dir, d) for d in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, d))],
-                key=lambda x: int(os.path.basename(x).split("_")[-1]),  # ensure correct order
-            )
-
-            if not chunk_dirs:
-                raise ValueError(f"No chunks found in {split_dir}")
-
             print(f"--> Loading {len(chunk_dirs)} chunks for '{split}' split")
 
             all_chunks = [load_from_disk(chunk_path) for chunk_path in chunk_dirs]
@@ -199,8 +190,12 @@ class DistillDataset:
         print("--> Finished loading and combining all teacher logits")
         return DatasetDict(dataset_dict)
 
-    def concatenate_teacher_logit_chunks(split_dir: str):
+    def concatenate_teacher_logit_chunks(self, split_dir: str):
         # Find all chunk_* directories, order them numerically
+        chunk_dirs = sorted(
+            [os.path.join(split_dir, d) for d in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, d))],
+            key=lambda x: int(os.path.basename(x).split("_")[-1]),  # ensure correct order
+        )
         chunk_paths = sorted(
             glob.glob(os.path.join(split_dir, "chunk_*")),
             key=lambda p: int(os.path.basename(p).split("_")[-1]),
@@ -213,19 +208,18 @@ class DistillDataset:
         combined = concatenate_datasets(datasets_list)
         return combined
 
-    def build_teacher_logits_dataset(base_path: str, save_combined: bool = False, combined_dir_name: str = "teacher_logits"):
+    def build_teacher_logits_dataset(base_path: str, combined_dir_name: str = "teacher_logits"):
         train_dir = os.path.join(base_path, "teacher_logits_train")
         test_dir = os.path.join(base_path, "teacher_logits_test")
 
-        train_ds = concatenate_teacher_logit_chunks(train_dir)
-        test_ds = concatenate_teacher_logit_chunks(test_dir)
+        train_ds = self.concatenate_teacher_logit_chunks(train_dir)
+        test_ds = self.concatenate_teacher_logit_chunks(test_dir)
 
         dataset = DatasetDict({"train": train_ds, "test": test_ds})
 
-        if save_combined:
-            combined_path = os.path.join(base_path, combined_dir_name)
-            dataset.save_to_disk(combined_path)
-            print(f"--> Combined dataset saved to {combined_path}")
+        combined_path = os.path.join(base_path, combined_dir_name)
+        dataset.save_to_disk(combined_path)
+        print(f"--> Combined dataset saved to {combined_path}")
 
         return dataset
 
