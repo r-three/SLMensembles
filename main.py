@@ -26,7 +26,7 @@ def main():
     parser.add_argument("--local_rank", type=int, default=0)
     args = parser.parse_args()
 
-    ddp_device = torch.device("cuda", args.local_rank)
+    ddp_device = torch.device("cuda")
 
     # ----------------------------------
     # Set up logging and run name
