@@ -177,6 +177,58 @@ class DistillDataset:
             dataset.save_to_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
             print("\n--> Generation Done")
 
+    def load_teacher_logits_from_chunks(base_path):
+        dataset_dict = {}
+
+        for split in ["train", "test"]:
+            split_dir = os.path.join(base_path, f"teacher_logits_{split}")
+            chunk_dirs = sorted(
+                [os.path.join(split_dir, d) for d in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, d))],
+                key=lambda x: int(os.path.basename(x).split("_")[-1]),  # ensure correct order
+            )
+
+            if not chunk_dirs:
+                raise ValueError(f"No chunks found in {split_dir}")
+
+            print(f"--> Loading {len(chunk_dirs)} chunks for '{split}' split")
+
+            all_chunks = [load_from_disk(chunk_path) for chunk_path in chunk_dirs]
+            combined = concatenate_datasets(all_chunks)
+            dataset_dict[split] = combined
+
+        print("--> Finished loading and combining all teacher logits")
+        return DatasetDict(dataset_dict)
+
+    def concatenate_teacher_logit_chunks(split_dir: str):
+        # Find all chunk_* directories, order them numerically
+        chunk_paths = sorted(
+            glob.glob(os.path.join(split_dir, "chunk_*")),
+            key=lambda p: int(os.path.basename(p).split("_")[-1]),
+        )
+        if not chunk_paths:
+            raise FileNotFoundError(f"No chunk_* dirs found in {split_dir}")
+
+        # Load each chunk and stitch them together
+        datasets_list = [load_from_disk(p) for p in chunk_paths]
+        combined = concatenate_datasets(datasets_list)
+        return combined
+
+    def build_teacher_logits_dataset(base_path: str, save_combined: bool = False, combined_dir_name: str = "teacher_logits"):
+        train_dir = os.path.join(base_path, "teacher_logits_train")
+        test_dir = os.path.join(base_path, "teacher_logits_test")
+
+        train_ds = concatenate_teacher_logit_chunks(train_dir)
+        test_ds = concatenate_teacher_logit_chunks(test_dir)
+
+        dataset = DatasetDict({"train": train_ds, "test": test_ds})
+
+        if save_combined:
+            combined_path = os.path.join(base_path, combined_dir_name)
+            dataset.save_to_disk(combined_path)
+            print(f"--> Combined dataset saved to {combined_path}")
+
+        return dataset
+
 
 def format_time_elapsed(seconds):
     minutes, seconds = divmod(seconds, 60)
