@@ -104,11 +104,11 @@ class DistillDataset:
         return dataset
 
     def get_teacher_logits(self):
-        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits.pt")):
+        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
             self.cache_teacher_logits()
 
         print("\n--> Loading Teacher Logits")
-        logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits.pt"))
+        logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
 
         print(f"Teacher Logits:")
         print(logit_values)
@@ -116,7 +116,6 @@ class DistillDataset:
         print(logit_values["test"])
 
         print("\n--> Loading Done")
-
         return logit_values
 
     def cache_teacher_logits(self):
@@ -191,7 +190,7 @@ class DistillDataset:
         dataset.save_to_disk(combined_path)
         print(f"--> Full dataset saved to {combined_path}")
 
-        return dataset
+        return combined_path
 
 
 def format_time_elapsed(seconds):
