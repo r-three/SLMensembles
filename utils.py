@@ -1,4 +1,3 @@
-# utils.py
 import os, csv, time, glob, sys
 from datetime import datetime
 import torch
@@ -118,6 +117,40 @@ class DistillDataset:
         print("\n--> Loading Done")
         return logit_values
 
+    def concatenate_logit_chunks(self, split_dir: str):
+        chunk_paths = sorted(
+            [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
+            key=lambda p: int(os.path.basename(p).split("_")[-1]),
+        )
+        print(f"--> Loading {len(chunk_paths)} chunks for '{split_dir}' split")
+
+        import pdb
+
+        breakpoint()
+
+        datasets_list = [load_from_disk(p) for p in chunk_paths]
+        combined = concatenate_datasets(datasets_list)
+        return combined
+
+    def build_teacher_logits_dataset(self):
+        train_dir = os.path.join(config.logit_cache_path, "teacher_logits_train")
+        test_dir = os.path.join(config.logit_cache_path, "teacher_logits_test")
+
+        train_ds = self.concatenate_logit_chunks(train_dir)
+        test_ds = self.concatenate_logit_chunks(test_dir)
+
+        dataset = DatasetDict({"train": train_ds, "test": test_ds})
+
+        import pdb
+
+        breakpoint()
+
+        combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
+        dataset.save_to_disk(combined_path)
+        print(f"--> Full dataset saved to {combined_path}")
+
+        return combined_path
+
     def cache_teacher_logits(self):
         with torch.no_grad():
             print("\n--> Generating Teacher Logits")
@@ -128,6 +161,9 @@ class DistillDataset:
                 os.makedirs(save_dir, exist_ok=True)
 
                 for idx, sample in enumerate(self.dataset[split]):
+                    import pdb
+
+                    breakpoint()
                     input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
                     attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
                     labels = sample["labels"].unsqueeze(0).to(self.device)
@@ -143,7 +179,7 @@ class DistillDataset:
                     save_ds["logit_values"].append(values.cpu())
                     save_ds["logit_indices"].append(indices.cpu())
 
-                    if idx % 100 == 0:
+                    if (idx + 1) % 100 == 0:
                         print(f"\n--> [{split}] Generated {idx} Teacher Logits")
 
                     if (idx + 1) % 3000 == 0 or idx == len(self.dataset[split]) - 1:
@@ -163,34 +199,11 @@ class DistillDataset:
                             "logit_indices": [],
                         }
 
+                    if (idx + 1) % 12000 == 0:
+                        break
+
             self.build_teacher_logits_dataset()
             print("\n--> Generation Done")
-
-    def concatenate_logit_chunks(self, split_dir: str):
-        chunk_paths = sorted(
-            [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
-            key=lambda p: int(os.path.basename(p).split("_")[-1]),
-        )
-        print(f"--> Loading {len(chunk_paths)} chunks for '{split_dir}' split")
-
-        datasets_list = [load_from_disk(p) for p in chunk_paths]
-        combined = concatenate_datasets(datasets_list)
-        return combined
-
-    def build_teacher_logits_dataset(self):
-        train_dir = os.path.join(config.logit_cache_path, "teacher_logits_train")
-        test_dir = os.path.join(config.logit_cache_path, "teacher_logits_test")
-
-        train_ds = self.concatenate_logit_chunks(train_dir)
-        test_ds = self.concatenate_logit_chunks(test_dir)
-
-        dataset = DatasetDict({"train": train_ds, "test": test_ds})
-
-        combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
-        dataset.save_to_disk(combined_path)
-        print(f"--> Full dataset saved to {combined_path}")
-
-        return combined_path
 
 
 def format_time_elapsed(seconds):
@@ -232,5 +245,4 @@ if __name__ == "__main__":
     print("--> Loading Dataset and Caching Logits")
 
     dataClass = DistillDataset()
-    dataset = dataClass.get_dataset()
     teacher_logits = dataClass.cache_teacher_logits()

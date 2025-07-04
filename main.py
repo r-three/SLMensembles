@@ -21,7 +21,7 @@ def main():
     # ----------------------------------
     # Set up distributed training
     # ----------------------------------
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int, default=0)
     args = parser.parse_args()
@@ -49,6 +49,10 @@ def main():
     dataClass = DistillDataset(ddp_device)
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
+
+    import pdb
+
+    breakpoint()
 
     # ----------------------------------
     # Metrics
@@ -125,7 +129,7 @@ def main():
 
     # ----------------------------------
     # Load Existing Models
-    # ----------------------------------    
+    # ----------------------------------
 
     existing_models = []
     for run_dir in config.ensemble_members:
@@ -150,7 +154,7 @@ def main():
         ensemble_model = None
 
     # ----------------------------------
-    # Evaluate 
+    # Evaluate
     # ----------------------------------
 
     if is_main_process():
@@ -326,7 +330,7 @@ def main():
                 function="main",
                 round_num=round_num,
                 phase="custom_eval",
-            role="student",
+                role="student",
                 eval_loss=student_eval_results["eval_loss"],
                 perplexity=student_eval_results["perplexity"],
                 tags=["initial eval"],
