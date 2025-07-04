@@ -120,15 +120,12 @@ class DistillDataset:
         return logit_values
 
     def cache_teacher_logits(self):
-        logit_values = {}
-
         with torch.no_grad():
             print("\n--> Generating Teacher Logits")
+
             for split in ["train", "test"]:
-
                 save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
-
-                save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_")
+                save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}")
                 os.makedirs(save_dir, exist_ok=True)
 
                 for idx, sample in enumerate(self.dataset[split]):
@@ -137,23 +134,23 @@ class DistillDataset:
                     labels = sample["labels"].unsqueeze(0).to(self.device)
 
                     outputs = self.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
-                    logits = outputs.logits.squeeze(0).cpu()  # [1024, 151000]
+                    logits = outputs.logits.squeeze(0).cpu()  # [sample, 1024, 151000]
 
                     values, indices = torch.topk(logits, k=100, dim=-1)
 
                     save_ds["input_ids"].append(input_ids.squeeze(0).cpu())
                     save_ds["attention_mask"].append(attention_mask.squeeze(0).cpu())
                     save_ds["labels"].append(labels.squeeze(0).cpu())
-                    save_ds["logit_values"].append(values)
-                    save_ds["logit_indices"].append(indices)
+                    save_ds["logit_values"].append(values.cpu())
+                    save_ds["logit_indices"].append(indices.cpu())
 
                     if idx % 100 == 0:
                         print(f"\n--> [{split}] Generated {idx} Teacher Logits")
 
                     if (idx + 1) % 3000 == 0 or idx == len(self.dataset[split]) - 1:
-                        save_ds_id = idx // 3000
-                        file_path = os.path.join(save_dir, f"chunk_{save_ds_id}.arrow")
-                        print(f"--> [{split}] Saving chunk {save_ds_id} with {len(save_ds['input_ids'])} samples")
+                        save_id = idx // 3000
+                        file_path = os.path.join(save_dir, f"chunk_{save_id}.arrow")
+                        print(f"--> [{split}] Saving chunk {save_id} with {len(save_ds['input_ids'])} samples")
 
                         save_dataset = Dataset.from_dict(save_ds)
                         save_dataset.save_to_disk(file_path)
@@ -167,59 +164,40 @@ class DistillDataset:
                             "logit_indices": [],
                         }
 
-                logit_values[split] = save_ds
-
-            train_ds = Dataset.from_dict(logit_values["train"])
-            test_ds = Dataset.from_dict(logit_values["test"])
-
-            dataset = DatasetDict({"train": train_ds, "test": test_ds})
-
-            dataset.save_to_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
+            self.build_teacher_logits_dataset()
             print("\n--> Generation Done")
 
-    def load_teacher_logits_from_chunks(base_path):
-        dataset_dict = {}
-
-        for split in ["train", "test"]:
-            print(f"--> Loading {len(chunk_dirs)} chunks for '{split}' split")
-
-            all_chunks = [load_from_disk(chunk_path) for chunk_path in chunk_dirs]
-            combined = concatenate_datasets(all_chunks)
-            dataset_dict[split] = combined
-
-        print("--> Finished loading and combining all teacher logits")
-        return DatasetDict(dataset_dict)
-
-    def concatenate_teacher_logit_chunks(self, split_dir: str):
+    def concatenate_logit_chunks(self, split_dir: str):
         # Find all chunk_* directories, order them numerically
-        chunk_dirs = sorted(
-            [os.path.join(split_dir, d) for d in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, d))],
-            key=lambda x: int(os.path.basename(x).split("_")[-1]),  # ensure correct order
-        )
+        dataset_dict = {}
         chunk_paths = sorted(
             glob.glob(os.path.join(split_dir, "chunk_*")),
             key=lambda p: int(os.path.basename(p).split("_")[-1]),
         )
-        if not chunk_paths:
-            raise FileNotFoundError(f"No chunk_* dirs found in {split_dir}")
+
+        print(f"--> Loading {len(chunk_dirs)} chunks for '{split}' split")
+        chunk_dirs = sorted(
+            [os.path.join(split_dir, d) for d in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, d))],
+            key=lambda x: int(os.path.basename(x).split("_")[-1]),  # ensure correct order
+        )
 
         # Load each chunk and stitch them together
         datasets_list = [load_from_disk(p) for p in chunk_paths]
         combined = concatenate_datasets(datasets_list)
         return combined
 
-    def build_teacher_logits_dataset(base_path: str, combined_dir_name: str = "teacher_logits"):
-        train_dir = os.path.join(base_path, "teacher_logits_train")
-        test_dir = os.path.join(base_path, "teacher_logits_test")
+    def build_teacher_logits_dataset(self):
+        train_dir = os.path.join(config.logit_cache_path, "teacher_logits_train")
+        test_dir = os.path.join(config.logit_cache_path, "teacher_logits_test")
 
-        train_ds = self.concatenate_teacher_logit_chunks(train_dir)
-        test_ds = self.concatenate_teacher_logit_chunks(test_dir)
+        train_ds = self.concatenate_logit_chunks(train_dir)
+        test_ds = self.concatenate_logit_chunks(test_dir)
 
         dataset = DatasetDict({"train": train_ds, "test": test_ds})
 
-        combined_path = os.path.join(base_path, combined_dir_name)
+        combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
         dataset.save_to_disk(combined_path)
-        print(f"--> Combined dataset saved to {combined_path}")
+        print(f"--> Full dataset saved to {combined_path}")
 
         return dataset
 
