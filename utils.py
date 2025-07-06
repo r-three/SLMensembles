@@ -133,24 +133,26 @@ class DistillDataset:
                 key=lambda p: int(os.path.basename(p).split("_")[-1].replace(".arrow", "")),
             )
             print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
+            datasets_list.extend(load_from_disk(p) for p in chunk_paths)
 
-            datasets_list.append([load_from_disk(p) for p in chunk_paths])
         combined = concatenate_datasets(datasets_list)
         return combined
 
     def build_teacher_logits_dataset(self):
-        print(f"--> Saving Dataset")
+        print(f"--> Assembling full teacher-logits dataset")
+        dict = {}
 
         for split in ["train", "test"]:
             split_dirs = glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*"))
             split_ds = self.concatenate_logit_chunks(split_dirs)
 
-            dataset = DatasetDict({"{split}": split_ds})
+            dict[split] = split_ds
 
+        dataset = DatasetDict(dict)
         combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
         dataset.save_to_disk(combined_path)
-        print(f"--> Full dataset saved to {combined_path}")
 
+        print(f"--> Full dataset saved to {combined_path}")
         return combined_path
 
     def cache_teacher_logits(self):
