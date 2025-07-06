@@ -147,14 +147,31 @@ class DistillDataset:
         return combined_path
 
     def cache_teacher_logits(self):
-        with torch.no_grad():
-            print("\n--> Generating Teacher Logits")
-            for split in ["train", "test"]:
-                save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
-                save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}")
-                os.makedirs(save_dir, exist_ok=True)
 
-                for idx, sample in enumerate(self.dataset[split]):
+        if not dist.is_initialized():
+            dist.init_process_group("nccl")
+
+        print(f"Using {torch.distributed.get_backend()} backend")
+
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        print(f"Rank: {rank}")
+        print(f"World size: {world_size}")
+
+        torch.cuda.set_device(rank)
+        self.teacher_model.to(f"cuda:{rank}")
+
+        print("\n--> Generating Teacher Logits")
+        for split in ["train", "test"]:
+
+            shard = self.dataset[split].shard(num_shards=world_size, index=rank)
+            save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_rank{rank}")
+            os.makedirs(save_dir, exist_ok=True)
+
+            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
+
+            with torch.no_grad():
+                for idx, sample in enumerate(shard):
                     input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
                     attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
                     labels = sample["labels"].unsqueeze(0).to(self.device)
