@@ -125,14 +125,11 @@ class DistillDataset:
         )
         print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
 
-        breakpoint()
-
         datasets_list = [load_from_disk(p) for p in chunk_paths]
         combined = concatenate_datasets(datasets_list)
         return combined
 
     def build_teacher_logits_dataset(self):
-        breakpoint()
         print(f"--> Saving Dataset")
 
         train_dir = os.path.join(config.logit_cache_path, "teacher_logits_train")
@@ -152,50 +149,46 @@ class DistillDataset:
     def cache_teacher_logits(self):
         with torch.no_grad():
             print("\n--> Generating Teacher Logits")
+            for split in ["train", "test"]:
+                save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
+                save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}")
+                os.makedirs(save_dir, exist_ok=True)
 
-            #             for split in ["train", "test"]:
-            #                 save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
-            #                 save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}")
-            #                 os.makedirs(save_dir, exist_ok=True)
-            #
-            #                 for idx, sample in enumerate(self.dataset[split]):
-            #                     input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
-            #                     attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
-            #                     labels = sample["labels"].unsqueeze(0).to(self.device)
-            #
-            #                     outputs = self.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
-            #                     logits = outputs.logits.squeeze(0).cpu()  # [sample, 1024, 151000]
-            #
-            #                     values, indices = torch.topk(logits, k=100, dim=-1)
-            #
-            #                     save_ds["input_ids"].append(input_ids.squeeze(0).cpu())
-            #                     save_ds["attention_mask"].append(attention_mask.squeeze(0).cpu())
-            #                     save_ds["labels"].append(labels.squeeze(0).cpu())
-            #                     save_ds["logit_values"].append(values.cpu())
-            #                     save_ds["logit_indices"].append(indices.cpu())
-            #
-            #                     if (idx + 1) % 100 == 0:
-            #                         print(f"\n--> [{split}] Generated {idx} Teacher Logits")
-            #
-            #                     if (idx + 1) % 500 == 0 or idx == len(self.dataset[split]) - 1:
-            #                         save_id = idx // 3000
-            #                         file_path = os.path.join(save_dir, f"chunk_{save_id}.arrow")
-            #                         print(f"--> [{split}] Saving chunk {save_id} with {len(save_ds['input_ids'])} samples")
-            #
-            #                         save_dataset = Dataset.from_dict(save_ds)
-            #                         save_dataset.save_to_disk(file_path)
-            #
-            #                         # Reset
-            #                         save_ds = {
-            #                             "input_ids": [],
-            #                             "attention_mask": [],
-            #                             "labels": [],
-            #                             "logit_values": [],
-            #                             "logit_indices": [],
-            #                         }
-            #
-            #                     if (idx + 1) % 2000 == 0:
-            #                         break
+                for idx, sample in enumerate(self.dataset[split]):
+                    input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
+                    attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
+                    labels = sample["labels"].unsqueeze(0).to(self.device)
+
+                    outputs = self.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+                    logits = outputs.logits.squeeze(0).cpu()  # [sample, 1024, 151000]
+
+                    values, indices = torch.topk(logits, k=100, dim=-1)
+
+                    save_ds["input_ids"].append(input_ids.squeeze(0).cpu())
+                    save_ds["attention_mask"].append(attention_mask.squeeze(0).cpu())
+                    save_ds["labels"].append(labels.squeeze(0).cpu())
+                    save_ds["logit_values"].append(values.cpu())
+                    save_ds["logit_indices"].append(indices.cpu())
+
+                    if (idx + 1) % 200 == 0:
+                        print(f"\n--> [{split}] Generated {idx} Teacher Logits")
+
+                    if (idx + 1) % 3000 == 0 or idx == len(self.dataset[split]) - 1:
+                        save_id = idx // 3000
+                        file_path = os.path.join(save_dir, f"chunk_{save_id}.arrow")
+                        print(f"--> [{split}] Saving chunk {save_id} with {len(save_ds['input_ids'])} samples")
+
+                        save_dataset = Dataset.from_dict(save_ds)
+                        save_dataset.save_to_disk(file_path)
+
+                        # Reset
+                        save_ds = {
+                            "input_ids": [],
+                            "attention_mask": [],
+                            "labels": [],
+                            "logit_values": [],
+                            "logit_indices": [],
+                        }
 
             self.build_teacher_logits_dataset()
             print("\n--> Generation Done")

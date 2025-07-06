@@ -26,7 +26,8 @@ def main():
     parser.add_argument("--local_rank", type=int, default=0)
     args = parser.parse_args()
 
-    ddp_device = torch.device("cuda")
+    torch.cuda.set_device(args.local_rank)
+    ddp_device = torch.device(f"cuda:{args.local_rank}")
 
     # ----------------------------------
     # Set up logging and run name
@@ -214,7 +215,7 @@ def main():
         trainer = DistillationTrainer(
             ensemble_model=ensemble_model,
             teacher_logits=teacher_logits,
-            logger=logger,
+            logger=logger if is_main_process() else None,
             round_num=round_num,
             overall_start_time=overall_start_time,
             model=student_model,
