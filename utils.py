@@ -123,7 +123,7 @@ class DistillDataset:
             [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
             key=lambda p: int(os.path.basename(p).split("_")[-1].replace(".arrow", "")),
         )
-        print(f"--> Loading {len(chunk_paths)} chunks for '{split_dir}' split")
+        print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
 
         breakpoint()
 
