@@ -118,27 +118,34 @@ class DistillDataset:
         print("\n--> Loading Done")
         return logit_values
 
-    def concatenate_logit_chunks(self, split_dir: str):
-        chunk_paths = sorted(
-            [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
-            key=lambda p: int(os.path.basename(p).split("_")[-1].replace(".arrow", "")),
-        )
-        print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
+    # teacher_logits_{split}_rank{rank}/
+    # └── chunk_0.arrow/
+    #     ├── data-00000-of-00002.arrow
+    #     ├── data-00001-of-00002.arrow
+    #     ├── dataset_info.json
+    #     └── state.json
 
-        datasets_list = [load_from_disk(p) for p in chunk_paths]
+    def concatenate_logit_chunks(self, split_dirs: list[str]):
+        datasets_list = []
+        for split_dir in split_dirs:
+            chunk_paths = sorted(
+                [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
+                key=lambda p: int(os.path.basename(p).split("_")[-1].replace(".arrow", "")),
+            )
+            print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
+
+            datasets_list.append([load_from_disk(p) for p in chunk_paths])
         combined = concatenate_datasets(datasets_list)
         return combined
 
     def build_teacher_logits_dataset(self):
         print(f"--> Saving Dataset")
 
-        train_dir = os.path.join(config.logit_cache_path, "teacher_logits_train")
-        test_dir = os.path.join(config.logit_cache_path, "teacher_logits_test")
+        for split in ["train", "test"]:
+            split_dirs = glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*"))
+            split_ds = self.concatenate_logit_chunks(split_dirs)
 
-        train_ds = self.concatenate_logit_chunks(train_dir)
-        test_ds = self.concatenate_logit_chunks(test_dir)
-
-        dataset = DatasetDict({"train": train_ds, "test": test_ds})
+            dataset = DatasetDict({"{split}": split_ds})
 
         combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
         dataset.save_to_disk(combined_path)
