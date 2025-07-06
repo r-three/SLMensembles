@@ -50,10 +50,6 @@ def main():
     dataset = dataClass.get_dataset()
     teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
-    import pdb
-
-    breakpoint()
-
     # ----------------------------------
     # Metrics
     # ----------------------------------
