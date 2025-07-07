@@ -118,13 +118,6 @@ class DistillDataset:
         print("\n--> Loading Done")
         return logit_values
 
-    # teacher_logits_{split}_rank{rank}/
-    # └── chunk_0.arrow/
-    #     ├── data-00000-of-00002.arrow
-    #     ├── data-00001-of-00002.arrow
-    #     ├── dataset_info.json
-    #     └── state.json
-
     def concatenate_logit_chunks(self, split_dirs: list[str]):
         datasets_list = []
         for split_dir in split_dirs:
@@ -196,11 +189,11 @@ class DistillDataset:
                     save_ds["logit_values"].append(values.cpu())
                     save_ds["logit_indices"].append(indices.cpu())
 
-                    if (idx + 1) % 200 == 0:
-                        print(f"\n--> [{split}] Generated {idx} Teacher Logits")
+                    if (idx + 1) % 100 == 0:
+                        print(f"--> [{split}] Generated {idx} Teacher Logits")
 
-                    if (idx + 1) % 3000 == 0 or idx == len(self.dataset[split]) - 1:
-                        save_id = idx // 3000
+                    if (idx + 1) % 1000 == 0 or idx == len(self.dataset[split]) - 1:
+                        save_id = idx // 1000
                         file_path = os.path.join(save_dir, f"chunk_{save_id}.arrow")
                         print(f"--> [{split}] Saving chunk {save_id} with {len(save_ds['input_ids'])} samples")
 
@@ -216,8 +209,15 @@ class DistillDataset:
                             "logit_indices": [],
                         }
 
+                    if (idx + 1) % 3000 == 0:
+                        break
+
+        dist.barrier()
+        if dist.get_rank() == 0:
             self.build_teacher_logits_dataset()
-            print("\n--> Generation Done")
+
+        dist.barrier()
+        print("\n--> Generation Done")
 
 
 def format_time_elapsed(seconds):
