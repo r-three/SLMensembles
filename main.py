@@ -48,8 +48,7 @@ def main():
     ).to(ddp_device)
 
     dataClass = DistillDataset(ddp_device)
-    dataset = dataClass.get_dataset()
-    teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
+    teacher_logits = dataClass.get_logits() if not config.synthetic_data else None
 
     # ----------------------------------
     # Metrics
