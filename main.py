@@ -9,14 +9,7 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import (
-    CSVLogger,
-    DistillDataset,
-    evaluate_model,
-    format_time_elapsed,
-    get_round_path,
-    is_main_process,
-)
+from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process,
 from ensemble import ModelEnsemble
 
 
@@ -42,11 +35,7 @@ def main():
 
     if is_main_process():
         log_dir = config.get_directory(config.log_dir)
-        logger = CSVLogger(
-            log_dir,
-            fieldnames=config.CSV_COLUMNS,
-            overall_start_time=overall_start_time,
-        )
+        logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
