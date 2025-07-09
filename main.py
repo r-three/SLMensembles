@@ -9,7 +9,7 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process,
+from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process
 from ensemble import ModelEnsemble
 
 
