@@ -47,11 +47,6 @@ def main():
         torch_dtype=torch.bfloat16,
     ).to(ddp_device)
 
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(ddp_device)
-
     # ----------------------------------
     # Loading the Teacher Dataset
     # ----------------------------------
