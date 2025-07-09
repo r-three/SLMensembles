@@ -1,6 +1,7 @@
 import os, csv, time, glob, sys
 from datetime import datetime
 import pdb
+import shutil
 import torch
 import datasets
 import torch.distributed as dist
@@ -90,6 +91,7 @@ class DistillDataset:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
         else:
             dataset = datasets.load_from_disk(config.dataset_path)
+            # dataset = datasets.load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
 
         if config.dataset_type == "single":
             return {
@@ -149,7 +151,6 @@ class DistillDataset:
         return combined_path
 
     def cache_teacher_logits(self):
-
         if not dist.is_initialized():
             dist.init_process_group("nccl")
 
@@ -171,6 +172,7 @@ class DistillDataset:
             os.makedirs(save_dir, exist_ok=True)
 
             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
+            chunk_id = 0
 
             with torch.no_grad():
                 for idx, sample in enumerate(shard):
@@ -189,18 +191,17 @@ class DistillDataset:
                     save_ds["logit_values"].append(values.cpu())
                     save_ds["logit_indices"].append(indices.cpu())
 
-                    if (idx + 1) % 100 == 0:
+                    if (idx + 1) % 1000 == 0:
                         print(f"--> [{split}] Generated {idx} Teacher Logits")
 
-                    if (idx + 1) % 1000 == 0 or idx == len(self.dataset[split]) - 1:
-                        save_id = idx // 1000
-                        file_path = os.path.join(save_dir, f"chunk_{save_id}.arrow")
-                        print(f"--> [{split}] Saving chunk {save_id} with {len(save_ds['input_ids'])} samples")
+                    if (idx + 1) % 3000 == 0 or (idx == len(shard) - 1):
+                        print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
-                        save_dataset = Dataset.from_dict(save_ds)
-                        save_dataset.save_to_disk(file_path)
+                        save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
+                        if os.path.exists(save_path):
+                            shutil.rmtree(save_path)
+                        Dataset.from_dict(save_ds).save_to_disk(save_path)
 
-                        # Reset
                         save_ds = {
                             "input_ids": [],
                             "attention_mask": [],
@@ -208,9 +209,20 @@ class DistillDataset:
                             "logit_values": [],
                             "logit_indices": [],
                         }
+                        chunk_id += 1
 
-                    if (idx + 1) % 3000 == 0:
-                        break
+                    # if (idx + 1) % 3000 == 0:
+                    #     break
+
+            # look into contents and size of the stored dataset
+            # # of flops + utilization - measure the time and gpu usage
+            # cumulative logit mass plot - pick adaptive k?
+
+            if save_ds["input_ids"]:
+                save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
+                if os.path.exists(save_path):
+                    shutil.rmtree(save_path)
+                Dataset.from_dict(save_ds).save_to_disk(save_path)
 
         dist.barrier()
         if dist.get_rank() == 0:
