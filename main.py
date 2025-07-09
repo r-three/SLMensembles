@@ -42,11 +42,21 @@ def main():
     run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logit_cache_path, exist_ok=True)
 
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name,
+        torch_dtype=torch.bfloat16,
+    ).to(ddp_device)
+
+    # ----------------------------------
+    # Loading the Teacher Dataset
+    # ----------------------------------
     dataClass = DistillDataset(ddp_device)
-    teacher_logits = dataClass.get_logits() if not config.synthetic_data else None
-    dataset = ["input_ids", "attention_mask", "labels"]
-    teacher_logits = ["input_ids", "logit_indices", "logit_values"]
-    # unpack top k preds.
+    dataset = dataClass.get_dataset()
+    loaded_dataset = dataClass.get_teacher_logits() if not config.synthetic_data else None
+
+    if loaded_dataset:
+        dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
+        teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
 
     # ----------------------------------
     # Metrics
@@ -181,9 +191,9 @@ def main():
         round_start_time = time.time()
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"--> Starting Round {round_num} at: {round_start_datetime}")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
         round_output_dir = get_round_path(output_path, round_num)
@@ -249,11 +259,11 @@ def main():
             student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
             ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
 
-            print(f"\n{'-'*25}")
+            print(f"\n{'-' * 25}")
             print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
             print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
             print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
-            print(f"{'-'*25}")
+            print(f"{'-' * 25}")
 
         round_end_time = time.time()
         round_duration = round_end_time - round_start_time
@@ -261,11 +271,11 @@ def main():
         round_duration_str = format_time_elapsed(round_duration)
         overall_elapsed_str = format_time_elapsed(overall_elapsed)
         round_end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
         print(f"Ending Round {round_num} at: {round_end_datetime}")
         print(f"Completed in: {round_duration_str}")
         print(f"Total training time: {overall_elapsed_str}")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
         if is_main_process():
             logger.log(
@@ -339,10 +349,10 @@ def main():
     overall_duration_str = format_time_elapsed(overall_duration)
     end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Training completed at: {end_datetime}")
     print(f"Total training time: {overall_duration_str}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":

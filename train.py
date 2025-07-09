@@ -76,7 +76,7 @@ class DistillationTrainer(SFTTrainer):
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # -------------------------
@@ -98,7 +98,7 @@ class DistillationTrainer(SFTTrainer):
 
         return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
 
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, temperature=1.0):
+    def compute_kl_loss(self, student_logits, ensemble_logits, mask, model, inputs, temperature=1.0):
         """Computes KL divergence loss between teacher and student model logits."""
 
         # ----------------------------------------
@@ -107,6 +107,22 @@ class DistillationTrainer(SFTTrainer):
         if ensemble_logits is not None:
             num_models = len(self.ensemble_model.models)
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
+
+        # -----------------------
+        # Reconstruct the teacher logits
+        # -----------------------
+        batch_size, seq_len, _ = inputs["input_ids"].shape
+
+        vocab_size = model.config.vocab_size
+        reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=self.teacher_logits.device)
+
+        if "logit_indices" in self.teacher_logits and "logit_values" in self.teacher_logits:
+            logit_indices = self.teacher_logits["logit_indices"]
+            logit_values = self.teacher_logits["logit_values"]
+            reconstructed_logits.scatter_(-1, logit_indices, logit_values)
+            self.teacher_logits = reconstructed_logits
+        else:
+            print("Error: No 'logit_indices' or 'logit_values' keys in self.teacher_logits")
 
         # -----------------------
         # Compute KL Loss

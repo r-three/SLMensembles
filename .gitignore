@@ -12,3 +12,5 @@ train.sh
 config.py
 DistillKit/
 tasks-list.txt
+datasets/
+csv_files/
