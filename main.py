@@ -9,7 +9,14 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process
+from utils import (
+    CSVLogger,
+    DistillDataset,
+    evaluate_model,
+    format_time_elapsed,
+    get_round_path,
+    is_main_process,
+)
 from ensemble import ModelEnsemble
 
 
@@ -35,7 +42,11 @@ def main():
 
     if is_main_process():
         log_dir = config.get_directory(config.log_dir)
-        logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
+        logger = CSVLogger(
+            log_dir,
+            fieldnames=config.CSV_COLUMNS,
+            overall_start_time=overall_start_time,
+        )
         atexit.register(logger.flush)
 
     output_path = config.get_directory(config.base_output_dir)
@@ -47,9 +58,18 @@ def main():
         torch_dtype=torch.bfloat16,
     ).to(ddp_device)
 
+    # ----------------------------------
+    # Loading the Teacher Dataset
+    # ----------------------------------
     dataClass = DistillDataset(ddp_device)
     dataset = dataClass.get_dataset()
-    teacher_logits = dataClass.get_teacher_logits() if not config.synthetic_data else None
+    loaded_dataset = (
+        dataClass.get_teacher_logits() if not config.synthetic_data else None
+    )
+
+    if loaded_dataset:
+        dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
+        teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
 
     # ----------------------------------
     # Metrics
@@ -111,10 +131,14 @@ def main():
     print("--> Loading Tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     response_template_ids = tokenizer("\nassistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+    collator = DataCollatorForCompletionOnlyLM(
+        response_template_ids, tokenizer=tokenizer
+    )
 
     if is_main_process():
-        teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
+        teacher_eval_results = evaluate_model(
+            dataClass.teacher_model, dataset["test"], collator
+        )
         logger.log(
             function="main",
             round_num=0,
@@ -172,7 +196,9 @@ def main():
 
     if config.checkpoint_path:
         if not os.path.exists(config.checkpoint_path):
-            print(f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}")
+            print(
+                f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}"
+            )
             sys.exit(1)
         print(f"Resuming training from checkpoint: {config.checkpoint_path}")
 
@@ -184,9 +210,9 @@ def main():
         round_start_time = time.time()
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"--> Starting Round {round_num} at: {round_start_datetime}")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
         round_output_dir = get_round_path(output_path, round_num)
@@ -223,7 +249,9 @@ def main():
             eval_dataset=dataset["test"],
             data_collator=collator,
             args=training_args,
-            callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
+            callbacks=[LoggingCallback(logger, round_num, overall_start_time)]
+            if is_main_process()
+            else [],
         )
 
         trainer.train(resume_from_checkpoint=config.checkpoint_path)
@@ -249,14 +277,24 @@ def main():
         # ----------------------------------
 
         if is_main_process():
-            student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
-            ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
+            student_eval_results = evaluate_model(
+                trainer.model, dataset["test"], collator
+            )
+            ensemble_eval_results = evaluate_model(
+                ensemble_model, dataset["test"], collator
+            )
 
-            print(f"\n{'-'*25}")
-            print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
-            print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
-            print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
-            print(f"{'-'*25}")
+            print(f"\n{'-' * 25}")
+            print(
+                f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}"
+            )
+            print(
+                f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}"
+            )
+            print(
+                f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}"
+            )
+            print(f"{'-' * 25}")
 
         round_end_time = time.time()
         round_duration = round_end_time - round_start_time
@@ -264,11 +302,11 @@ def main():
         round_duration_str = format_time_elapsed(round_duration)
         overall_elapsed_str = format_time_elapsed(overall_elapsed)
         round_end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
         print(f"Ending Round {round_num} at: {round_end_datetime}")
         print(f"Completed in: {round_duration_str}")
         print(f"Total training time: {overall_elapsed_str}")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
         if is_main_process():
             logger.log(
@@ -322,7 +360,9 @@ def main():
         ).to(ddp_device)
 
         if is_main_process():
-            student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+            student_eval_results = evaluate_model(
+                student_model, dataset["test"], collator
+            )
             logger.log(
                 function="main",
                 round_num=round_num,
@@ -342,10 +382,10 @@ def main():
     overall_duration_str = format_time_elapsed(overall_duration)
     end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Training completed at: {end_datetime}")
     print(f"Total training time: {overall_duration_str}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":
