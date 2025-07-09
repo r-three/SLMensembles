@@ -42,13 +42,11 @@ def main():
     run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logit_cache_path, exist_ok=True)
 
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(ddp_device)
-
     dataClass = DistillDataset(ddp_device)
     teacher_logits = dataClass.get_logits() if not config.synthetic_data else None
+    dataset = ["input_ids", "attention_mask", "labels"]
+    teacher_logits = ["input_ids", "logit_indices", "logit_values"]
+    # unpack top k preds.
 
     # ----------------------------------
     # Metrics

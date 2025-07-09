@@ -116,9 +116,7 @@ class DistillationTrainer(SFTTrainer):
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 
-    def prediction_step(
-        self, model, inputs, prediction_loss_only, ignore_keys=None
-    ):
+    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
