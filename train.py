@@ -76,7 +76,7 @@ class DistillationTrainer(SFTTrainer):
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # -------------------------
@@ -98,7 +98,7 @@ class DistillationTrainer(SFTTrainer):
 
         return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
 
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, temperature=1.0):
+    def compute_kl_loss(self, student_logits, ensemble_logits, mask, model, inputs, temperature=1.0):
         """Computes KL divergence loss between teacher and student model logits."""
 
         # ----------------------------------------
@@ -109,6 +109,18 @@ class DistillationTrainer(SFTTrainer):
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
 
         # -----------------------
+        # Reconstruct the teacher logits
+        # -----------------------
+        batch_size = inputs["input_ids"].shape[0]
+        vocab_size = model.config.vocab_size
+        reconstructed_logits = torch.zeros(batch_size, vocab_size, device=self.teacher_logits.device)
+
+        logit_indices = self.teacher_logits["logit_indices"]
+        logit_values = self.teacher_logits["logit_values"]
+        reconstructed_logits.scatter_(-1, logit_indices, logit_values)
+        self.teacher_logits = reconstructed_logits
+
+        # -----------------------
         # Compute KL Loss
         # -----------------------
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
@@ -116,9 +128,7 @@ class DistillationTrainer(SFTTrainer):
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 
-    def prediction_step(
-        self, model, inputs, prediction_loss_only, ignore_keys=None
-    ):
+    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]

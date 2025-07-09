@@ -63,9 +63,7 @@ def main():
     # ----------------------------------
     dataClass = DistillDataset(ddp_device)
     dataset = dataClass.get_dataset()
-    loaded_dataset = (
-        dataClass.get_teacher_logits() if not config.synthetic_data else None
-    )
+    loaded_dataset = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
     if loaded_dataset:
         dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
@@ -131,14 +129,10 @@ def main():
     print("--> Loading Tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     response_template_ids = tokenizer("\nassistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(
-        response_template_ids, tokenizer=tokenizer
-    )
+    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     if is_main_process():
-        teacher_eval_results = evaluate_model(
-            dataClass.teacher_model, dataset["test"], collator
-        )
+        teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
         logger.log(
             function="main",
             round_num=0,
@@ -196,9 +190,7 @@ def main():
 
     if config.checkpoint_path:
         if not os.path.exists(config.checkpoint_path):
-            print(
-                f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}"
-            )
+            print(f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}")
             sys.exit(1)
         print(f"Resuming training from checkpoint: {config.checkpoint_path}")
 
@@ -249,9 +241,7 @@ def main():
             eval_dataset=dataset["test"],
             data_collator=collator,
             args=training_args,
-            callbacks=[LoggingCallback(logger, round_num, overall_start_time)]
-            if is_main_process()
-            else [],
+            callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
         )
 
         trainer.train(resume_from_checkpoint=config.checkpoint_path)
@@ -277,23 +267,13 @@ def main():
         # ----------------------------------
 
         if is_main_process():
-            student_eval_results = evaluate_model(
-                trainer.model, dataset["test"], collator
-            )
-            ensemble_eval_results = evaluate_model(
-                ensemble_model, dataset["test"], collator
-            )
+            student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
+            ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
 
             print(f"\n{'-' * 25}")
-            print(
-                f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}"
-            )
-            print(
-                f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}"
-            )
-            print(
-                f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}"
-            )
+            print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
+            print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
+            print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
             print(f"{'-' * 25}")
 
         round_end_time = time.time()
@@ -360,9 +340,7 @@ def main():
         ).to(ddp_device)
 
         if is_main_process():
-            student_eval_results = evaluate_model(
-                student_model, dataset["test"], collator
-            )
+            student_eval_results = evaluate_model(student_model, dataset["test"], collator)
             logger.log(
                 function="main",
                 round_num=round_num,
