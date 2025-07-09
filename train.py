@@ -111,14 +111,18 @@ class DistillationTrainer(SFTTrainer):
         # -----------------------
         # Reconstruct the teacher logits
         # -----------------------
-        batch_size = inputs["input_ids"].shape[0]
-        vocab_size = model.config.vocab_size
-        reconstructed_logits = torch.zeros(batch_size, vocab_size, device=self.teacher_logits.device)
+        batch_size, seq_len, _ = inputs["input_ids"].shape
 
-        logit_indices = self.teacher_logits["logit_indices"]
-        logit_values = self.teacher_logits["logit_values"]
-        reconstructed_logits.scatter_(-1, logit_indices, logit_values)
-        self.teacher_logits = reconstructed_logits
+        vocab_size = model.config.vocab_size
+        reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=self.teacher_logits.device)
+
+        if "logit_indices" in self.teacher_logits and "logit_values" in self.teacher_logits:
+            logit_indices = self.teacher_logits["logit_indices"]
+            logit_values = self.teacher_logits["logit_values"]
+            reconstructed_logits.scatter_(-1, logit_indices, logit_values)
+            self.teacher_logits = reconstructed_logits
+        else:
+            print("Error: No 'logit_indices' or 'logit_values' keys in self.teacher_logits")
 
         # -----------------------
         # Compute KL Loss
