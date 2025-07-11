@@ -109,15 +109,10 @@ class DistillDataset:
         if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
             self.cache_teacher_logits()
 
-        print("\n--> Loading Teacher Logits")
+        print("--> Loading Teacher Logits")
         logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
 
-        print(f"Teacher Logits:")
-        print(logit_values)
-        print(logit_values["train"])
-        print(logit_values["test"])
-
-        print("\n--> Loading Done")
+        print("--> Loading Done")
         return logit_values
 
     def concatenate_logit_chunks(self, split_dirs: list[str]):
@@ -125,11 +120,10 @@ class DistillDataset:
         for split_dir in split_dirs:
             chunk_paths = sorted(
                 [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
-                key=lambda p: int(os.path.basename(p).split("_")[-1].replace(".arrow", "")),
+                key=lambda p: int(os.path.basename(p).split("_")[-1].split(".")[0]),
             )
             print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
             datasets_list.extend(load_from_disk(p) for p in chunk_paths)
-
         combined = concatenate_datasets(datasets_list)
         return combined
 
@@ -138,7 +132,9 @@ class DistillDataset:
         dict = {}
 
         for split in ["train", "test"]:
-            split_dirs = glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*"))
+            split_dirs = sorted(
+                [d for d in glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*")) if os.path.isdir(d)]
+            )
             split_ds = self.concatenate_logit_chunks(split_dirs)
 
             dict[split] = split_ds
@@ -165,7 +161,7 @@ class DistillDataset:
         self.teacher_model.to(f"cuda:{rank}")
 
         print("\n--> Generating Teacher Logits")
-        for split in ["train", "test"]:
+        for split in ["test"]:
 
             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
             save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_rank{rank}")
@@ -196,6 +192,7 @@ class DistillDataset:
 
                     if (idx + 1) % 3000 == 0 or (idx == len(shard) - 1):
                         print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
+                        print(f"dataset size: {self.dataset.shape}")
 
                         save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
                         if os.path.exists(save_path):
@@ -219,17 +216,19 @@ class DistillDataset:
             # cumulative logit mass plot - pick adaptive k?
 
             if save_ds["input_ids"]:
+                print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
                 save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
                 if os.path.exists(save_path):
                     shutil.rmtree(save_path)
                 Dataset.from_dict(save_ds).save_to_disk(save_path)
 
         dist.barrier()
+
         if dist.get_rank() == 0:
             self.build_teacher_logits_dataset()
 
-        dist.barrier()
         print("\n--> Generation Done")
+        dist.barrier()
 
 
 def format_time_elapsed(seconds):
@@ -271,4 +270,4 @@ if __name__ == "__main__":
     print("--> Loading Dataset and Caching Logits")
 
     dataClass = DistillDataset()
-    teacher_logits = dataClass.cache_teacher_logits()
+    dataClass.build_teacher_logits_dataset()

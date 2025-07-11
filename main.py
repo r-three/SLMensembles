@@ -16,7 +16,7 @@ from ensemble import ModelEnsemble
 def main():
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"\n--> Starting training at: {overall_start_datetime}\n")
+    print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
     # Set up distributed training
@@ -42,19 +42,13 @@ def main():
     run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logit_cache_path, exist_ok=True)
 
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(ddp_device)
-
     # ----------------------------------
     # Loading the Teacher Dataset
     # ----------------------------------
     dataClass = DistillDataset(ddp_device)
-    dataset = dataClass.get_dataset()
     loaded_dataset = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
-    if loaded_dataset:
+    if loaded_dataset is not None:
         dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
         teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
 
@@ -84,9 +78,9 @@ def main():
 
     print(f"Run: {run_name}")
     print(f"Created logging directory: {log_dir}")
-    print(f"Models stored in: {output_path}\n")
+    print(f"Models stored in: {output_path}")
 
-    print(f"\n{config.id_string}")
+    print(f"{config.id_string}")
     print(f"{config.description}\n")
 
     if is_main_process():
@@ -120,7 +114,7 @@ def main():
     response_template_ids = tokenizer("\nassistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    if is_main_process():
+    if is_main_process() is not None:
         teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
         logger.log(
             function="main",

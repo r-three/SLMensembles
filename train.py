@@ -108,21 +108,18 @@ class DistillationTrainer(SFTTrainer):
             num_models = len(self.ensemble_model.models)
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
 
-        # -----------------------
+        # ------------------------------
         # Reconstruct the teacher logits
-        # -----------------------
+        # ------------------------------
         batch_size, seq_len, _ = inputs["input_ids"].shape
 
         vocab_size = model.config.vocab_size
         reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=self.teacher_logits.device)
 
-        if "logit_indices" in self.teacher_logits and "logit_values" in self.teacher_logits:
-            logit_indices = self.teacher_logits["logit_indices"]
-            logit_values = self.teacher_logits["logit_values"]
-            reconstructed_logits.scatter_(-1, logit_indices, logit_values)
-            self.teacher_logits = reconstructed_logits
-        else:
-            print("Error: No 'logit_indices' or 'logit_values' keys in self.teacher_logits")
+        logit_indices = self.teacher_logits["logit_indices"]
+        logit_values = self.teacher_logits["logit_values"]
+        reconstructed_logits.scatter_(-1, logit_indices, logit_values)
+        self.teacher_logits = reconstructed_logits
 
         # -----------------------
         # Compute KL Loss
@@ -132,9 +129,7 @@ class DistillationTrainer(SFTTrainer):
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 
-    def prediction_step(
-        self, model, inputs, prediction_loss_only, ignore_keys=None
-    ):
+    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
