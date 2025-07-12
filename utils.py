@@ -91,7 +91,6 @@ class DistillDataset:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
         else:
             dataset = datasets.load_from_disk(config.dataset_path)
-            # dataset = datasets.load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
 
         if config.dataset_type == "single":
             return {

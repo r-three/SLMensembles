@@ -47,13 +47,21 @@ def main():
     # Loading the Teacher Dataset
     # ----------------------------------
     dataClass = DistillDataset(ddp_device)
-    loaded_dataset = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
-    # add line for synthetic dataset
+    # Offload teacher model from non-main processes immediately to save memory
+    if not is_main_process():
+        dataClass.teacher_model.to("cpu")
 
-    if loaded_dataset is not None:
-        dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
-        teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
+    if config.synthetic_data:
+        loaded_dataset = None
+        dataset = dataClass.get_dataset()
+    # else:
+    #     loaded_dataset = dataClass.get_teacher_logits()
+    #     dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
+    #     teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
+
+    dataset = dataClass.get_dataset()
+    teacher_logits = None
 
     # ----------------------------------
     # Metrics
@@ -112,7 +120,11 @@ def main():
     # Evaluate Teacher BEFORE loading Student (saves GPU memory)
     # ----------------------------------
     if is_main_process():
+        # Temporarily lower eval batch size to reduce memory footprint
+        _orig_bs = config.eval_batch_size
+        config.eval_batch_size = 1
         teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
+        config.eval_batch_size = _orig_bs
         logger.log(
             function="main",
             round_num=0,
