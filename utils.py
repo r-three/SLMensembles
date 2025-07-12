@@ -76,15 +76,6 @@ class DistillDataset:
     def __init__(self, device=None):
         self.device = device if device is not None else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dataset = self.get_dataset()
-        # if not config.synthetic_data:
-        #     self.teacher_model = AutoModelForCausalLM.from_pretrained(
-        #         config.teacher_model_name,
-        #         torch_dtype=torch.bfloat16,
-        #     ).to(self.device)
-        #     self.teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
-        #     self.teacher_model.requires_grad_(False)
-        # else:
-        #     self.teacher_model = None
 
     def get_dataset(self):
         if config.synthetic_data:
@@ -157,7 +148,13 @@ class DistillDataset:
         print(f"World size: {world_size}")
 
         torch.cuda.set_device(rank)
-        self.teacher_model.to(f"cuda:{rank}")
+
+        teacher_model = AutoModelForCausalLM.from_pretrained(
+            config.teacher_model_name,
+            torch_dtype=torch.bfloat16,
+        ).to(f"cuda:{rank}")
+        teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
+        teacher_model.requires_grad_(False)
 
         print("\n--> Generating Teacher Logits")
         for split in ["test"]:
@@ -175,7 +172,7 @@ class DistillDataset:
                     attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
                     labels = sample["labels"].unsqueeze(0).to(self.device)
 
-                    outputs = self.teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+                    outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
                     logits = outputs.logits.squeeze(0).cpu()  # [sample, 1024, 151000]
 
                     values, indices = torch.topk(logits, k=100, dim=-1)
