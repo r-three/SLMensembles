@@ -3,6 +3,7 @@ import torch
 import argparse
 import atexit
 from datetime import datetime
+import torch.distributed as dist
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import DataCollatorForCompletionOnlyLM
 
@@ -100,23 +101,17 @@ def main():
         )
 
     # ----------------------------------
-    # Load Student
-    # ----------------------------------
-
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(ddp_device)
-
-    # ----------------------------------
-    # Load Tokenizer and Models
+    # Load Tokenizer (needed for collator & evaluation)
     # ----------------------------------
     print("--> Loading Tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    if is_main_process() is not None:
+    # ----------------------------------
+    # Evaluate Teacher BEFORE loading Student (saves GPU memory)
+    # ----------------------------------
+    if is_main_process():
         teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
         logger.log(
             function="main",
@@ -126,6 +121,18 @@ def main():
             eval_loss=teacher_eval_results["eval_loss"],
             perplexity=teacher_eval_results["perplexity"],
         )
+
+    # After evaluation, move teacher model back to CPU & clear CUDA cache
+    dataClass.teacher_model.to("cpu")
+    torch.cuda.empty_cache()
+
+    # ----------------------------------
+    # Load Student (only after teacher is off GPU)
+    # ----------------------------------
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name,
+        torch_dtype=torch.bfloat16,
+    ).to(ddp_device)
 
     # ----------------------------------
     # Load Existing Models
@@ -315,6 +322,8 @@ def main():
         gc.collect()
         torch.cuda.empty_cache()
 
+        dist.barrier()
+
         # ----------------------------------
         # Load Student
         # ----------------------------------
@@ -349,6 +358,8 @@ def main():
     print(f"Training completed at: {end_datetime}")
     print(f"Total training time: {overall_duration_str}")
     print(f"{'='*50}")
+
+    dist.barrier()
 
 
 if __name__ == "__main__":
