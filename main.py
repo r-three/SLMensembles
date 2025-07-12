@@ -110,26 +110,9 @@ def main():
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     # ----------------------------------
-    # Evaluate Teacher
-    # ----------------------------------
-    # if is_main_process():
-    #     # Temporarily lower eval batch size to reduce memory footprint
-    #     _orig_bs = config.eval_batch_size
-    #     config.eval_batch_size = 1
-    #     teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
-    #     config.eval_batch_size = _orig_bs
-    #     logger.log(
-    #         function="main",
-    #         round_num=0,
-    #         phase="custom_eval",
-    #         role="teacher",
-    #         eval_loss=teacher_eval_results["eval_loss"],
-    #         perplexity=teacher_eval_results["perplexity"],
-    #     )
-
-    # ----------------------------------
     # Load Student 
     # ----------------------------------
+
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
@@ -175,6 +158,15 @@ def main():
             eval_loss=student_eval_results["eval_loss"],
             perplexity=student_eval_results["perplexity"],
             tags=["initial eval"],
+        )
+        teacher_eval_results = config.teacher_eval
+        logger.log(
+            function="main",
+            round_num=0,
+            phase="custom_eval",
+            role="teacher",
+            eval_loss=teacher_eval_results["eval_loss"],
+            perplexity=teacher_eval_results["perplexity"],
         )
 
     # ----------------------------------
