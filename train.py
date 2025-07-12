@@ -109,11 +109,15 @@ class DistillationTrainer(SFTTrainer):
             num_models = len(self.ensemble_model.models)
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
 
+        breakpoint()
+
         # ------------------------------
         # Reconstruct the teacher logits
         # ------------------------------
         batch_size, seq_len, vocab_size = student_logits.shape
         reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=student_logits.device)
+
+
 
         logit_indices = self.teacher_logits["train"]["logit_indices"]
         logit_values = self.teacher_logits["train"]["logit_values"]

@@ -48,20 +48,13 @@ def main():
     # ----------------------------------
     dataClass = DistillDataset(ddp_device)
 
-    # Offload teacher model from non-main processes immediately to save memory
-    if not is_main_process():
-        dataClass.teacher_model.to("cpu")
-
     if config.synthetic_data:
         loaded_dataset = None
         dataset = dataClass.get_dataset()
-    # else:
-    #     loaded_dataset = dataClass.get_teacher_logits()
-    #     dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
-    #     teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
-
-    dataset = dataClass.get_dataset()
-    teacher_logits = None
+    else:
+        loaded_dataset = dataClass.get_teacher_logits()
+        dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
+        teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
 
     # ----------------------------------
     # Metrics
@@ -117,29 +110,25 @@ def main():
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     # ----------------------------------
-    # Evaluate Teacher BEFORE loading Student (saves GPU memory)
+    # Evaluate Teacher
     # ----------------------------------
-    if is_main_process():
-        # Temporarily lower eval batch size to reduce memory footprint
-        _orig_bs = config.eval_batch_size
-        config.eval_batch_size = 1
-        teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
-        config.eval_batch_size = _orig_bs
-        logger.log(
-            function="main",
-            round_num=0,
-            phase="custom_eval",
-            role="teacher",
-            eval_loss=teacher_eval_results["eval_loss"],
-            perplexity=teacher_eval_results["perplexity"],
-        )
-
-    # After evaluation, move teacher model back to CPU & clear CUDA cache
-    dataClass.teacher_model.to("cpu")
-    torch.cuda.empty_cache()
+    # if is_main_process():
+    #     # Temporarily lower eval batch size to reduce memory footprint
+    #     _orig_bs = config.eval_batch_size
+    #     config.eval_batch_size = 1
+    #     teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
+    #     config.eval_batch_size = _orig_bs
+    #     logger.log(
+    #         function="main",
+    #         round_num=0,
+    #         phase="custom_eval",
+    #         role="teacher",
+    #         eval_loss=teacher_eval_results["eval_loss"],
+    #         perplexity=teacher_eval_results["perplexity"],
+    #     )
 
     # ----------------------------------
-    # Load Student (only after teacher is off GPU)
+    # Load Student 
     # ----------------------------------
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
@@ -234,6 +223,8 @@ def main():
             training_args.logging_strategy = "no"
             training_args.save_strategy = "no"
 
+        # TODO: find a way to pass the whole dataset to the trainer rather than splitting
+
         trainer = DistillationTrainer(
             ensemble_model=ensemble_model,
             teacher_logits=teacher_logits,
@@ -244,6 +235,7 @@ def main():
             train_dataset=dataset["train"],
             eval_dataset=dataset["test"],
             data_collator=collator,
+            remove_unused_columns=False,
             args=training_args,
             callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
         )
@@ -277,7 +269,7 @@ def main():
             print(f"\n{'-'*25}")
             print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
             print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
-            print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
+            # print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
             print(f"{'-'*25}")
 
         round_end_time = time.time()
@@ -318,8 +310,8 @@ def main():
                 round_num=round_num,
                 phase="custom_eval",
                 role="teacher",
-                eval_loss=teacher_eval_results["eval_loss"],
-                perplexity=teacher_eval_results["perplexity"],
+                # eval_loss=teacher_eval_results["eval_loss"],
+                # perplexity=teacher_eval_results["perplexity"],
                 round_duration=round_duration,
                 overall_elapsed=overall_elapsed,
             )

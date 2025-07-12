@@ -76,15 +76,15 @@ class DistillDataset:
     def __init__(self, device=None):
         self.device = device if device is not None else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dataset = self.get_dataset()
-        if not config.synthetic_data:
-            self.teacher_model = AutoModelForCausalLM.from_pretrained(
-                config.teacher_model_name,
-                torch_dtype=torch.bfloat16,
-            ).to(self.device)
-            self.teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
-            self.teacher_model.requires_grad_(False)
-        else:
-            self.teacher_model = None
+        # if not config.synthetic_data:
+        #     self.teacher_model = AutoModelForCausalLM.from_pretrained(
+        #         config.teacher_model_name,
+        #         torch_dtype=torch.bfloat16,
+        #     ).to(self.device)
+        #     self.teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
+        #     self.teacher_model.requires_grad_(False)
+        # else:
+        #     self.teacher_model = None
 
     def get_dataset(self):
         if config.synthetic_data:
