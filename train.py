@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import pdb
 from transformers import TrainerCallback
 from trl import SFTTrainer
 import config
@@ -52,7 +53,7 @@ class DistillationTrainer(SFTTrainer):
 
         super().__init__(*args, **kwargs)
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
@@ -96,7 +97,7 @@ class DistillationTrainer(SFTTrainer):
                 learning_rate=self._get_learning_rate(),
             )
 
-        return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
+        return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
 
     def compute_kl_loss(self, student_logits, ensemble_logits, mask, model, inputs, temperature=1.0):
         """Computes KL divergence loss between teacher and student model logits."""
@@ -111,21 +112,19 @@ class DistillationTrainer(SFTTrainer):
         # ------------------------------
         # Reconstruct the teacher logits
         # ------------------------------
-        batch_size, seq_len, _ = inputs["input_ids"].shape
+        batch_size, seq_len, vocab_size = student_logits.shape
+        reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=student_logits.device)
 
-        vocab_size = model.config.vocab_size
-        reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=self.teacher_logits.device)
+        logit_indices = self.teacher_logits["train"]["logit_indices"]
+        logit_values = self.teacher_logits["train"]["logit_values"]
 
-        logit_indices = self.teacher_logits["logit_indices"]
-        logit_values = self.teacher_logits["logit_values"]
         reconstructed_logits.scatter_(-1, logit_indices, logit_values)
-        self.teacher_logits = reconstructed_logits
 
         # -----------------------
         # Compute KL Loss
         # -----------------------
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        teacher_probs = F.log_softmax(self.teacher_logits / temperature, dim=-1)
+        teacher_probs = F.log_softmax(reconstructed_logits / temperature, dim=-1)
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 

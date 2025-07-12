@@ -192,7 +192,6 @@ class DistillDataset:
 
                     if (idx + 1) % 3000 == 0 or (idx == len(shard) - 1):
                         print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
-                        print(f"dataset size: {self.dataset.shape}")
 
                         save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
                         if os.path.exists(save_path):

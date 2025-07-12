@@ -48,6 +48,8 @@ def main():
     dataClass = DistillDataset(ddp_device)
     loaded_dataset = dataClass.get_teacher_logits() if not config.synthetic_data else None
 
+    # add line for synthetic dataset
+
     if loaded_dataset is not None:
         dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
         teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
@@ -111,7 +113,7 @@ def main():
     # ----------------------------------
     print("--> Loading Tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("\nassistant\n")["input_ids"]
+    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     if is_main_process() is not None:
