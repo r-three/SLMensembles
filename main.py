@@ -10,14 +10,14 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process
+from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process, main_print
 from ensemble import ModelEnsemble
 
 
 def main():
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"--> Starting training at: {overall_start_datetime}\n")
+    main_print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
     # Set up distributed training
@@ -78,20 +78,20 @@ def main():
             "ID string": config.id_string,
             "Description": config.description,
         }
-    print("\n==== RUN CONFIGURATION ====")
+    main_print("\n==== RUN CONFIGURATION ====")
 
-    print(f"Run: {run_name}")
-    print(f"Created logging directory: {log_dir}")
-    print(f"Models stored in: {output_path}")
+    main_print(f"Run: {run_name}")
+    main_print(f"Created logging directory: {log_dir}")
+    main_print(f"Models stored in: {output_path}")
 
-    print(f"{config.id_string}")
-    print(f"{config.description}\n")
+    main_print(f"{config.id_string}")
+    main_print(f"{config.description}\n")
 
     if is_main_process():
         for k, v in metadata_dict.items():
-            print(f"{k}: {v}")
+            main_print(f"{k}: {v}")
 
-    print("===========================")
+    main_print("===========================")
 
     if is_main_process():
         logger.log(
@@ -104,7 +104,7 @@ def main():
     # ----------------------------------
     # Load Tokenizer (needed for collator & evaluation)
     # ----------------------------------
-    print("--> Loading Tokenizer")
+    main_print("--> Loading Tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
@@ -175,9 +175,9 @@ def main():
 
     if config.checkpoint_path:
         if not os.path.exists(config.checkpoint_path):
-            print(f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}")
+            main_print(f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}")
             sys.exit(1)
-        print(f"Resuming training from checkpoint: {config.checkpoint_path}")
+        main_print(f"Resuming training from checkpoint: {config.checkpoint_path}")
 
     # ----------------------------------
     # Outer Training Loop
@@ -187,13 +187,13 @@ def main():
         round_start_time = time.time()
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        print(f"\n{'='*50}")
-        print(f"--> Starting Round {round_num} at: {round_start_datetime}")
-        print(f"{'='*50}")
+        main_print(f"\n{'='*50}")
+        main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
+        main_print(f"{'='*50}")
 
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
         round_output_dir = get_round_path(output_path, round_num)
-        print(f"Round '{round_num}' model stored in: {round_output_dir}")
+        main_print(f"Round '{round_num}' model stored in: {round_output_dir}")
 
         # ----------------------------------
         # Inner Training Loop
@@ -258,11 +258,11 @@ def main():
             student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
             ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
 
-            print(f"\n{'-'*25}")
-            print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
-            print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
-            # print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
-            print(f"{'-'*25}")
+            main_print(f"\n{'-'*25}")
+            main_print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
+            main_print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
+            main_print(f"Teacher evaluation for {round_num}: {teacher_eval_results[0]}")
+            main_print(f"{'-'*25}")
 
         round_end_time = time.time()
         round_duration = round_end_time - round_start_time
@@ -270,11 +270,11 @@ def main():
         round_duration_str = format_time_elapsed(round_duration)
         overall_elapsed_str = format_time_elapsed(overall_elapsed)
         round_end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{'='*50}")
-        print(f"Ending Round {round_num} at: {round_end_datetime}")
-        print(f"Completed in: {round_duration_str}")
-        print(f"Total training time: {overall_elapsed_str}")
-        print(f"{'='*50}\n")
+        main_print(f"{'='*50}")
+        main_print(f"Ending Round {round_num} at: {round_end_datetime}")
+        main_print(f"Completed in: {round_duration_str}")
+        main_print(f"Total training time: {overall_elapsed_str}")
+        main_print(f"{'='*50}\n")
 
         if is_main_process():
             logger.log(
@@ -350,10 +350,10 @@ def main():
     overall_duration_str = format_time_elapsed(overall_duration)
     end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"\n{'='*50}")
-    print(f"Training completed at: {end_datetime}")
-    print(f"Total training time: {overall_duration_str}")
-    print(f"{'='*50}")
+    main_print(f"\n{'='*50}")
+    main_print(f"Training completed at: {end_datetime}")
+    main_print(f"Total training time: {overall_duration_str}")
+    main_print(f"{'='*50}")
 
     dist.barrier()
 

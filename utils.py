@@ -11,6 +11,10 @@ from transformers import AutoModelForCausalLM
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 
 
+def main_print(*args, **kwargs):
+    if is_main_process():
+        print(*args, **kwargs)
+
 class CSVLogger:
     def __init__(
         self,
@@ -42,10 +46,10 @@ class CSVLogger:
             # change the specified log dir to the one corresponding to the checkpointed model
             self.filepath = config.checkpoint_log_path
             if not os.path.exists(self.filepath):
-                print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
+                main_print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
                 sys.exit(1)
         elif os.path.exists(self.filepath) and not config.overwrite_csv:
-            print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
+            main_print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
             sys.exit(1)
         else:
             with open(self.filepath, mode="w", newline="") as f:
@@ -99,10 +103,10 @@ class DistillDataset:
         if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
             self.cache_teacher_logits()
 
-        print("--> Loading Teacher Logits")
+        main_print("--> Loading Teacher Logits")
         logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
 
-        print("--> Loading Done")
+        main_print("--> Loading Done")
         return logit_values
 
     def concatenate_logit_chunks(self, split_dirs: list[str]):
@@ -112,13 +116,13 @@ class DistillDataset:
                 [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
                 key=lambda p: int(os.path.basename(p).split("_")[-1].split(".")[0]),
             )
-            print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
+            main_print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
             datasets_list.extend(load_from_disk(p) for p in chunk_paths)
         combined = concatenate_datasets(datasets_list)
         return combined
 
     def build_teacher_logits_dataset(self):
-        print(f"--> Assembling full teacher-logits dataset")
+        main_print(f"--> Assembling full teacher-logits dataset")
         dict = {}
 
         for split in ["train", "test"]:
@@ -133,14 +137,14 @@ class DistillDataset:
         combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
         dataset.save_to_disk(combined_path)
 
-        print(f"--> Full dataset saved to {combined_path}")
+        main_print(f"--> Full dataset saved to {combined_path}")
         return combined_path
 
     def cache_teacher_logits(self):
         if not dist.is_initialized():
             dist.init_process_group("nccl")
 
-        print(f"Using {torch.distributed.get_backend()} backend")
+        main_print(f"Using {torch.distributed.get_backend()} backend")
 
         rank = dist.get_rank()
         world_size = dist.get_world_size()
@@ -156,7 +160,7 @@ class DistillDataset:
         teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
         teacher_model.requires_grad_(False)
 
-        print("\n--> Generating Teacher Logits")
+        main_print("\n--> Generating Teacher Logits")
         for split in ["test"]:
 
             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
@@ -184,10 +188,10 @@ class DistillDataset:
                     save_ds["logit_indices"].append(indices.cpu())
 
                     if (idx + 1) % 1000 == 0:
-                        print(f"--> [{split}] Generated {idx} Teacher Logits")
+                        main_print(f"--> [{split}] Generated {idx} Teacher Logits")
 
                     if (idx + 1) % 3000 == 0 or (idx == len(shard) - 1):
-                        print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
+                        main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
                         save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
                         if os.path.exists(save_path):
@@ -222,7 +226,7 @@ class DistillDataset:
         if dist.get_rank() == 0:
             self.build_teacher_logits_dataset()
 
-        print("\n--> Generation Done")
+        main_print("\n--> Generation Done")
         dist.barrier()
 
 
@@ -271,10 +275,10 @@ if __name__ == "__main__":
     from utils import evaluate_model
     import config
 
-    print("--> Evaluate model")
+    main_print("--> Evaluate model")
 
     device = torch.cuda.current_device()
-    print(device)
+    main_print(device)
 
     dataset = datasets.load_from_disk("/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized")
     logit_dataset = datasets.load_from_disk("/scratch/klambert/slm_ensembles/teacher_logits/teacher_logits")
@@ -288,6 +292,6 @@ if __name__ == "__main__":
         torch_dtype=torch.bfloat16,
     ).to(device)
 
-    print("sampling 100 examples")
+    main_print("sampling 100 examples")
     small_test = dataset["test"]
     evaluate_model(student_model, small_test, collator)
