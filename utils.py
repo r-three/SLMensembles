@@ -261,8 +261,14 @@ def evaluate_model(model, eval_dataset, collator):
     return {"eval_loss": avg_loss, "perplexity": perplexity}
 
 
-def is_main_process():
-    return not dist.is_initialized() or dist.get_rank() == 0
+def _get_rank():
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_rank()
+    return int(os.environ.get("RANK", 0))
+
+
+def is_main_process() -> bool:
+    return _get_rank() == 0
 
 
 if __name__ == "__main__":
@@ -272,7 +278,6 @@ if __name__ == "__main__":
     import datasets
     from transformers import AutoTokenizer, AutoModelForCausalLM
     from trl import DataCollatorForCompletionOnlyLM
-    from utils import evaluate_model
     import config
 
     main_print("--> Evaluate model")

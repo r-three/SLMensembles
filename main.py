@@ -34,6 +34,8 @@ def main():
     # Set up logging and run name
     # ----------------------------------
 
+    main_print("--> Setting up logging and run name")
+
     if is_main_process():
         log_dir = config.get_directory(config.log_dir)
         logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
@@ -47,6 +49,8 @@ def main():
     # Loading the Teacher Dataset
     # ----------------------------------
     dataClass = DistillDataset(ddp_device)
+
+    main_print("--> Loading Dataset")
 
     if config.synthetic_data:
         loaded_dataset = None
