@@ -262,7 +262,32 @@ def is_main_process():
 
 
 if __name__ == "__main__":
-    print("--> Loading Dataset and Caching Logits")
+    import torch
+    import time
+    import pdb
+    import datasets
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    from trl import DataCollatorForCompletionOnlyLM
+    from utils import evaluate_model
+    import config
 
-    dataClass = DistillDataset()
-    dataClass.build_teacher_logits_dataset()
+    print("--> Evaluate model")
+
+    device = torch.cuda.current_device()
+    print(device)
+
+    dataset = datasets.load_from_disk("/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized")
+    logit_dataset = datasets.load_from_disk("/scratch/klambert/slm_ensembles/teacher_logits/teacher_logits")
+
+    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
+    response_template_ids = tokenizer("1assistant\n")["input_ids"]
+    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+
+    student_model = AutoModelForCausalLM.from_pretrained(
+        config.student_model_name,
+        torch_dtype=torch.bfloat16,
+    ).to(device)
+
+    print("sampling 100 examples")
+    small_test = dataset["test"]
+    evaluate_model(student_model, small_test, collator)
