@@ -36,6 +36,9 @@ def main():
 
     main_print("--> Setting up logging and run name")
 
+    log_dir = None
+    logger = None
+
     if is_main_process():
         log_dir = config.get_directory(config.log_dir)
         logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
@@ -224,7 +227,7 @@ def main():
         trainer = DistillationTrainer(
             ensemble_model=ensemble_model,
             teacher_logits=teacher_logits,
-            logger=logger if is_main_process() else None,
+            logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,
             model=student_model,
