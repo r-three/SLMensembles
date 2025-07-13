@@ -43,9 +43,8 @@ class LoggingCallback(TrainerCallback):
 
 
 class DistillationTrainer(SFTTrainer):
-    def __init__(self, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
+    def __init__(self, ensemble_model, logger, round_num, overall_start_time, *args, **kwargs):
         self.ensemble_model = ensemble_model
-        self.teacher_logits = teacher_logits
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
@@ -74,6 +73,9 @@ class DistillationTrainer(SFTTrainer):
                 ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
                 ensemble_logits = ensemble_outputs.logits
 
+        # -------------------------
+        # Compute Loss
+        # -------------------------
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
@@ -100,7 +102,8 @@ class DistillationTrainer(SFTTrainer):
         return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
 
     def compute_kl_loss(self, student_logits, ensemble_logits, mask, model, inputs, temperature=1.0):
-        """Computes KL divergence loss between teacher and student model logits."""
+        logit_indices = inputs["logit_indices"]
+        logit_values = inputs["logit_values"]
 
         # ----------------------------------------
         # Combine model predictions with ensemble
@@ -109,20 +112,14 @@ class DistillationTrainer(SFTTrainer):
             num_models = len(self.ensemble_model.models)
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
 
-        breakpoint()
-
         # ------------------------------
         # Reconstruct the teacher logits
         # ------------------------------
         batch_size, seq_len, vocab_size = student_logits.shape
         reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=student_logits.device)
-
-
-
-        logit_indices = self.teacher_logits["train"]["logit_indices"]
-        logit_values = self.teacher_logits["train"]["logit_values"]
-
         reconstructed_logits.scatter_(-1, logit_indices, logit_values)
+
+        breakpoint()
 
         # -----------------------
         # Compute KL Loss

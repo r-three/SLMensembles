@@ -52,16 +52,7 @@ def main():
     # Loading the Teacher Dataset
     # ----------------------------------
     dataClass = DistillDataset(ddp_device)
-
-    main_print("--> Loading Dataset")
-
-    if config.synthetic_data:
-        loaded_dataset = None
-        dataset = dataClass.get_dataset()
-    else:
-        loaded_dataset = dataClass.get_teacher_logits()
-        dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
-        teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
+    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logits()
 
     # ----------------------------------
     # Metrics
@@ -222,11 +213,8 @@ def main():
             training_args.logging_strategy = "no"
             training_args.save_strategy = "no"
 
-        # TODO: find a way to pass the whole dataset to the trainer rather than splitting
-
         trainer = DistillationTrainer(
             ensemble_model=ensemble_model,
-            teacher_logits=teacher_logits,
             logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,
