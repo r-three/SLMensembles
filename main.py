@@ -24,6 +24,11 @@ def main():
 
     default_local_rank = int(os.environ.get("LOCAL_RANK", 0))
     if torch.cuda.is_available():
+        num_gpus = torch.cuda.device_count()
+        if default_local_rank >= num_gpus:
+            raise RuntimeError(
+                f"LOCAL_RANK={default_local_rank} but only {num_gpus} CUDA devices are available."
+            )
         torch.cuda.set_device(default_local_rank)
         ddp_device = torch.device(f"cuda:{default_local_rank}")
     else:
