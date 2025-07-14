@@ -15,6 +15,16 @@ def main_print(*args, **kwargs):
     if is_main_process():
         print(*args, **kwargs)
 
+def _get_rank():
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_rank()
+    return int(os.environ.get("RANK", 0))
+
+
+def is_main_process() -> bool:
+    return _get_rank() == 0
+
+
 class CSVLogger:
     def __init__(
         self,
@@ -259,16 +269,6 @@ def evaluate_model(model, eval_dataset, collator):
     avg_loss = total_loss / total_tokens if total_tokens else float("inf")
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
     return {"eval_loss": avg_loss, "perplexity": perplexity}
-
-
-def _get_rank():
-    if dist.is_available() and dist.is_initialized():
-        return dist.get_rank()
-    return int(os.environ.get("RANK", 0))
-
-
-def is_main_process() -> bool:
-    return _get_rank() == 0
 
 
 if __name__ == "__main__":

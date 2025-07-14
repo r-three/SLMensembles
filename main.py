@@ -1,6 +1,5 @@
 import os, gc, time, sys, pdb
 import torch
-import argparse
 import atexit
 from datetime import datetime
 import torch.distributed as dist
@@ -20,18 +19,18 @@ def main():
     main_print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
-    # Set up distributed training
+    # Device Setup for DDP
     # ----------------------------------
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--local_rank", type=int, default=0)
-    args = parser.parse_args()
-
-    torch.cuda.set_device(args.local_rank)
-    ddp_device = torch.device(f"cuda:{args.local_rank}")
+    default_local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    if torch.cuda.is_available():
+        torch.cuda.set_device(default_local_rank)
+        ddp_device = torch.device(f"cuda:{default_local_rank}")
+    else:
+        ddp_device = torch.device("cpu")
 
     # ----------------------------------
-    # Set up logging and run name
+    # Logging and Run Name
     # ----------------------------------
 
     main_print("--> Setting up logging and run name")
@@ -222,7 +221,6 @@ def main():
             train_dataset=dataset["train"],
             eval_dataset=dataset["test"],
             data_collator=collator,
-            remove_unused_columns=False,
             args=training_args,
             callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
         )
