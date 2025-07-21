@@ -53,7 +53,6 @@ class DistillationTrainer(SFTTrainer):
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        breakpoint()
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
@@ -80,8 +79,10 @@ class DistillationTrainer(SFTTrainer):
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
+
+        breakpoint()
 
         # -------------------------
         # Log
@@ -102,7 +103,7 @@ class DistillationTrainer(SFTTrainer):
 
         return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
 
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
+    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, model, temperature=1.0):
         logit_indices = inputs["logit_indices"]
         logit_values = inputs["logit_values"]
 
@@ -116,15 +117,15 @@ class DistillationTrainer(SFTTrainer):
         # ------------------------------
         # Reconstruct the teacher logits
         # ------------------------------
-        batch_size, seq_len, vocab_size = student_logits.shape
-        reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=student_logits.device)
-        reconstructed_logits.scatter_(-1, logit_indices, logit_values)
+        batch_size, seq_len, vocab_size = student_logits.shape # [8, 1024, 151936]
+        teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e8, device=student_logits.device)
+        teacher_logits.scatter_(-1, logit_indices, logit_values)
 
         # -----------------------
         # Compute KL Loss
         # -----------------------
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        teacher_probs = F.log_softmax(reconstructed_logits / temperature, dim=-1)
+        teacher_probs = F.log_softmax(teacher_logits / temperature, dim=-1)
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 
@@ -163,11 +164,13 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=model.config.vocab_size,
         )
 
+        breakpoint()
         # TODO: launch two: ddp and no ddp
+        # loss.item() vs hybrid_loss.item()
 
-        kl_loss = 0
+        kl_loss = 0        
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         # ------------------------------

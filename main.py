@@ -19,20 +19,21 @@ def main():
     main_print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
-    # Device Setup for DDP
+    # Device Setup
     # ----------------------------------
 
     default_local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    if torch.cuda.is_available():
+    if config.ddp and torch.cuda.is_available():
         num_gpus = torch.cuda.device_count()
         if default_local_rank >= num_gpus:
             raise RuntimeError(
                 f"LOCAL_RANK={default_local_rank} but only {num_gpus} CUDA devices are available."
             )
         torch.cuda.set_device(default_local_rank)
-        ddp_device = torch.device(f"cuda:{default_local_rank}")
+        device = torch.device(f"cuda:{default_local_rank}")
     else:
-        ddp_device = torch.device("cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    main_print(f"Using device: {device}")
 
     # ----------------------------------
     # Logging and Run Name
@@ -55,14 +56,14 @@ def main():
     # ----------------------------------
     # Loading the Teacher Dataset
     # ----------------------------------
-    dataClass = DistillDataset(ddp_device)
+    dataClass = DistillDataset(device)
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logits()
 
     # ----------------------------------
     # Metrics
     # ----------------------------------
 
-    if is_main_process():
+    if is_main_process():   
         metadata_dict = {
             "Custom run name": config.custom_run_name,
             "Description": config.description,
@@ -118,7 +119,7 @@ def main():
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to(ddp_device)
+    ).to(device)
 
     # ----------------------------------
     # Load Existing Models
@@ -140,7 +141,7 @@ def main():
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
             vocab_size=student_model.config.vocab_size,
-        ).to(ddp_device)
+        ).to(device)
         ensemble_model.requires_grad_(False)
     else:
         start_round = 0
@@ -316,7 +317,7 @@ def main():
         gc.collect()
         torch.cuda.empty_cache()
 
-        dist.barrier()
+        dist.barrier() if config.ddp else None
 
         # ----------------------------------
         # Load Student
@@ -325,7 +326,7 @@ def main():
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-        ).to(ddp_device)
+        ).to(device)
 
         if is_main_process():
             student_eval_results = evaluate_model(student_model, dataset["test"], collator)
@@ -353,7 +354,7 @@ def main():
     main_print(f"Total training time: {overall_duration_str}")
     main_print(f"{'='*50}")
 
-    dist.barrier()
+    dist.barrier() if config.ddp else None
 
 
 if __name__ == "__main__":

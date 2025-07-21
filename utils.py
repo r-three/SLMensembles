@@ -23,7 +23,7 @@ def _get_rank():
 
 
 def is_main_process() -> bool:
-    return _get_rank() == 0
+    return _get_rank() == 0 if config.ddp else True
 
 
 class CSVLogger:
@@ -89,7 +89,7 @@ class CSVLogger:
 
 class DistillDataset:
     def __init__(self, device=None):
-        self.device = device if device is not None else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dataset = self.get_dataset()
 
     def get_dataset(self):
@@ -157,8 +157,8 @@ class DistillDataset:
 
         main_print(f"Using {torch.distributed.get_backend()} backend")
 
-        rank = dist.get_rank()
-        world_size = dist.get_world_size()
+        rank = dist.get_rank() if config.ddp else 0
+        world_size = dist.get_world_size() if config.ddp else 1
         print(f"Rank: {rank}")
         print(f"World size: {world_size}")
 
@@ -232,13 +232,13 @@ class DistillDataset:
                     shutil.rmtree(save_path)
                 Dataset.from_dict(save_ds).save_to_disk(save_path)
 
-        dist.barrier()
+        dist.barrier() if config.ddp else None
 
         if dist.get_rank() == 0:
             self.build_teacher_logits_dataset()
-
+        
         main_print("\n--> Generation Done")
-        dist.barrier()
+        dist.barrier() if config.ddp else None
 
 
 def format_time_elapsed(seconds):
