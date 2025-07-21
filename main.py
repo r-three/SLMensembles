@@ -150,26 +150,26 @@ def main():
     # Evaluate
     # ----------------------------------
 
-    if is_main_process():
-        student_eval_results = evaluate_model(student_model, dataset["test"], collator)
-        logger.log(
-            function="main",
-            round_num=0,
-            phase="custom_eval",
-            role="student",
-            eval_loss=student_eval_results["eval_loss"],
-            perplexity=student_eval_results["perplexity"],
-            tags=["initial eval"],
-        )
-        teacher_eval_results = config.teacher_eval
-        logger.log(
-            function="main",
-            round_num=0,
-            phase="custom_eval",
-            role="teacher",
-            eval_loss=teacher_eval_results[0],
-            perplexity=teacher_eval_results[1],
-        )
+    # if is_main_process():
+        # student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+        # logger.log(
+        #     function="main",
+        #     round_num=0,
+        #     phase="custom_eval",
+        #     role="student",
+        #     eval_loss=student_eval_results["eval_loss"],
+        #     perplexity=student_eval_results["perplexity"],
+        #     tags=["initial eval"],
+        # )
+        # teacher_eval_results = config.teacher_eval
+        # logger.log(
+        #     function="main",
+        #     round_num=0,
+        #     phase="custom_eval",
+        #     role="teacher",
+        #     eval_loss=teacher_eval_results[0],
+        #     perplexity=teacher_eval_results[1],
+        # )
 
     # ----------------------------------
     # Load checkpoint

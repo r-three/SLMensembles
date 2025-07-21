@@ -1,6 +1,7 @@
 import os, csv, time, glob, sys
 from datetime import datetime
 import pdb
+from tqdm import tqdm
 import shutil
 import torch
 import datasets
@@ -257,7 +258,7 @@ def evaluate_model(model, eval_dataset, collator):
     device = next(model.parameters()).device
 
     with torch.no_grad():
-        for batch in dataloader:
+        for batch in tqdm(dataloader):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)

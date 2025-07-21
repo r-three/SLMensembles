@@ -53,6 +53,7 @@ class DistillationTrainer(SFTTrainer):
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        breakpoint()
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
@@ -79,7 +80,7 @@ class DistillationTrainer(SFTTrainer):
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # -------------------------
@@ -101,7 +102,7 @@ class DistillationTrainer(SFTTrainer):
 
         return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
 
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, model, inputs, temperature=1.0):
+    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
         logit_indices = inputs["logit_indices"]
         logit_values = inputs["logit_values"]
 
@@ -118,8 +119,6 @@ class DistillationTrainer(SFTTrainer):
         batch_size, seq_len, vocab_size = student_logits.shape
         reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=student_logits.device)
         reconstructed_logits.scatter_(-1, logit_indices, logit_values)
-
-        breakpoint()
 
         # -----------------------
         # Compute KL Loss
@@ -164,9 +163,11 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=model.config.vocab_size,
         )
 
+        # TODO: launch two: ddp and no ddp
+
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels_s != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         # ------------------------------
