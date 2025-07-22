@@ -63,9 +63,6 @@ class DistillationTrainer(SFTTrainer):
         student_outputs = model(input_ids=input_ids, attention_mask=attention_mask)
         student_logits = student_outputs.logits
 
-        # ------------------------------
-        # Handle potential DDP wrapping
-        # ------------------------------
         if hasattr(model, "module"):
             model = model.module
         
@@ -75,7 +72,6 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=config.student_vocab_size,
         )
         
-
         # ----------------------------
         # Compute Ensemble Predictions
         # ----------------------------
@@ -179,11 +175,6 @@ class DistillationTrainer(SFTTrainer):
             labels=labels,
             vocab_size=model.config.vocab_size,
         )
-
-        # breakpoint()
-        # TODO: launch two: ddp and no ddp
-        # loss.item() vs hybrid_loss.item()
-        # TODO: hybrid loss is still a double tensor - line 90
 
         kl_loss = 0        
         if not config.synthetic_data:

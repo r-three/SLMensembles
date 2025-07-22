@@ -1,5 +1,4 @@
 import os
-import datasets
 import torch
 from datetime import datetime
 import glob
@@ -8,41 +7,57 @@ import glob
 seed = 42
 teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
 student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+student_vocab_size = 151936 # 152064
 tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
-dataset_name = "allenai/tulu-3-sft-mixture"
-dataset_type = "full"  # "single" or "batch" or "full"
+
 teacher_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 student_device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
-data_curation = False
+teacher_eval = (0.7968094515065487, 2.218451499938965)
+
+# Output paths
+base_output_dir = "/your_directory/slm_ensembles/model_log"
+log_dir = "/your_directory/slm_ensembles/csv_logs"
+logit_cache_path = "/your_directory/slm_ensembles/teacher_logits"
 dataset_path = "/your_directory/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 synthetic_dataset_path = "/your_directory/slm_ensembles/synthetic_dataset"
-base_output_dir = "/projects/distilling_llms/model_log"
-log_dir = "/your_directory/slm_ensembles/csv_logs"
 
+# Data
+dataset_name = "allenai/tulu-3-sft-mixture"
+dataset_type = "full"  # "single" or "batch" or "full"
+synthetic_data = False
+
+# Run parameters - to change during every run
+ddp = False
+steps_per_round = -1
+num_train_epochs = 6
+total_rounds = 1  # number of ensemble models
+alpha = 0.8
 id_string = "Experiment with hyperparameters to check if distillation works"
 description = "Alpha tweaking: alpha = 0.8"
 custom_run_name = "alpha08_hyperparameters"
+checkpoint_path = None  # model
+checkpoint_log_path = None  # csv
+overwrite_csv = False  # overwrite csv file, if it exists, with the new run
 
+# Ensembles
 ensemble_model_names = []
 ensemble_members = []  # Full path of ensemble models which we want to load
-checkpoint_path = None  # Full path of the model checkpoint from which we want to resume training (else None)
-checkpoint_log_path = None  # exact path of the csv file corresponding to the checkpointed model (else None)
-
 
 # Hyperparameters
 learning_rate = 5e-5
-alpha = 0.5  # 1 = next_token loss to 0 = kl_loss
-total_rounds = 1  # number of ensemble models
-steps_per_round = 5000
+kl_temperature = 1.0
+
+# Training args
 eval_steps = 40
 logging_steps = 40
-kl_temperature = 1.0
+save_steps = 500
+save_total_limit = 2
+per_device_train_batch_size = 4
 eval_batch_size = 4
 gradient_accumulation_steps = 8
 
-
-# Logging Arguments
+# Logging columns
 CSV_COLUMNS = [
     "function",
     "timestamp",
@@ -64,24 +79,6 @@ CSV_COLUMNS = [
     "tags",
     "metadata",
 ]
-
-
-def get_dataset():
-    if not data_curation:
-        dataset = datasets.load_from_disk(dataset_path)
-    else:
-        dataset = datasets.load_from_disk(synthetic_dataset_path)
-    if dataset_type == "single":
-        return {
-            "train": dataset["train"].select([0]),
-            "test": dataset["test"].select([0]),
-        }
-    elif dataset_type == "batch":
-        return {
-            "train": dataset["train"].select(range(10)),
-            "test": dataset["test"].select(range(10)),
-        }
-    return dataset
 
 
 def get_directory(output_dir):
@@ -126,12 +123,14 @@ def get_training_args(output_dir):
         learning_rate=learning_rate,
         lr_scheduler_type="constant",
         warmup_steps=50,
-        per_device_train_batch_size=4,
+        per_device_train_batch_size=per_device_train_batch_size,
         per_device_eval_batch_size=eval_batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
         gradient_checkpointing=False,
         bf16=True,
+        remove_unused_columns=False,
         max_steps=steps_per_round,
+        num_train_epochs=num_train_epochs,
         eval_strategy="steps",
         eval_steps=eval_steps,
         eval_on_start=False,
@@ -139,3 +138,4 @@ def get_training_args(output_dir):
         logging_steps=logging_steps,
         save_strategy="no",
     )
+
