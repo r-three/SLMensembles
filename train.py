@@ -62,11 +62,12 @@ class DistillationTrainer(SFTTrainer):
         # -------------------------
         student_outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         student_logits = student_outputs.logits
-        next_token_loss = student_outputs.loss
+        next_token_loss = student_outputs.loss.mean()
+        # TODO: use the loss function like in prediction_step?
 
-        # -------------------------
+        # ----------------------------
         # Compute Ensemble Predictions
-        # -------------------------
+        # ----------------------------
         ensemble_logits = None
         if self.ensemble_model is not None:
             with torch.no_grad():
@@ -79,10 +80,8 @@ class DistillationTrainer(SFTTrainer):
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
-
-        breakpoint()
 
         # -------------------------
         # Log
@@ -103,7 +102,7 @@ class DistillationTrainer(SFTTrainer):
 
         return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
 
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, model, temperature=1.0):
+    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
         logit_indices = inputs["logit_indices"]
         logit_values = inputs["logit_values"]
 
@@ -152,7 +151,7 @@ class DistillationTrainer(SFTTrainer):
         # ------------------------------
         # Handle potential DDP wrapping
         # ------------------------------
-        if hasattr(model, "module"):
+        if config.ddp and hasattr(model, "module"):
             model = model.module
 
         # ------------------------------
@@ -167,10 +166,11 @@ class DistillationTrainer(SFTTrainer):
         breakpoint()
         # TODO: launch two: ddp and no ddp
         # loss.item() vs hybrid_loss.item()
+        # TODO: hybrid loss is still a double tensor - line 90
 
         kl_loss = 0        
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         # ------------------------------
