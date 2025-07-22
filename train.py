@@ -60,10 +60,21 @@ class DistillationTrainer(SFTTrainer):
         # -------------------------
         # Compute Student Predictions
         # -------------------------
-        student_outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        student_outputs = model(input_ids=input_ids, attention_mask=attention_mask)
         student_logits = student_outputs.logits
-        next_token_loss = student_outputs.loss.mean()
-        # TODO: use the loss function like in prediction_step?
+
+        # ------------------------------
+        # Handle potential DDP wrapping
+        # ------------------------------
+        if hasattr(model, "module"):
+            model = model.module
+        
+        next_token_loss = model.loss_function(
+            logits=student_logits,
+            labels=labels,
+            vocab_size=config.student_vocab_size,
+        )
+        
 
         # ----------------------------
         # Compute Ensemble Predictions
@@ -103,9 +114,15 @@ class DistillationTrainer(SFTTrainer):
         return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
 
     def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
-        logit_indices = inputs["logit_indices"]
-        logit_values = inputs["logit_values"]
+        teacher_logit_indices = inputs["logit_indices"]
+        teacher_logit_values = inputs["logit_values"]
 
+        # ------------------------------
+        # Compute student top k
+        # ------------------------------
+
+        student_logit_values, student_logit_indices = torch.topk(student_logits.squeeze(0), k=100, dim=-1)
+        
         # ----------------------------------------
         # Combine model predictions with ensemble
         # ----------------------------------------
@@ -118,7 +135,7 @@ class DistillationTrainer(SFTTrainer):
         # ------------------------------
         batch_size, seq_len, vocab_size = student_logits.shape # [8, 1024, 151936]
         teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e8, device=student_logits.device)
-        teacher_logits.scatter_(-1, logit_indices, logit_values)
+        teacher_logits.scatter_(-1, teacher_logit_indices, teacher_logit_values)
 
         # -----------------------
         # Compute KL Loss
@@ -163,7 +180,7 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=model.config.vocab_size,
         )
 
-        breakpoint()
+        # breakpoint()
         # TODO: launch two: ddp and no ddp
         # loss.item() vs hybrid_loss.item()
         # TODO: hybrid loss is still a double tensor - line 90
