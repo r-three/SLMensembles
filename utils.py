@@ -152,10 +152,9 @@ class DistillDataset:
         return combined_path
 
     def cache_teacher_logits(self):
-        if not dist.is_initialized():
+        if config.ddp and not dist.is_initialized():
             dist.init_process_group("nccl")
-
-        main_print(f"Using {torch.distributed.get_backend()} backend")
+            main_print(f"Using {torch.distributed.get_backend()} backend")
 
         rank = dist.get_rank() if config.ddp else 0
         world_size = dist.get_world_size() if config.ddp else 1
