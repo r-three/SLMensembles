@@ -16,6 +16,7 @@ def main_print(*args, **kwargs):
     if is_main_process():
         print(*args, **kwargs)
 
+
 def _get_rank():
     if dist.is_available() and dist.is_initialized():
         return dist.get_rank()
@@ -192,7 +193,7 @@ class DistillDataset:
                     batch_data["input_ids"].append(sample["input_ids"])
                     batch_data["attention_mask"].append(sample["attention_mask"])
                     batch_data["labels"].append(sample["labels"])
-                    
+
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
                         input_ids = torch.stack(batch_data["input_ids"]).to(self.device)
                         attention_mask = torch.stack(batch_data["attention_mask"]).to(self.device)
@@ -202,8 +203,8 @@ class DistillDataset:
                         logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
 
                         values, indices = torch.topk(logits, k=100, dim=-1)
-                        values = values.to('cpu')
-                        indices = indices.to('cpu')
+                        values = values.to("cpu")
+                        indices = indices.to("cpu")
 
                         if len(values.shape) == 2:
                             save_ds["input_ids"].append(batch_data["input_ids"][0])
@@ -240,12 +241,8 @@ class DistillDataset:
                             }
                             chunk_id += 1
 
-                    if (idx + 1) % 3200 == 0:
-                        break
-
-            # look into contents and size of the stored dataset
-            # # of flops + utilization - measure the time and gpu usage
-            # cumulative logit mass plot - pick adaptive k?
+                    # if (idx + 1) % 3200 == 0:
+                    #     break
 
             if save_ds["input_ids"]:
                 print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
@@ -253,12 +250,12 @@ class DistillDataset:
                 if os.path.exists(save_path):
                     shutil.rmtree(save_path)
                 Dataset.from_dict(save_ds).save_to_disk(save_path)
-        
+
         dist.barrier() if config.ddp else None
 
         if _get_rank() == 0:
             self.build_teacher_logits_dataset()
-        
+
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
 
