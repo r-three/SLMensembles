@@ -204,7 +204,7 @@ def main(args):
         return x, attention_mask, labels
 
     ema = None
-    num_steps = 10000
+    num_steps = 2000
     for step in range(num_steps):
         if args.explicit_prefetching:
             student_model.unshard()
