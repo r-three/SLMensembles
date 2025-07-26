@@ -10,7 +10,7 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print
+from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape
 from ensemble import ModelEnsemble
 
 from checkpoint import Checkpointer
@@ -185,69 +185,13 @@ def main(args):
     # ----------------------------------
     # Prepare dataset
     # ----------------------------------
-    train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config)
-    if dist.get_rank() == 2:
-        temp = next(iter(train_dataloader))['input_ids']
-        # print(torch.stack(temp, dim=0).T[0][:100])
-        # tokenizer.decode(torch.stack(temp, dim=0).T[2][:100])
-        
-        # TODO: the input_ids or others are in shape (1024, 4) here instead of the opposite?
-        breakpoint()
-    # print(next(iter(train_dataloader))['input_ids'])
+    train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, collator)
+    # if dist.get_rank() == 2:
+    if is_main_process():
+        check_batch_shape(train_dataloader)
     
     student_model.train()
     student_model.config.use_cache = False  # avoid cache warnings in training
-
-    # (optional) tame the LR for stability on this toy task
-    for g in optim.param_groups:
-        g["lr"] = min(g["lr"], 1e-4)
-
-    vocab_size = int(student_model.config.vocab_size)
-    B, T = 32, 64  # small batch/seq for fast sanity check
-
-    def make_constant_token_batch():
-        # Each sample is a sequence of a single repeated token.
-        # This makes the correct next token equal to the previous token.
-        base_ids = torch.randint(low=5, high=vocab_size - 5, size=(B, 1), device=device)
-        x = base_ids.repeat(1, T)  # [B, T], constant per row
-        labels = x.clone()
-        labels[:, 0] = -100        # ignore loss on first position
-        attention_mask = torch.ones_like(x)
-
-        return x, attention_mask, labels
-
-    ema = None
-    num_steps = 2000
-    for step in range(num_steps):
-        if args.explicit_prefetching:
-            student_model.unshard()
-
-        x, attn_mask, y = make_constant_token_batch()
-
-        out = student_model(input_ids=x, attention_mask=attn_mask, labels=y)
-        loss = out.loss
-
-        loss.backward()
-        optim.step()
-        optim.zero_grad(set_to_none=True)
-
-        # simple EMA to see smooth convergence
-        ema = loss.item() if ema is None else 0.9 * ema + 0.1 * loss.item()
-        if is_main_process() and (step % 10 == 0 or step == num_steps - 1):
-            main_print(f"[toy] step {step:03d} | loss {loss.item():.4f} | ema {ema:.4f}")
-
-    # quick sanity check: on a fresh constant token, next-token accuracy ~1.0
-    with torch.no_grad():
-        test_id = torch.randint(5, vocab_size - 5, (1, 1), device=device)
-        x = test_id.repeat(1, T)
-        attn_mask = torch.ones_like(x)
-        logits = student_model(input_ids=x, attention_mask=attn_mask).logits  # [1, T, V]
-        pred = logits[:, :-1, :].argmax(dim=-1)                               # [1, T-1]
-        acc = (pred == x[:, 1:]).float().mean().item()
-        if is_main_process():
-            main_print(f"[toy] sanity next-token acc (should be ~1.0): {acc:.3f}")
-    
-    breakpoint()
 
     # ----------------------------------
     # Load Existing Models

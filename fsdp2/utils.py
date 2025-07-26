@@ -14,6 +14,7 @@ import config
 from transformers import AutoModelForCausalLM
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 from torch.distributed.tensor import DTensor
+from trl import DataCollatorForCompletionOnlyLM
 
 
 def inspect_model(model: FSDPModule):
@@ -286,7 +287,7 @@ class DistillDataset:
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
     
-def prepare_dataset(train_ds, eval_ds, config):
+def prepare_dataset(train_ds, eval_ds, config, collator):
     # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
     train_sampler = DistributedSampler(
         train_ds,
@@ -306,12 +307,14 @@ def prepare_dataset(train_ds, eval_ds, config):
         batch_size=config.per_device_train_batch_size,
         sampler=train_sampler,
         shuffle=False,
+        collate_fn=collator
     )
     eval_dataloader = DataLoader(
         eval_ds,
         batch_size=config.eval_batch_size,
         sampler=test_sampler,
         shuffle=False,
+        collate_fn=collator
     )
     
     return train_dataloader, eval_dataloader
@@ -346,3 +349,15 @@ def evaluate_model(model, eval_dataset, collator):
     avg_loss = total_loss / total_tokens if total_tokens else float("inf")
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
     return {"eval_loss": avg_loss, "perplexity": perplexity}
+
+def check_batch_shape(train_dataloader):
+    temp_input_ids = next(iter(train_dataloader))['input_ids']
+    temp_attention_mask = next(iter(train_dataloader))['attention_mask']
+    temp_labels = next(iter(train_dataloader))['labels']
+    temp_logit_values = next(iter(train_dataloader))['logit_values']
+    temp_logit_indices = next(iter(train_dataloader))['logit_indices']
+    print("shape input_ids: ", torch.tensor(temp_input_ids).shape)
+    print("shape attention_mask: ", torch.tensor(temp_attention_mask).shape)
+    print("shape labels: ", torch.tensor(temp_labels).shape)
+    print("shape logit_values: ", torch.tensor(temp_logit_values).shape)
+    print("shape logit_indices: ", torch.tensor(temp_logit_indices).shape)
