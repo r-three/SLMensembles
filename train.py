@@ -113,12 +113,6 @@ class DistillationTrainer(SFTTrainer):
         teacher_logit_indices = inputs["logit_indices"]
         teacher_logit_values = inputs["logit_values"]
 
-        # ------------------------------
-        # Compute student top k
-        # ------------------------------
-
-        student_logit_values, student_logit_indices = torch.topk(student_logits.squeeze(0), k=100, dim=-1)
-
         # ----------------------------------------
         # Combine model predictions with ensemble
         # ----------------------------------------
