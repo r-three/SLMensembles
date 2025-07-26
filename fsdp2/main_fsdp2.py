@@ -10,7 +10,7 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process, main_print
+from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print
 from ensemble import ModelEnsemble
 
 from checkpoint import Checkpointer
@@ -78,7 +78,7 @@ def main(args):
     # Loading the Teacher Dataset
     # ----------------------------------
     # TODO: to be changed to distributed
-    dataClass = DistillDataset(device)
+    dataClass = DistillDataset('cpu')
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logits()
 
     # ----------------------------------
@@ -182,6 +182,19 @@ def main(args):
     if checkpointer.last_training_time is not None:
         checkpointer.load_optim(student_model, optim)
 
+    # ----------------------------------
+    # Prepare dataset
+    # ----------------------------------
+    train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config)
+    if dist.get_rank() == 2:
+        temp = next(iter(train_dataloader))['input_ids']
+        # print(torch.stack(temp, dim=0).T[0][:100])
+        # tokenizer.decode(torch.stack(temp, dim=0).T[2][:100])
+        
+        # TODO: the input_ids or others are in shape (1024, 4) here instead of the opposite?
+        breakpoint()
+    # print(next(iter(train_dataloader))['input_ids'])
+    
     student_model.train()
     student_model.config.use_cache = False  # avoid cache warnings in training
 
@@ -215,7 +228,6 @@ def main(args):
         loss = out.loss
 
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(student_model.parameters(), max_norm=1.0)
         optim.step()
         optim.zero_grad(set_to_none=True)
 
@@ -235,18 +247,6 @@ def main(args):
         if is_main_process():
             main_print(f"[toy] sanity next-token acc (should be ~1.0): {acc:.3f}")
     
-    breakpoint()
-
-    for _ in tqdm(range(1000)):
-        if args.explicit_prefetching:
-            student_model.unshard()
-        x = torch.randint(0, 151936, (4, 1024), device=device)
-        loss = 10000 - student_model(x).logits.sum()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(student_model.parameters(), max_norm=1.0)
-        optim.step()
-        optim.zero_grad()
-
     breakpoint()
 
     # ----------------------------------

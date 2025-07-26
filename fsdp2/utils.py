@@ -9,7 +9,7 @@ from tqdm import tqdm
 import shutil
 import datasets
 import torch.distributed as dist
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 import config
 from transformers import AutoModelForCausalLM
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
@@ -285,6 +285,36 @@ class DistillDataset:
         
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
+    
+def prepare_dataset(train_ds, eval_ds, config):
+    # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
+    train_sampler = DistributedSampler(
+        train_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=True,
+    )
+    test_sampler = DistributedSampler(
+        eval_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=False,
+    )
+
+    train_dataloader = DataLoader(
+        train_ds,
+        batch_size=config.per_device_train_batch_size,
+        sampler=train_sampler,
+        shuffle=False,
+    )
+    eval_dataloader = DataLoader(
+        eval_ds,
+        batch_size=config.eval_batch_size,
+        sampler=test_sampler,
+        shuffle=False,
+    )
+    
+    return train_dataloader, eval_dataloader
 
 
 def format_time_elapsed(seconds):
