@@ -171,7 +171,7 @@ class DistillDataset:
         teacher_model.requires_grad_(False)
 
         main_print("\n--> Generating Teacher Logits")
-        for split in ["test"]:
+        for split in ["train", "test"]:
 
             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
             save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_rank{rank}")
@@ -180,45 +180,68 @@ class DistillDataset:
             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
             chunk_id = 0
 
+            batch_size = 32  # tune this to your GPU
+            batch_data = {
+                "input_ids": [],
+                "attention_mask": [],
+                "labels": [],
+            }
+
             with torch.no_grad():
-                for idx, sample in enumerate(shard):
-                    input_ids = sample["input_ids"].unsqueeze(0).to(self.device)
-                    attention_mask = sample["attention_mask"].unsqueeze(0).to(self.device)
-                    labels = sample["labels"].unsqueeze(0).to(self.device)
+                for idx, sample in tqdm(enumerate(shard), total=len(shard)):
+                    batch_data["input_ids"].append(sample["input_ids"])
+                    batch_data["attention_mask"].append(sample["attention_mask"])
+                    batch_data["labels"].append(sample["labels"])
+                    
+                    if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
+                        input_ids = torch.stack(batch_data["input_ids"]).to(self.device)
+                        attention_mask = torch.stack(batch_data["attention_mask"]).to(self.device)
+                        labels = torch.stack(batch_data["labels"]).to(self.device)
 
-                    outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
-                    logits = outputs.logits.squeeze(0).cpu()  # [sample, 1024, 151000]
+                        outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+                        logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
 
-                    values, indices = torch.topk(logits, k=100, dim=-1)
+                        values, indices = torch.topk(logits, k=100, dim=-1)
+                        values = values.to('cpu')
+                        indices = indices.to('cpu')
 
-                    save_ds["input_ids"].append(input_ids.squeeze(0).cpu())
-                    save_ds["attention_mask"].append(attention_mask.squeeze(0).cpu())
-                    save_ds["labels"].append(labels.squeeze(0).cpu())
-                    save_ds["logit_values"].append(values.cpu())
-                    save_ds["logit_indices"].append(indices.cpu())
+                        if len(values.shape) == 2:
+                            save_ds["input_ids"].append(batch_data["input_ids"][0])
+                            save_ds["attention_mask"].append(batch_data["attention_mask"][0])
+                            save_ds["labels"].append(batch_data["labels"][0])
+                            save_ds["logit_values"].append(values)
+                            save_ds["logit_indices"].append(indices)
+                        else:
+                            for b in range(values.size(0)):
+                                save_ds["input_ids"].append(batch_data["input_ids"][b])
+                                save_ds["attention_mask"].append(batch_data["attention_mask"][b])
+                                save_ds["labels"].append(batch_data["labels"][b])
+                                save_ds["logit_values"].append(values[b])
+                                save_ds["logit_indices"].append(indices[b])
 
-                    if (idx + 1) % 1000 == 0:
-                        main_print(f"--> [{split}] Generated {idx} Teacher Logits")
+                        batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
 
-                    if (idx + 1) % 3000 == 0 or (idx == len(shard) - 1):
-                        main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
+                        if (idx + 1) % 800 < batch_size:
+                            main_print(f"--> [{split}] Generated {idx + 1} Teacher Logits")
+                        if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
+                            main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
-                        save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
-                        if os.path.exists(save_path):
-                            shutil.rmtree(save_path)
-                        Dataset.from_dict(save_ds).save_to_disk(save_path)
+                            save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
+                            if os.path.exists(save_path):
+                                shutil.rmtree(save_path)
+                            Dataset.from_dict(save_ds).save_to_disk(save_path)
 
-                        save_ds = {
-                            "input_ids": [],
-                            "attention_mask": [],
-                            "labels": [],
-                            "logit_values": [],
-                            "logit_indices": [],
-                        }
-                        chunk_id += 1
+                            save_ds = {
+                                "input_ids": [],
+                                "attention_mask": [],
+                                "labels": [],
+                                "logit_values": [],
+                                "logit_indices": [],
+                            }
+                            chunk_id += 1
 
-                    # if (idx + 1) % 3000 == 0:
-                    #     break
+                    if (idx + 1) % 3200 == 0:
+                        break
 
             # look into contents and size of the stored dataset
             # # of flops + utilization - measure the time and gpu usage
@@ -230,10 +253,10 @@ class DistillDataset:
                 if os.path.exists(save_path):
                     shutil.rmtree(save_path)
                 Dataset.from_dict(save_ds).save_to_disk(save_path)
-
+        
         dist.barrier() if config.ddp else None
 
-        if dist.get_rank() == 0:
+        if _get_rank() == 0:
             self.build_teacher_logits_dataset()
         
         main_print("\n--> Generation Done")
