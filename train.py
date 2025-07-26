@@ -65,13 +65,13 @@ class DistillationTrainer(SFTTrainer):
 
         if hasattr(model, "module"):
             model = model.module
-        
+
         next_token_loss = model.loss_function(
             logits=student_logits,
             labels=labels,
             vocab_size=config.student_vocab_size,
         )
-        
+
         # ----------------------------
         # Compute Ensemble Predictions
         # ----------------------------
@@ -118,7 +118,7 @@ class DistillationTrainer(SFTTrainer):
         # ------------------------------
 
         student_logit_values, student_logit_indices = torch.topk(student_logits.squeeze(0), k=100, dim=-1)
-        
+
         # ----------------------------------------
         # Combine model predictions with ensemble
         # ----------------------------------------
@@ -129,7 +129,7 @@ class DistillationTrainer(SFTTrainer):
         # ------------------------------
         # Reconstruct the teacher logits
         # ------------------------------
-        batch_size, seq_len, vocab_size = student_logits.shape # [8, 1024, 151936]
+        batch_size, seq_len, vocab_size = student_logits.shape  # [8, 1024, 151936]
         teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e8, device=student_logits.device)
         teacher_logits.scatter_(-1, teacher_logit_indices, teacher_logit_values)
 
@@ -176,7 +176,7 @@ class DistillationTrainer(SFTTrainer):
             vocab_size=model.config.vocab_size,
         )
 
-        kl_loss = 0        
+        kl_loss = 0
         if not config.synthetic_data:
             kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
