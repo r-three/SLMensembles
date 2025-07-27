@@ -54,8 +54,7 @@ class DistillationTrainer(SFTTrainer):
         super().__init__(*args, **kwargs)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        # if is_main_process():
-        #     breakpoint()
+
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]

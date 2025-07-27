@@ -10,6 +10,7 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
+from trainer import Trainer
 from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape
 from ensemble import ModelEnsemble
 
@@ -183,20 +184,11 @@ def main(args):
         checkpointer.load_optim(student_model, optim)
 
     # ----------------------------------
-    # Prepare dataset
-    # ----------------------------------
-    train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, collator)
-    # if dist.get_rank() == 2:
-    if is_main_process():
-        check_batch_shape(train_dataloader)
-    
-    student_model.train()
-    student_model.config.use_cache = False  # avoid cache warnings in training
-
-    # ----------------------------------
     # Load Existing Models
     # ----------------------------------
     # TODO: to be checked if correctly distributed.
+    # Ideally it should be properly distributed, for distributed inference. But here I think each proc will save it's own copies.
+    # Maybe easy thing to do is to shard all ensemble models. 
 
     existing_models = []
     for run_dir in config.ensemble_members:
@@ -207,6 +199,7 @@ def main(args):
                 existing_models.append((i, round_dir))
 
     if existing_models:
+        raise NotImplementedError
         existing_models.sort(key=lambda x: x[0])
         start_round = max((r for r, _ in existing_models)) + 1
         ensemble_model_names = [path for _, path in existing_models]
@@ -222,54 +215,84 @@ def main(args):
         ensemble_model = None
 
     # ----------------------------------
+    # Initialize trainer
+    # ----------------------------------
+    # TODO: move all the init, prepare steps and DS and DL into the class
+    lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
+    trainer = Trainer(student_model, tokenizer, optim, lr_scheduler, config)
+
+
+    # ----------------------------------
     # Outer Training Loop
     # ----------------------------------
 
     for round_num in range(start_round, config.total_rounds):
+        # TODO: Is this epoch?
         round_start_time = time.time()
-        round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
         main_print(f"\n{'='*50}")
         main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
         main_print(f"{'='*50}")
+        
+        # ----------------------------------
+        # Prepare dataset
+        # ----------------------------------
+        train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, response_template_ids, config.seed + round_num)
+        if is_main_process():
+            check_batch_shape(train_dataloader)
 
-        dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
         round_output_dir = get_round_path(output_path, round_num)
         main_print(f"Round '{round_num}' model stored in: {round_output_dir}")
 
         # ----------------------------------
         # Inner Training Loop
         # ----------------------------------
+        trainer.prepare_train()
+        train_dl_iterator = iter(train_dataloader)
 
-        training_args = config.get_training_args(round_output_dir)
+        for _ in tqdm(
+            range(len(train_dataloader)),
+            disable=rank != 0,
+            file=sys.__stdout__,
+        ):
+            if args.explicit_prefetching:
+                trainer.model.unshard()
+            batch = next(train_dl_iterator)
+            trainer.step(batch, eval_dataloader, round_num)
 
         if is_main_process():
-            training_args.eval_strategy = "steps"
-            training_args.eval_steps = config.eval_steps
-            training_args.eval_on_start = False
-            training_args.logging_strategy = "steps"
-            training_args.logging_steps = config.logging_steps
-            training_args.save_strategy = "steps"
-            training_args.save_steps = config.save_steps
-            training_args.save_total_limit = config.save_total_limit
-        else:
-            training_args.eval_strategy = "no"
-            training_args.logging_strategy = "no"
-            training_args.save_strategy = "no"
+            breakpoint()
+        checkpointer.save(trainer.model, optim)
+        # training_args = config.get_training_args(round_output_dir)
 
-        trainer = DistillationTrainer(
-            ensemble_model=ensemble_model,
-            logger=logger,
-            round_num=round_num,
-            overall_start_time=overall_start_time,
-            model=student_model,
-            train_dataset=dataset["train"],
-            eval_dataset=dataset["test"],
-            data_collator=collator,
-            args=training_args,
-            callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
-        )
-        trainer.train(resume_from_checkpoint=config.checkpoint_path)
+        # if is_main_process():
+        #     training_args.eval_strategy = "steps"
+        #     training_args.eval_steps = config.eval_steps
+        #     training_args.eval_on_start = False
+        #     training_args.logging_strategy = "steps"
+        #     training_args.logging_steps = config.logging_steps
+        #     training_args.save_strategy = "steps"
+        #     training_args.save_steps = config.save_steps
+        #     training_args.save_total_limit = config.save_total_limit
+        # else:
+        #     training_args.eval_strategy = "no"
+        #     training_args.logging_strategy = "no"
+        #     training_args.save_strategy = "no"
+
+        # trainer = DistillationTrainer(
+        #     ensemble_model=ensemble_model,
+        #     logger=logger,
+        #     round_num=round_num,
+        #     overall_start_time=overall_start_time,
+        #     model=student_model,
+        #     train_dataset=dataset["train"],
+        #     eval_dataset=dataset["test"],
+        #     data_collator=collator,
+        #     args=training_args,
+        #     callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
+        # )
+        # trainer.train(resume_from_checkpoint=config.checkpoint_path)
         logger.flush() if is_main_process() else None
         trainer.model.save_pretrained(round_output_dir)
 

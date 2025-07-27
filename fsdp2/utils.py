@@ -11,11 +11,12 @@ import datasets
 import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
 import config
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 from torch.distributed.tensor import DTensor
 from trl import DataCollatorForCompletionOnlyLM
 
+# datasets.config.IN_MEMORY_MAX_SIZE
 
 def inspect_model(model: FSDPModule):
     # assert isinstance(model, Transformer)
@@ -287,13 +288,14 @@ class DistillDataset:
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
     
-def prepare_dataset(train_ds, eval_ds, config, collator):
+def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
     # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
     train_sampler = DistributedSampler(
         train_ds,
         dist.get_world_size(),
         dist.get_rank(),
         shuffle=True,
+        seed=seed,
     )
     test_sampler = DistributedSampler(
         eval_ds,
@@ -307,14 +309,18 @@ def prepare_dataset(train_ds, eval_ds, config, collator):
         batch_size=config.per_device_train_batch_size,
         sampler=train_sampler,
         shuffle=False,
-        collate_fn=collator
+        collate_fn=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=AutoTokenizer.from_pretrained(config.student_model_name)),
+        num_workers=8,
+        persistent_workers=False
     )
     eval_dataloader = DataLoader(
         eval_ds,
         batch_size=config.eval_batch_size,
         sampler=test_sampler,
         shuffle=False,
-        collate_fn=collator
+        collate_fn=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=AutoTokenizer.from_pretrained(config.student_model_name)),
+        num_workers=8,
+        persistent_workers=False
     )
     
     return train_dataloader, eval_dataloader
