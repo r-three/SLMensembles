@@ -9,8 +9,7 @@ from trl import DataCollatorForCompletionOnlyLM
 
 from datasets import load_dataset, Dataset, DatasetDict
 import config
-from train import DistillationTrainer, LoggingCallback
-from trainer import Trainer
+from trainer import Trainer, DistillTrainer
 from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape
 from ensemble import ModelEnsemble
 
@@ -219,7 +218,7 @@ def main(args):
     # ----------------------------------
     # TODO: move all the init, prepare steps and DS and DL into the class
     lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
-    trainer = Trainer(student_model, tokenizer, optim, lr_scheduler, config)
+    trainer = DistillTrainer(student_model, tokenizer, optim, lr_scheduler, config, ensemble_model)
 
 
     # ----------------------------------
@@ -245,11 +244,12 @@ def main(args):
         round_output_dir = get_round_path(output_path, round_num)
         main_print(f"Round '{round_num}' model stored in: {round_output_dir}")
 
+        trainer.prepare_train()
+        train_dl_iterator = iter(train_dataloader)
+
         # ----------------------------------
         # Inner Training Loop
         # ----------------------------------
-        trainer.prepare_train()
-        train_dl_iterator = iter(train_dataloader)
 
         for _ in tqdm(
             range(len(train_dataloader)),
@@ -261,9 +261,14 @@ def main(args):
             batch = next(train_dl_iterator)
             trainer.step(batch, eval_dataloader, round_num)
 
+    # ----------------------------------
+    # Save checkpoint
+    # ----------------------------------
         checkpointer.save(trainer.model, optim)
-        torch.distributed.destroy_process_group()
-        # Finish all process so no process exit early.
+        
+    checkpointer.save(trainer.model, optim)
+    torch.distributed.destroy_process_group()
+    # Finish all process so no process exit early.
 
 
     #     # training_args = config.get_training_args(round_output_dir)
