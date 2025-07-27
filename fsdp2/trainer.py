@@ -35,7 +35,7 @@ class Trainer(ABC):
         self.model.train()
         self.model.config.use_cache = False  # avoid cache warnings in training
 
-    def sum_loss(self, batch):
+    def compute_loss(self, batch):
         '''
         reduce loss is sum
         this ensures that we weight all tokens in the dataset equally,
@@ -78,6 +78,7 @@ class Trainer(ABC):
         return train_loss, test_loss
     
     def train_step(self, batch, epoch):
+        self.model.train()
         batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
         batch["labels"] = batch["labels"].type(torch.LongTensor)
 
@@ -88,7 +89,7 @@ class Trainer(ABC):
         if (self.tr_step + 1) % self.gas != self.gas - 1:
             # no need to sync while accumulating gradients
             self.model.set_requires_gradient_sync(False)
-            tr_step_loss, _ = self.sum_loss(batch)
+            tr_step_loss, _ = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
             self.model.set_requires_gradient_sync(True)
@@ -96,7 +97,7 @@ class Trainer(ABC):
             # next forward / backward pass will be synced
             self.model.set_requires_gradient_sync(True)
             dist.barrier()
-            tr_step_loss, _ = self.sum_loss(batch)
+            tr_step_loss, _ = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
             self.optim.step()
@@ -122,7 +123,7 @@ class Trainer(ABC):
             with torch.no_grad():
                 batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
                 batch["labels"] = batch["labels"].type(torch.LongTensor)
-                loss_sum, valid_cnt = self.sum_loss(batch)
+                loss_sum, valid_cnt = self.compute_loss(batch)
                 eval_loss += loss_sum
                 valid_total += valid_cnt
         
@@ -141,3 +142,37 @@ class Trainer(ABC):
 
         self.model.train()
         return gathered_eval_loss
+    
+class DistillTrainer(Trainer):
+    def __init__(
+        self,
+        model,
+        tokenizer,
+        optim,
+        lr_scheduler,
+        config,
+    ) -> None:
+        super().__init__(model, tokenizer, optim, lr_scheduler, config)
+
+    def compute_loss(self, batch):
+        '''
+        Compute loss with both next token perdiction and kl div with teacher logits.
+        '''
+        embedding_size = self.model.get_input_embeddings().weight.shape[0]
+        labels = batch.pop('labels')
+        outputs = self.model(**batch)
+        logits = outputs.logits
+        # Shift so that tokens < n predict n
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+        # Flatten the tokens
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
+        shift_logits = shift_logits.view(-1, embedding_size)
+        shift_labels = shift_labels.view(-1)
+        # Enable model parallelism
+        shift_labels = shift_labels.to(shift_logits.device)
+        next_token_loss = loss_fct(shift_logits, shift_labels)
+        ignore_index = getattr(self.config, "ignore_index", -100)
+        valid_mask = shift_labels.ne(ignore_index)
+        valid_count = valid_mask.sum()
+        return next_token_loss, kl_loss, hybrid_loss, valid_count

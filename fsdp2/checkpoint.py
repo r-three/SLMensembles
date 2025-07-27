@@ -11,6 +11,7 @@ from torch.distributed.checkpoint.state_dict import (
     set_optimizer_state_dict,
     StateDictOptions,
 )
+import torch.distributed as dist
 from torch.distributed.fsdp import FSDPModule
 from torch.distributed.tensor import distribute_tensor, DTensor
 
@@ -69,14 +70,11 @@ class Checkpointer:
         sharded_sd = {}
         for param_name, full_tensor in full_sd.items():
             sharded_meta_param = meta_sharded_sd.get(param_name)
-            try:
-                sharded_tensor = distribute_tensor(
-                    full_tensor,
-                    sharded_meta_param.device_mesh,
-                    sharded_meta_param.placements,
-                )
-            except:
-                breakpoint()
+            sharded_tensor = distribute_tensor(
+                full_tensor,
+                sharded_meta_param.device_mesh,
+                sharded_meta_param.placements,
+            )
             sharded_sd[param_name] = nn.Parameter(sharded_tensor)
         # choose `assign=True` since we cannot call `copy_` on meta tensor
         model.load_state_dict(sharded_sd, strict=False, assign=True)
