@@ -77,7 +77,6 @@ def main(args):
     # ----------------------------------
     # Loading the Teacher Dataset
     # ----------------------------------
-    # TODO: to be changed to distributed
     dataClass = DistillDataset('cpu')
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logits()
 
@@ -226,7 +225,6 @@ def main(args):
     # ----------------------------------
 
     for round_num in range(start_round, config.total_rounds):
-        # TODO: Is this epoch?
         round_start_time = time.time()
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
@@ -265,164 +263,10 @@ def main(args):
     # Save checkpoint
     # ----------------------------------
         checkpointer.save(trainer.model, optim)
-        
+
     checkpointer.save(trainer.model, optim)
     torch.distributed.destroy_process_group()
     # Finish all process so no process exit early.
-
-
-    #     # training_args = config.get_training_args(round_output_dir)
-
-    #     # if is_main_process():
-    #     #     training_args.eval_strategy = "steps"
-    #     #     training_args.eval_steps = config.eval_steps
-    #     #     training_args.eval_on_start = False
-    #     #     training_args.logging_strategy = "steps"
-    #     #     training_args.logging_steps = config.logging_steps
-    #     #     training_args.save_strategy = "steps"
-    #     #     training_args.save_steps = config.save_steps
-    #     #     training_args.save_total_limit = config.save_total_limit
-    #     # else:
-    #     #     training_args.eval_strategy = "no"
-    #     #     training_args.logging_strategy = "no"
-    #     #     training_args.save_strategy = "no"
-
-    #     # trainer = DistillationTrainer(
-    #     #     ensemble_model=ensemble_model,
-    #     #     logger=logger,
-    #     #     round_num=round_num,
-    #     #     overall_start_time=overall_start_time,
-    #     #     model=student_model,
-    #     #     train_dataset=dataset["train"],
-    #     #     eval_dataset=dataset["test"],
-    #     #     data_collator=collator,
-    #     #     args=training_args,
-    #     #     callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
-    #     # )
-    #     # trainer.train(resume_from_checkpoint=config.checkpoint_path)
-    #     logger.flush() if is_main_process() else None
-    #     trainer.model.save_pretrained(round_output_dir)
-
-    #     # ----------------------------------
-    #     # Add model to ensemble
-    #     # ----------------------------------
-
-    #     if ensemble_model is None:
-    #         ensemble_model = ModelEnsemble(
-    #             [round_output_dir],
-    #             torch_dtype=torch.bfloat16,
-    #             vocab_size=student_model.vocab_size,
-    #         )
-    #         ensemble_model.requires_grad_(False)
-    #     else:
-    #         ensemble_model.add_model(round_output_dir)
-
-    #     # ----------------------------------
-    #     # Evaluate and log
-    #     # ----------------------------------
-
-    #     if is_main_process():
-    #         student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
-    #         ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
-
-    #         main_print(f"\n{'-'*25}")
-    #         main_print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
-    #         main_print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
-    #         main_print(f"Teacher evaluation for {round_num}: {teacher_eval_results[0]}")
-    #         main_print(f"{'-'*25}")
-
-    #     round_end_time = time.time()
-    #     round_duration = round_end_time - round_start_time
-    #     overall_elapsed = round_end_time - overall_start_time
-    #     round_duration_str = format_time_elapsed(round_duration)
-    #     overall_elapsed_str = format_time_elapsed(overall_elapsed)
-    #     round_end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    #     main_print(f"{'='*50}")
-    #     main_print(f"Ending Round {round_num} at: {round_end_datetime}")
-    #     main_print(f"Completed in: {round_duration_str}")
-    #     main_print(f"Total training time: {overall_elapsed_str}")
-    #     main_print(f"{'='*50}\n")
-
-    #     if is_main_process():
-    #         logger.log(
-    #             function="main",
-    #             round_num=round_num,
-    #             phase="custom_eval",
-    #             role="ensemble",
-    #             eval_loss=ensemble_eval_results["eval_loss"],
-    #             perplexity=ensemble_eval_results["perplexity"],
-    #             round_duration=round_duration,
-    #             overall_elapsed=overall_elapsed,
-    #         )
-    #         logger.log(
-    #             function="main",
-    #             round_num=round_num,
-    #             phase="custom_eval",
-    #             role="student",
-    #             eval_loss=student_eval_results["eval_loss"],
-    #             perplexity=student_eval_results["perplexity"],
-    #             round_duration=round_duration,
-    #             overall_elapsed=overall_elapsed,
-    #         )
-    #         logger.log(
-    #             function="main",
-    #             round_num=round_num,
-    #             phase="custom_eval",
-    #             role="teacher",
-    #             eval_loss=teacher_eval_results[0],
-    #             perplexity=teacher_eval_results[1],
-    #             round_duration=round_duration,
-    #             overall_elapsed=overall_elapsed,
-    #         )
-
-    #         logger.flush()
-
-    #     # ----------------------------------
-    #     # Reset memory
-    #     # ----------------------------------
-
-    #     del student_model, trainer
-    #     gc.collect()
-    #     torch.cuda.empty_cache()
-
-    #     dist.barrier() if config.ddp else None
-
-    #     # ----------------------------------
-    #     # Load Student
-    #     # ----------------------------------
-
-    #     student_model = AutoModelForCausalLM.from_pretrained(
-    #         config.student_model_name,
-    #         torch_dtype=torch.bfloat16,
-    #     ).to(device)
-
-    #     if is_main_process():
-    #         student_eval_results = evaluate_model(student_model, dataset["test"], collator)
-    #         logger.log(
-    #             function="main",
-    #             round_num=round_num,
-    #             phase="custom_eval",
-    #             role="student",
-    #             eval_loss=student_eval_results["eval_loss"],
-    #             perplexity=student_eval_results["perplexity"],
-    #             tags=["initial eval"],
-    #         )
-
-    # # ----------------------------------
-    # # End round
-    # # ----------------------------------
-
-    # overall_end_time = time.time()
-    # overall_duration = overall_end_time - overall_start_time
-    # overall_duration_str = format_time_elapsed(overall_duration)
-    # end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # main_print(f"\n{'='*50}")
-    # main_print(f"Training completed at: {end_datetime}")
-    # main_print(f"Total training time: {overall_duration_str}")
-    # main_print(f"{'='*50}")
-
-    # dist.barrier() if config.ddp else None
 
 
 if __name__ == "__main__":

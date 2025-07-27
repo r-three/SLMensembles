@@ -116,7 +116,7 @@ class Trainer(ABC):
             self.optim.zero_grad()
         gathered_tr_step_loss = _gather(tr_step_loss.reshape(1)).mean().item()
 
-        # TODO: add back logging.
+        # No logging for train steps.
 
         return gathered_tr_step_loss
     
