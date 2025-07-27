@@ -218,8 +218,6 @@ def main():
             training_args.logging_strategy = "no"
             training_args.save_strategy = "no"
 
-        breakpoint()
-
         trainer = DistillationTrainer(
             ensemble_model=ensemble_model,
             logger=logger,
