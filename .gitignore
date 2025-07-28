@@ -11,4 +11,8 @@ models/
 train.sh
 config.py
 DistillKit/
+distillkit_runs/
 tasks-list.txt
+datasets/
+csv_files/
+teacher_logits/

@@ -1,37 +1,48 @@
 import os, gc, time, sys, pdb
 import torch
-import argparse
 import atexit
 from datetime import datetime
+import torch.distributed as dist
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import DataCollatorForCompletionOnlyLM
 
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from train import DistillationTrainer, LoggingCallback
-from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process
+from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process, main_print
 from ensemble import ModelEnsemble
 
 
 def main():
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"\n--> Starting training at: {overall_start_datetime}\n")
+    main_print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
-    # Set up distributed training
+    # Device Setup
     # ----------------------------------
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--local_rank", type=int, default=0)
-    args = parser.parse_args()
-
-    torch.cuda.set_device(args.local_rank)
-    ddp_device = torch.device(f"cuda:{args.local_rank}")
+    default_local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    if config.ddp and torch.cuda.is_available():
+        num_gpus = torch.cuda.device_count()
+        if default_local_rank >= num_gpus:
+            raise RuntimeError(
+                f"LOCAL_RANK={default_local_rank} but only {num_gpus} CUDA devices are available."
+            )
+        torch.cuda.set_device(default_local_rank)
+        device = torch.device(f"cuda:{default_local_rank}")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    main_print(f"Using device: {device}")
 
     # ----------------------------------
-    # Set up logging and run name
+    # Logging and Run Name
     # ----------------------------------
+
+    main_print("--> Setting up logging and run name")
+
+    log_dir = None
+    logger = None
 
     if is_main_process():
         log_dir = config.get_directory(config.log_dir)
@@ -42,27 +53,17 @@ def main():
     run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logit_cache_path, exist_ok=True)
 
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(ddp_device)
-
     # ----------------------------------
     # Loading the Teacher Dataset
     # ----------------------------------
-    dataClass = DistillDataset(ddp_device)
-    dataset = dataClass.get_dataset()
-    loaded_dataset = dataClass.get_teacher_logits() if not config.synthetic_data else None
-
-    if loaded_dataset:
-        dataset = loaded_dataset.remove_columns(["logit_indices", "logit_values"])
-        teacher_logits = loaded_dataset.remove_columns(["attention_mask", "labels"])
+    dataClass = DistillDataset(device)
+    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logits()
 
     # ----------------------------------
     # Metrics
     # ----------------------------------
 
-    if is_main_process():
+    if is_main_process():   
         metadata_dict = {
             "Custom run name": config.custom_run_name,
             "Description": config.description,
@@ -80,20 +81,20 @@ def main():
             "ID string": config.id_string,
             "Description": config.description,
         }
-    print("\n==== RUN CONFIGURATION ====")
+    main_print("\n==== RUN CONFIGURATION ====")
 
-    print(f"Run: {run_name}")
-    print(f"Created logging directory: {log_dir}")
-    print(f"Models stored in: {output_path}\n")
+    main_print(f"Run: {run_name}")
+    main_print(f"Created logging directory: {log_dir}")
+    main_print(f"Models stored in: {output_path}")
 
-    print(f"\n{config.id_string}")
-    print(f"{config.description}\n")
+    main_print(f"{config.id_string}")
+    main_print(f"{config.description}\n")
 
     if is_main_process():
         for k, v in metadata_dict.items():
-            print(f"{k}: {v}")
+            main_print(f"{k}: {v}")
 
-    print("===========================")
+    main_print("===========================")
 
     if is_main_process():
         logger.log(
@@ -104,32 +105,21 @@ def main():
         )
 
     # ----------------------------------
-    # Load Student
+    # Load Tokenizer (needed for collator & evaluation)
+    # ----------------------------------
+    main_print("--> Loading Tokenizer")
+    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
+    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+
+    # ----------------------------------
+    # Load Student 
     # ----------------------------------
 
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to(ddp_device)
-
-    # ----------------------------------
-    # Load Tokenizer and Models
-    # ----------------------------------
-    print("--> Loading Tokenizer")
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("\nassistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    if is_main_process():
-        teacher_eval_results = evaluate_model(dataClass.teacher_model, dataset["test"], collator)
-        logger.log(
-            function="main",
-            round_num=0,
-            phase="custom_eval",
-            role="teacher",
-            eval_loss=teacher_eval_results["eval_loss"],
-            perplexity=teacher_eval_results["perplexity"],
-        )
+    ).to(device)
 
     # ----------------------------------
     # Load Existing Models
@@ -151,7 +141,7 @@ def main():
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,
             vocab_size=student_model.config.vocab_size,
-        ).to(ddp_device)
+        ).to(device)
         ensemble_model.requires_grad_(False)
     else:
         start_round = 0
@@ -161,17 +151,26 @@ def main():
     # Evaluate
     # ----------------------------------
 
-    if is_main_process():
-        student_eval_results = evaluate_model(student_model, dataset["test"], collator)
-        logger.log(
-            function="main",
-            round_num=0,
-            phase="custom_eval",
-            role="student",
-            eval_loss=student_eval_results["eval_loss"],
-            perplexity=student_eval_results["perplexity"],
-            tags=["initial eval"],
-        )
+    # if is_main_process():
+        # student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+        # logger.log(
+        #     function="main",
+        #     round_num=0,
+        #     phase="custom_eval",
+        #     role="student",
+        #     eval_loss=student_eval_results["eval_loss"],
+        #     perplexity=student_eval_results["perplexity"],
+        #     tags=["initial eval"],
+        # )
+        # teacher_eval_results = config.teacher_eval
+        # logger.log(
+        #     function="main",
+        #     round_num=0,
+        #     phase="custom_eval",
+        #     role="teacher",
+        #     eval_loss=teacher_eval_results[0],
+        #     perplexity=teacher_eval_results[1],
+        # )
 
     # ----------------------------------
     # Load checkpoint
@@ -179,9 +178,9 @@ def main():
 
     if config.checkpoint_path:
         if not os.path.exists(config.checkpoint_path):
-            print(f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}")
+            main_print(f"[ERROR] Checkpointed model does not exist at: {config.checkpoint_path}")
             sys.exit(1)
-        print(f"Resuming training from checkpoint: {config.checkpoint_path}")
+        main_print(f"Resuming training from checkpoint: {config.checkpoint_path}")
 
     # ----------------------------------
     # Outer Training Loop
@@ -191,13 +190,13 @@ def main():
         round_start_time = time.time()
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        print(f"\n{'='*50}")
-        print(f"--> Starting Round {round_num} at: {round_start_datetime}")
-        print(f"{'='*50}")
+        main_print(f"\n{'='*50}")
+        main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
+        main_print(f"{'='*50}")
 
         dataset["train"] = dataset["train"].shuffle(seed=config.seed + round_num)
         round_output_dir = get_round_path(output_path, round_num)
-        print(f"Round '{round_num}' model stored in: {round_output_dir}")
+        main_print(f"Round '{round_num}' model stored in: {round_output_dir}")
 
         # ----------------------------------
         # Inner Training Loop
@@ -221,8 +220,7 @@ def main():
 
         trainer = DistillationTrainer(
             ensemble_model=ensemble_model,
-            teacher_logits=teacher_logits,
-            logger=logger if is_main_process() else None,
+            logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,
             model=student_model,
@@ -259,11 +257,11 @@ def main():
             student_eval_results = evaluate_model(trainer.model, dataset["test"], collator)
             ensemble_eval_results = evaluate_model(ensemble_model, dataset["test"], collator)
 
-            print(f"\n{'-'*25}")
-            print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
-            print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
-            print(f"Teacher evaluation for {round_num}: {teacher_eval_results['eval_loss']}")
-            print(f"{'-'*25}")
+            main_print(f"\n{'-'*25}")
+            main_print(f"Student evaluation for {round_num}: {student_eval_results['eval_loss']}")
+            main_print(f"Ensemble evaluation for {round_num}: {ensemble_eval_results['eval_loss']}")
+            main_print(f"Teacher evaluation for {round_num}: {teacher_eval_results[0]}")
+            main_print(f"{'-'*25}")
 
         round_end_time = time.time()
         round_duration = round_end_time - round_start_time
@@ -271,11 +269,11 @@ def main():
         round_duration_str = format_time_elapsed(round_duration)
         overall_elapsed_str = format_time_elapsed(overall_elapsed)
         round_end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{'='*50}")
-        print(f"Ending Round {round_num} at: {round_end_datetime}")
-        print(f"Completed in: {round_duration_str}")
-        print(f"Total training time: {overall_elapsed_str}")
-        print(f"{'='*50}\n")
+        main_print(f"{'='*50}")
+        main_print(f"Ending Round {round_num} at: {round_end_datetime}")
+        main_print(f"Completed in: {round_duration_str}")
+        main_print(f"Total training time: {overall_elapsed_str}")
+        main_print(f"{'='*50}\n")
 
         if is_main_process():
             logger.log(
@@ -303,8 +301,8 @@ def main():
                 round_num=round_num,
                 phase="custom_eval",
                 role="teacher",
-                eval_loss=teacher_eval_results["eval_loss"],
-                perplexity=teacher_eval_results["perplexity"],
+                eval_loss=teacher_eval_results[0],
+                perplexity=teacher_eval_results[1],
                 round_duration=round_duration,
                 overall_elapsed=overall_elapsed,
             )
@@ -319,6 +317,8 @@ def main():
         gc.collect()
         torch.cuda.empty_cache()
 
+        dist.barrier() if config.ddp else None
+
         # ----------------------------------
         # Load Student
         # ----------------------------------
@@ -326,7 +326,7 @@ def main():
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-        ).to(ddp_device)
+        ).to(device)
 
         if is_main_process():
             student_eval_results = evaluate_model(student_model, dataset["test"], collator)
@@ -349,10 +349,12 @@ def main():
     overall_duration_str = format_time_elapsed(overall_duration)
     end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"\n{'='*50}")
-    print(f"Training completed at: {end_datetime}")
-    print(f"Total training time: {overall_duration_str}")
-    print(f"{'='*50}")
+    main_print(f"\n{'='*50}")
+    main_print(f"Training completed at: {end_datetime}")
+    main_print(f"Total training time: {overall_duration_str}")
+    main_print(f"{'='*50}")
+
+    dist.barrier() if config.ddp else None
 
 
 if __name__ == "__main__":

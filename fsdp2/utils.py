@@ -1,21 +1,46 @@
+import torch
+from torch.distributed.fsdp import FSDPModule
+from torch.distributed.tensor import Shard
+
 import os, csv, time, glob, sys
 from datetime import datetime
 import pdb
 from tqdm import tqdm
 import shutil
-import torch
 import datasets
 import torch.distributed as dist
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 import config
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
+from torch.distributed.tensor import DTensor
+from trl import DataCollatorForCompletionOnlyLM
 
+# datasets.config.IN_MEMORY_MAX_SIZE
+
+def inspect_model(model: FSDPModule):
+    # assert isinstance(model, Transformer)
+    assert isinstance(model, FSDPModule)
+
+    if torch.distributed.get_rank() == 0:
+        print(model)
+
+    for param in model.parameters():
+        assert param.placements == (Shard(0),)
+        # assert param.dtype == torch.float32
+        assert isinstance(param, DTensor)
+        # print(param.get_local_tensor())
+
+
+def inspect_mixed_precision(model: FSDPModule):
+    model.unshard()
+    for param in model.parameters(recurse=False):
+        assert param.dtype == torch.bfloat16
+    model.reshard()
 
 def main_print(*args, **kwargs):
     if is_main_process():
         print(*args, **kwargs)
-
 
 def _get_rank():
     if dist.is_available() and dist.is_initialized():
@@ -193,7 +218,7 @@ class DistillDataset:
                     batch_data["input_ids"].append(sample["input_ids"])
                     batch_data["attention_mask"].append(sample["attention_mask"])
                     batch_data["labels"].append(sample["labels"])
-
+                    
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
                         input_ids = torch.stack(batch_data["input_ids"]).to(self.device)
                         attention_mask = torch.stack(batch_data["attention_mask"]).to(self.device)
@@ -203,8 +228,8 @@ class DistillDataset:
                         logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
 
                         values, indices = torch.topk(logits, k=100, dim=-1)
-                        values = values.to("cpu")
-                        indices = indices.to("cpu")
+                        values = values.to('cpu')
+                        indices = indices.to('cpu')
 
                         if len(values.shape) == 2:
                             save_ds["input_ids"].append(batch_data["input_ids"][0])
@@ -244,20 +269,61 @@ class DistillDataset:
                     # if (idx + 1) % 3200 == 0:
                     #     break
 
+            # look into contents and size of the stored dataset
+            # # of flops + utilization - measure the time and gpu usage
+            # cumulative logit mass plot - pick adaptive k?
+
             if save_ds["input_ids"]:
                 print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
                 save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
                 if os.path.exists(save_path):
                     shutil.rmtree(save_path)
                 Dataset.from_dict(save_ds).save_to_disk(save_path)
-
+        
         dist.barrier() if config.ddp else None
 
         if _get_rank() == 0:
             self.build_teacher_logits_dataset()
-
+        
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
+    
+def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
+    # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
+    train_sampler = DistributedSampler(
+        train_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=True,
+        seed=seed,
+    )
+    test_sampler = DistributedSampler(
+        eval_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=False,
+    )
+
+    train_dataloader = DataLoader(
+        train_ds,
+        batch_size=config.per_device_train_batch_size,
+        sampler=train_sampler,
+        shuffle=False,
+        collate_fn=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=AutoTokenizer.from_pretrained(config.student_model_name)),
+        num_workers=8,
+        persistent_workers=False
+    )
+    eval_dataloader = DataLoader(
+        eval_ds,
+        batch_size=config.eval_batch_size,
+        sampler=test_sampler,
+        shuffle=False,
+        collate_fn=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=AutoTokenizer.from_pretrained(config.student_model_name)),
+        num_workers=8,
+        persistent_workers=False
+    )
+    
+    return train_dataloader, eval_dataloader
 
 
 def format_time_elapsed(seconds):
@@ -290,33 +356,14 @@ def evaluate_model(model, eval_dataset, collator):
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
     return {"eval_loss": avg_loss, "perplexity": perplexity}
 
-
-if __name__ == "__main__":
-    import torch
-    import time
-    import pdb
-    import datasets
-    from transformers import AutoTokenizer, AutoModelForCausalLM
-    from trl import DataCollatorForCompletionOnlyLM
-    import config
-
-    main_print("--> Evaluate model")
-
-    device = torch.cuda.current_device()
-    main_print(device)
-
-    dataset = datasets.load_from_disk("/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized")
-    logit_dataset = datasets.load_from_disk("/scratch/klambert/slm_ensembles/teacher_logits/teacher_logits")
-
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("1assistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(device)
-
-    main_print("sampling 100 examples")
-    small_test = dataset["test"]
-    evaluate_model(student_model, small_test, collator)
+def check_batch_shape(train_dataloader):
+    temp_input_ids = next(iter(train_dataloader))['input_ids']
+    temp_attention_mask = next(iter(train_dataloader))['attention_mask']
+    temp_labels = next(iter(train_dataloader))['labels']
+    temp_logit_values = next(iter(train_dataloader))['logit_values']
+    temp_logit_indices = next(iter(train_dataloader))['logit_indices']
+    print("shape input_ids: ", torch.tensor(temp_input_ids).shape)
+    print("shape attention_mask: ", torch.tensor(temp_attention_mask).shape)
+    print("shape labels: ", torch.tensor(temp_labels).shape)
+    print("shape logit_values: ", torch.tensor(temp_logit_values).shape)
+    print("shape logit_indices: ", torch.tensor(temp_logit_indices).shape)

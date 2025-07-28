@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import pdb
 from transformers import TrainerCallback
 from trl import SFTTrainer
 import config
@@ -42,9 +43,8 @@ class LoggingCallback(TrainerCallback):
 
 
 class DistillationTrainer(SFTTrainer):
-    def __init__(self, ensemble_model, teacher_logits, logger, round_num, overall_start_time, *args, **kwargs):
+    def __init__(self, ensemble_model, logger, round_num, overall_start_time, *args, **kwargs):
         self.ensemble_model = ensemble_model
-        self.teacher_logits = teacher_logits
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
@@ -52,7 +52,7 @@ class DistillationTrainer(SFTTrainer):
 
         super().__init__(*args, **kwargs)
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
@@ -60,23 +60,34 @@ class DistillationTrainer(SFTTrainer):
         # -------------------------
         # Compute Student Predictions
         # -------------------------
-        student_outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        student_outputs = model(input_ids=input_ids, attention_mask=attention_mask)
         student_logits = student_outputs.logits
-        next_token_loss = student_outputs.loss
 
-        # -------------------------
+        if hasattr(model, "module"):
+            model = model.module
+
+        next_token_loss = model.loss_function(
+            logits=student_logits,
+            labels=labels,
+            vocab_size=config.student_vocab_size,
+        )
+
+        # ----------------------------
         # Compute Ensemble Predictions
-        # -------------------------
+        # ----------------------------
         ensemble_logits = None
         if self.ensemble_model is not None:
             with torch.no_grad():
                 ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
                 ensemble_logits = ensemble_outputs.logits
 
+        # -------------------------
+        # Compute Loss
+        # -------------------------
         alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, model=model, inputs=inputs)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # -------------------------
@@ -96,10 +107,11 @@ class DistillationTrainer(SFTTrainer):
                 learning_rate=self._get_learning_rate(),
             )
 
-        return (hybrid_loss, current_model_logits) if return_outputs else hybrid_loss
+        return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
 
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, model, inputs, temperature=1.0):
-        """Computes KL divergence loss between teacher and student model logits."""
+    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
+        teacher_logit_indices = inputs["logit_indices"]
+        teacher_logit_values = inputs["logit_values"]
 
         # ----------------------------------------
         # Combine model predictions with ensemble
@@ -108,27 +120,18 @@ class DistillationTrainer(SFTTrainer):
             num_models = len(self.ensemble_model.models)
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
 
-        # -----------------------
+        # ------------------------------
         # Reconstruct the teacher logits
-        # -----------------------
-        batch_size, seq_len, _ = inputs["input_ids"].shape
-
-        vocab_size = model.config.vocab_size
-        reconstructed_logits = torch.full((batch_size, seq_len, vocab_size), float("-inf"), device=self.teacher_logits.device)
-
-        if "logit_indices" in self.teacher_logits and "logit_values" in self.teacher_logits:
-            logit_indices = self.teacher_logits["logit_indices"]
-            logit_values = self.teacher_logits["logit_values"]
-            reconstructed_logits.scatter_(-1, logit_indices, logit_values)
-            self.teacher_logits = reconstructed_logits
-        else:
-            print("Error: No 'logit_indices' or 'logit_values' keys in self.teacher_logits")
+        # ------------------------------
+        batch_size, seq_len, vocab_size = student_logits.shape  # [8, 1024, 151936]
+        teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e8, device=student_logits.device)
+        teacher_logits.scatter_(-1, teacher_logit_indices, teacher_logit_values)
 
         # -----------------------
         # Compute KL Loss
         # -----------------------
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        teacher_probs = F.log_softmax(self.teacher_logits / temperature, dim=-1)
+        teacher_probs = F.log_softmax(teacher_logits / temperature, dim=-1)
         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
         return kl_loss[mask].mean()
 
@@ -155,7 +158,7 @@ class DistillationTrainer(SFTTrainer):
         # ------------------------------
         # Handle potential DDP wrapping
         # ------------------------------
-        if hasattr(model, "module"):
+        if config.ddp and hasattr(model, "module"):
             model = model.module
 
         # ------------------------------
@@ -169,7 +172,7 @@ class DistillationTrainer(SFTTrainer):
 
         kl_loss = 0
         if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels_s != -100)
+            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
 
         # ------------------------------
