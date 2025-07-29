@@ -26,9 +26,7 @@ def main():
     if config.ddp and torch.cuda.is_available():
         num_gpus = torch.cuda.device_count()
         if default_local_rank >= num_gpus:
-            raise RuntimeError(
-                f"LOCAL_RANK={default_local_rank} but only {num_gpus} CUDA devices are available."
-            )
+            raise RuntimeError(f"LOCAL_RANK={default_local_rank} but only {num_gpus} CUDA devices are available.")
         torch.cuda.set_device(default_local_rank)
         device = torch.device(f"cuda:{default_local_rank}")
     else:
@@ -63,7 +61,7 @@ def main():
     # Metrics
     # ----------------------------------
 
-    if is_main_process():   
+    if is_main_process():
         metadata_dict = {
             "Custom run name": config.custom_run_name,
             "Description": config.description,
@@ -113,7 +111,7 @@ def main():
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     # ----------------------------------
-    # Load Student 
+    # Load Student
     # ----------------------------------
 
     student_model = AutoModelForCausalLM.from_pretrained(
@@ -147,30 +145,32 @@ def main():
         start_round = 0
         ensemble_model = None
 
+    breakpoint()
+
     # ----------------------------------
     # Evaluate
     # ----------------------------------
 
     # if is_main_process():
-        # student_eval_results = evaluate_model(student_model, dataset["test"], collator)
-        # logger.log(
-        #     function="main",
-        #     round_num=0,
-        #     phase="custom_eval",
-        #     role="student",
-        #     eval_loss=student_eval_results["eval_loss"],
-        #     perplexity=student_eval_results["perplexity"],
-        #     tags=["initial eval"],
-        # )
-        # teacher_eval_results = config.teacher_eval
-        # logger.log(
-        #     function="main",
-        #     round_num=0,
-        #     phase="custom_eval",
-        #     role="teacher",
-        #     eval_loss=teacher_eval_results[0],
-        #     perplexity=teacher_eval_results[1],
-        # )
+    # student_eval_results = evaluate_model(student_model, dataset["test"], collator)
+    # logger.log(
+    #     function="main",
+    #     round_num=0,
+    #     phase="custom_eval",
+    #     role="student",
+    #     eval_loss=student_eval_results["eval_loss"],
+    #     perplexity=student_eval_results["perplexity"],
+    #     tags=["initial eval"],
+    # )
+    # teacher_eval_results = config.teacher_eval
+    # logger.log(
+    #     function="main",
+    #     round_num=0,
+    #     phase="custom_eval",
+    #     role="teacher",
+    #     eval_loss=teacher_eval_results[0],
+    #     perplexity=teacher_eval_results[1],
+    # )
 
     # ----------------------------------
     # Load checkpoint
