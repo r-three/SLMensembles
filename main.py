@@ -123,18 +123,13 @@ def main():
     # Load Existing Models
     # ----------------------------------
 
-    existing_models = []
-    for run_dir in config.ensemble_members:
-        for i in range(config.total_rounds):
-            round_dir = os.path.join(run_dir, f"round_{i}")
-            model_file = os.path.join(round_dir, "config.json")
-            if os.path.exists(model_file):
-                existing_models.append((i, round_dir))
+    ensemble_model_names = []
+    for model_path in config.ensemble_path:
+        if os.path.exists(os.path.join(model_path, "config.json")):
+            ensemble_model_names.append(model_path)
 
-    if existing_models:
-        existing_models.sort(key=lambda x: x[0])
-        start_round = max((r for r, _ in existing_models)) + 1
-        ensemble_model_names = [path for _, path in existing_models]
+    if ensemble_model_names:
+        start_round = len(ensemble_model_names)
         ensemble_model = ModelEnsemble(
             model_names=ensemble_model_names,
             torch_dtype=torch.bfloat16,

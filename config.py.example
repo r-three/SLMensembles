@@ -32,7 +32,6 @@ ddp = False
 steps_per_round = -1
 num_train_epochs = 6
 total_rounds = 1  # number of ensemble models
-alpha = 0.8
 id_string = "Experiment with hyperparameters to check if distillation works"
 description = "Alpha tweaking: alpha = 0.8"
 custom_run_name = "alpha08_hyperparameters"
@@ -47,6 +46,7 @@ ensemble_members = []  # Full path of ensemble models which we want to load
 # Hyperparameters
 learning_rate = 5e-5
 kl_temperature = 1.0
+alpha = 0.8
 
 # Training args
 eval_steps = 40

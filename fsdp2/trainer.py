@@ -96,7 +96,7 @@ class Trainer(ABC):
 
         if (self.tr_step + 1) % self.gas != self.gas - 1:
             # no need to sync while accumulating gradients
-            self.model.set_requires_gradient_sync(False)
+            self.model.set_requires_gradient_sync(False) # with (grad = False):
             tr_step_loss, _, _, _ = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
@@ -115,6 +115,7 @@ class Trainer(ABC):
                 self.lr_scheduler.step()
             self.optim.zero_grad()
         gathered_tr_step_loss = _gather(tr_step_loss.reshape(1)).mean().item()
+        # gather with sum
 
         # No logging for train steps.
 
