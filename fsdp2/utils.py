@@ -114,8 +114,7 @@ class CSVLogger:
 
 
 class DistillDataset:
-    def __init__(self, device=None):
-        self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self):
         self.dataset = self.get_dataset()
 
     def get_dataset(self):
@@ -136,17 +135,17 @@ class DistillDataset:
             }
         return dataset
 
-    def get_teacher_logits(self):
-        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
-            self.cache_teacher_logits()
+    def get_teacher_logprobs(self):
+        if not os.path.exists(os.path.join(config.logprob_cache_path, "teacher_logprobs")):
+            self.cache_teacher_logprobs()
 
         main_print("--> Loading Teacher Logits")
-        logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
+        logprob_values = load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
 
         main_print("--> Loading Done")
-        return logit_values
+        return logprob_values
 
-    def concatenate_logit_chunks(self, split_dirs: list[str]):
+    def concatenate_logprobs_chunks(self, split_dirs: list[str]):
         datasets_list = []
         for split_dir in split_dirs:
             chunk_paths = sorted(
@@ -158,26 +157,26 @@ class DistillDataset:
         combined = concatenate_datasets(datasets_list)
         return combined
 
-    def build_teacher_logits_dataset(self):
-        main_print(f"--> Assembling full teacher-logits dataset")
+    def build_teacher_logprobs_dataset(self):
+        main_print(f"--> Assembling full teacher-logprobs dataset")
         dict = {}
 
         for split in ["train", "test"]:
             split_dirs = sorted(
-                [d for d in glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*")) if os.path.isdir(d)]
+                [d for d in glob.glob(os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_*")) if os.path.isdir(d)]
             )
-            split_ds = self.concatenate_logit_chunks(split_dirs)
+            split_ds = self.concatenate_logprobs_chunks(split_dirs)
 
             dict[split] = split_ds
 
         dataset = DatasetDict(dict)
-        combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
+        combined_path = os.path.join(config.logprob_cache_path, "teacher_logprobs")
         dataset.save_to_disk(combined_path)
 
         main_print(f"--> Full dataset saved to {combined_path}")
         return combined_path
 
-    def cache_teacher_logits(self):
+    def cache_teacher_logprobs(self):
         if config.ddp and not dist.is_initialized():
             dist.init_process_group("nccl")
             main_print(f"Using {torch.distributed.get_backend()} backend")
@@ -200,10 +199,10 @@ class DistillDataset:
         for split in ["train", "test"]:
 
             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
-            save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_rank{rank}")
+            save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_rank{rank}")
             os.makedirs(save_dir, exist_ok=True)
 
-            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
+            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": []}
             chunk_id = 0
 
             batch_size = 32  # tune this to your GPU
@@ -220,30 +219,54 @@ class DistillDataset:
                     batch_data["labels"].append(sample["labels"])
                     
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
-                        input_ids = torch.stack(batch_data["input_ids"]).to(self.device)
-                        attention_mask = torch.stack(batch_data["attention_mask"]).to(self.device)
-                        labels = torch.stack(batch_data["labels"]).to(self.device)
+                        input_ids = torch.stack(batch_data["input_ids"]).to(f"cuda:{rank}")
+                        attention_mask = torch.stack(batch_data["attention_mask"]).to(f"cuda:{rank}")
+
+                        tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
 
                         outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
                         logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
+                        logprobs = torch.nn.functional.log_softmax(logits, dim=-1)
 
-                        values, indices = torch.topk(logits, k=100, dim=-1)
-                        values = values.to('cpu')
-                        indices = indices.to('cpu')
+                        values, indices = torch.topk(logprobs, k=100, dim=-1)
+                        values = values.to('cpu')                           # BF16
+                        indices = indices.to(torch.int32).to('cpu')         # INT32
 
                         if len(values.shape) == 2:
-                            save_ds["input_ids"].append(batch_data["input_ids"][0])
-                            save_ds["attention_mask"].append(batch_data["attention_mask"][0])
-                            save_ds["labels"].append(batch_data["labels"][0])
-                            save_ds["logit_values"].append(values)
-                            save_ds["logit_indices"].append(indices)
+                            start_idx = torch.where(batch_data['labels'][b] != -100)[0][0].item()
+                            end_idx = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0][0].item()
+                            save_ds["input_ids"].append(batch_data["input_ids"][0][:end_idx])
+                            save_ds["attention_mask"].append(batch_data["attention_mask"][0][:end_idx])
+                            save_ds["labels"].append(batch_data["labels"][0][:end_idx])
+                            save_ds["logprob_values"].append(values[start_idx:end_idx])
+                            save_ds["logprob_indices"].append(indices[start_idx:end_idx])
+                            save_ds["start_idx"].append(start_idx)
+                            save_ds["end_idx"].append(end_idx)
                         else:
                             for b in range(values.size(0)):
-                                save_ds["input_ids"].append(batch_data["input_ids"][b])
-                                save_ds["attention_mask"].append(batch_data["attention_mask"][b])
-                                save_ds["labels"].append(batch_data["labels"][b])
-                                save_ds["logit_values"].append(values[b])
-                                save_ds["logit_indices"].append(indices[b])
+                                """
+                                Truncate the labels, logprob_values, logprob_indices.
+                                Exclude the logits for the chat template.
+                                If the input_ids/labels have a valid sequence length of s, which includes <|im_end|>/n
+                                We will pad again with the new collate function during training. 
+                                """
+                                start = torch.where(batch_data['labels'][b] != -100)[0]
+                                if len(start) == 0:
+                                    start_idx = 0
+                                else:
+                                    start_idx = start[0].item()
+                                end = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0]
+                                if len(end) == 0:
+                                    end_idx = len(batch_data['input_ids'][b]) - 1
+                                else:
+                                    end_idx = end[0].item()        # This value should equal to where batch_data['attention_mask'][b] != 1
+                                save_ds["input_ids"].append(batch_data["input_ids"][b][:end_idx])
+                                save_ds["attention_mask"].append(batch_data["attention_mask"][b][:end_idx])
+                                save_ds["labels"].append(batch_data["labels"][b][:end_idx])
+                                save_ds["logprob_values"].append(values[b][start_idx:end_idx])
+                                save_ds["logprob_indices"].append(indices[b][start_idx:end_idx])
+                                save_ds["start_idx"].append(start_idx)
+                                save_ds["end_idx"].append(end_idx)
 
                         batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
 
@@ -261,8 +284,10 @@ class DistillDataset:
                                 "input_ids": [],
                                 "attention_mask": [],
                                 "labels": [],
-                                "logit_values": [],
-                                "logit_indices": [],
+                                "logprob_values": [],
+                                "logprob_indices": [],
+                                "start_idx": [],
+                                "end_idx": [],
                             }
                             chunk_id += 1
 
@@ -283,13 +308,21 @@ class DistillDataset:
         dist.barrier() if config.ddp else None
 
         if _get_rank() == 0:
-            self.build_teacher_logits_dataset()
+            self.build_teacher_logprobs_dataset()
         
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
     
 def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
     # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
+
+    dc = DataCollatorWithPadding(
+        self.tokenizer.pad_token_id,
+        self.config.ignore_index,
+        self.tokenizer.model_max_length,
+        self.tokenizer.padding_side,
+    )
+            
     train_sampler = DistributedSampler(
         train_ds,
         dist.get_world_size(),
@@ -360,10 +393,10 @@ def check_batch_shape(train_dataloader):
     temp_input_ids = next(iter(train_dataloader))['input_ids']
     temp_attention_mask = next(iter(train_dataloader))['attention_mask']
     temp_labels = next(iter(train_dataloader))['labels']
-    temp_logit_values = next(iter(train_dataloader))['logit_values']
-    temp_logit_indices = next(iter(train_dataloader))['logit_indices']
+    temp_logprob_values = next(iter(train_dataloader))['logprob_values']
+    temp_logprob_indices = next(iter(train_dataloader))['logprob_indices']
     print("shape input_ids: ", torch.tensor(temp_input_ids).shape)
     print("shape attention_mask: ", torch.tensor(temp_attention_mask).shape)
     print("shape labels: ", torch.tensor(temp_labels).shape)
-    print("shape logit_values: ", torch.tensor(temp_logit_values).shape)
-    print("shape logit_indices: ", torch.tensor(temp_logit_indices).shape)
+    print("shape logprob_values: ", torch.tensor(temp_logprob_values).shape)
+    print("shape logprob_indices: ", torch.tensor(temp_logprob_indices).shape)

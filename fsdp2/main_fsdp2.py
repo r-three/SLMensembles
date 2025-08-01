@@ -72,13 +72,13 @@ def main(args):
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
-    os.makedirs(config.logit_cache_path, exist_ok=True)
+    os.makedirs(config.logprob_cache_path, exist_ok=True)
 
     # ----------------------------------
     # Loading the Teacher Dataset
     # ----------------------------------
-    dataClass = DistillDataset('cpu')
-    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logits()
+    dataClass = DistillDataset()
+    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
     # ----------------------------------
     # Metrics
