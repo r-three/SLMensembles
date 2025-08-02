@@ -196,7 +196,7 @@ class DistillDataset:
         teacher_model.requires_grad_(False)
 
         main_print("\n--> Generating Teacher Logits")
-        for split in ["test"]:
+        for split in ["train", "test"]:
 
             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
             save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_rank{rank}")
