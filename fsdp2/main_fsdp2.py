@@ -72,13 +72,13 @@ def main(args):
 
     output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
-    os.makedirs(config.logit_cache_path, exist_ok=True)
+    os.makedirs(config.logprob_cache_path, exist_ok=True)
 
     # ----------------------------------
     # Loading the Teacher Dataset
     # ----------------------------------
-    dataClass = DistillDataset('cpu')
-    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logits()
+    dataClass = DistillDataset()
+    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
     # ----------------------------------
     # Metrics
@@ -210,6 +210,7 @@ def main(args):
         ensemble_model.requires_grad_(False)
     else:
         start_round = 0
+        start_epoch = 0
         ensemble_model = None
 
     # ----------------------------------
@@ -231,38 +232,39 @@ def main(args):
         main_print(f"\n{'='*50}")
         main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
         main_print(f"{'='*50}")
-        
-        # ----------------------------------
-        # Prepare dataset
-        # ----------------------------------
-        train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, response_template_ids, config.seed + round_num)
-        if is_main_process():
-            check_batch_shape(train_dataloader)
 
         round_output_dir = get_round_path(output_path, round_num)
         main_print(f"Round '{round_num}' model stored in: {round_output_dir}")
+        
+        for epoch_num in range(start_epoch, config.num_train_epochs):
+            # ----------------------------------
+            # Prepare dataset
+            # ----------------------------------
+            train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed + round_num + epoch_num)
+            if is_main_process():
+                check_batch_shape(train_dataloader)
 
-        trainer.prepare_train()
-        train_dl_iterator = iter(train_dataloader)
+            trainer.prepare_train()
+            train_dl_iterator = iter(train_dataloader)
+
+            # ----------------------------------
+            # Inner Training Loop
+            # ----------------------------------
+
+            for _ in tqdm(
+                range(len(train_dataloader)),
+                disable=rank != 0,
+                file=sys.__stdout__,
+            ):
+                if args.explicit_prefetching:
+                    trainer.model.unshard()
+                batch = next(train_dl_iterator)
+                trainer.step(batch, eval_dataloader, epoch_num)
 
         # ----------------------------------
-        # Inner Training Loop
+        # Save checkpoint
         # ----------------------------------
-
-        for _ in tqdm(
-            range(len(train_dataloader)),
-            disable=rank != 0,
-            file=sys.__stdout__,
-        ):
-            if args.explicit_prefetching:
-                trainer.model.unshard()
-            batch = next(train_dl_iterator)
-            trainer.step(batch, eval_dataloader, round_num)
-
-    # ----------------------------------
-    # Save checkpoint
-    # ----------------------------------
-        checkpointer.save(trainer.model, optim)
+            checkpointer.save(trainer.model, optim)
 
     checkpointer.save(trainer.model, optim)
     torch.distributed.destroy_process_group()
