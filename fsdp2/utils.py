@@ -233,7 +233,6 @@ class DistillDataset:
                         indices = indices.to(torch.int32).to('cpu')         # INT32
 
                         if len(values.shape) == 2:
-                            breakpoint()
                             start = torch.where(batch_data['labels'][0] != -100)[0]
                             if len(start) == 0:
                                 start_idx = 0

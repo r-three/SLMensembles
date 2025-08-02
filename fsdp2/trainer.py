@@ -190,7 +190,7 @@ class DistillTrainer(Trainer):
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
         # Flatten the tokens
-        loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')       # Ignore_index=-100
         shift_logits = shift_logits.view(-1, embedding_size)
         shift_labels = shift_labels.view(-1)
         # Enable model parallelism
@@ -199,6 +199,9 @@ class DistillTrainer(Trainer):
         ignore_index = getattr(self.config, "ignore_index", -100)
         valid_mask = shift_labels.ne(ignore_index)
         valid_count = valid_mask.sum()
+        # Only calculate loss for those that are not chat template / question and not padded. 
+        # valid_count = batch['attention_mask'].sum() + batch['start_index'].sum()
+
 
         # ----------------------------
         # Compute Ensemble Predictions
@@ -222,15 +225,6 @@ class DistillTrainer(Trainer):
         return hybrid_loss, next_token_loss, kl_loss, valid_count
     
     def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
-
-        teacher_logit_indices = inputs["logit_indices"].to(student_logits.device)
-        teacher_logit_values = inputs["logit_values"].to(student_logits.device)
-
-        # ------------------------------
-        # Compute student top k
-        # ------------------------------
-
-        # student_logit_values, student_logit_indices = torch.topk(student_logits.squeeze(0), k=100, dim=-1)
         
         # ----------------------------------------
         # Combine model predictions with ensemble
@@ -243,11 +237,13 @@ class DistillTrainer(Trainer):
         # -----------------------
         # Compute KL Loss
         # -----------------------
-        # TODO: check if the logits are aligned.
+        # sum(len(inputs['logprob_indices'][i])) = mask.sum()
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        student_selected_probs = student_probs.gather(dim=-1, index=teacher_logit_indices)
-        teacher_selected_probs = F.log_softmax(teacher_logit_values / temperature, dim=-1)
-        kl_loss = F.kl_div(student_selected_probs, teacher_selected_probs, log_target=True, reduction="none").sum(-1)
+        student_masked_probs = student_probs[mask]        # [valid_count, vocab_size]
+        teacher_logprob_values = torch.cat([torch.tensor(inputs['logprob_values'][i]) for i in range(len(inputs['logprob_values']))], dim=0).to(student_logits.device)
+        teacher_logprob_indices = torch.cat([torch.tensor(inputs['logprob_indices'][i]) for i in range(len(inputs['logprob_indices']))], dim=0).to(torch.int64).to(student_logits.device, dtype=torch.int64)
+        student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
+        kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum(-1)
         kl_loss = kl_loss[mask].sum()
 
         # Alternatively
