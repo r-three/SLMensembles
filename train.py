@@ -89,7 +89,7 @@ class DistillationTrainer(SFTTrainer):
         if not config.synthetic_data:
             kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
-
+        
         # -------------------------
         # Log
         # -------------------------
