@@ -260,7 +260,8 @@ class DistillDataset:
                                 """
                                 start = torch.where(batch_data['labels'][b] != -100)[0]
                                 if len(start) == 0:
-                                    start_idx = 0
+                                    # Invalid example, skip
+                                    continue
                                 else:
                                     start_idx = start[0].item()
                                 end = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0]

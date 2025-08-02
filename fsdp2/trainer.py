@@ -218,6 +218,8 @@ class DistillTrainer(Trainer):
         # -------------------------
         alpha = self.config.alpha if not self.config.synthetic_data else 1
         kl_loss = 0
+        if (labels != -100).sum == 0:
+            print(labels)
         if not self.config.synthetic_data:
             kl_loss = self.compute_kl_loss(logits, ensemble_logits, mask=labels != -100, inputs=batch)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
@@ -242,9 +244,12 @@ class DistillTrainer(Trainer):
         student_masked_probs = student_probs[mask]        # [valid_count, vocab_size]
         teacher_logprob_values = torch.cat([torch.tensor(inputs['logprob_values'][i]) for i in range(len(inputs['logprob_values']))], dim=0).to(student_logits.device)
         teacher_logprob_indices = torch.cat([torch.tensor(inputs['logprob_indices'][i]) for i in range(len(inputs['logprob_indices']))], dim=0).to(torch.int64).to(student_logits.device, dtype=torch.int64)
-        student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
-        kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum(-1)
-        kl_loss = kl_loss[mask].sum()
+        try:
+            student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
+        except:
+            iid = inputs['input_ids']
+            attm = inputs['attention_mask']
+        kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum()
 
         # Alternatively
         # t = (teacher_logit_values / temperature)
