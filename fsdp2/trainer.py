@@ -184,7 +184,7 @@ class DistillTrainer(Trainer):
         # ----------------------------
         embedding_size = self.model.get_input_embeddings().weight.shape[0]
         labels = batch.pop('labels')
-        outputs = self.model(**batch)
+        outputs = self.model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
         logits = outputs.logits
         # Shift so that tokens < n predict n
         shift_logits = logits[..., :-1, :].contiguous()

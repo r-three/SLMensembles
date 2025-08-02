@@ -235,7 +235,7 @@ def main(args):
         # ----------------------------------
         # Prepare dataset
         # ----------------------------------
-        train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, response_template_ids, config.seed + round_num)
+        train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed + round_num)
         if is_main_process():
             check_batch_shape(train_dataloader)
 

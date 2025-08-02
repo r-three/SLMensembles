@@ -196,7 +196,7 @@ class DistillDataset:
         teacher_model.requires_grad_(False)
 
         main_print("\n--> Generating Teacher Logits")
-        for split in ["train", "test"]:
+        for split in ["test"]:
 
             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
             save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_rank{rank}")
@@ -233,8 +233,17 @@ class DistillDataset:
                         indices = indices.to(torch.int32).to('cpu')         # INT32
 
                         if len(values.shape) == 2:
-                            start_idx = torch.where(batch_data['labels'][b] != -100)[0][0].item()
-                            end_idx = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0][0].item()
+                            breakpoint()
+                            start = torch.where(batch_data['labels'][0] != -100)[0]
+                            if len(start) == 0:
+                                start_idx = 0
+                            else:
+                                start_idx = start[0].item()
+                            end = torch.where(batch_data['input_ids'][0] == tokenizer.pad_token_id)[0]
+                            if len(end) == 0:
+                                end_idx = len(batch_data['input_ids'][0]) - 1
+                            else:
+                                end_idx = end[0].item()
                             save_ds["input_ids"].append(batch_data["input_ids"][0][:end_idx])
                             save_ds["attention_mask"].append(batch_data["attention_mask"][0][:end_idx])
                             save_ds["labels"].append(batch_data["labels"][0][:end_idx])
@@ -270,8 +279,6 @@ class DistillDataset:
 
                         batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
 
-                        if (idx + 1) % 800 < batch_size:
-                            main_print(f"--> [{split}] Generated {idx + 1} Teacher Logits")
                         if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
                             main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
@@ -313,16 +320,91 @@ class DistillDataset:
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
     
-def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
-    # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
 
-    dc = DataCollatorWithPadding(
-        self.tokenizer.pad_token_id,
-        self.config.ignore_index,
-        self.tokenizer.model_max_length,
-        self.tokenizer.padding_side,
-    )
-            
+class CustomPadCollator:
+    def __init__(self, max_length, pad_token_id: int = -100, pad_label_id: int = -100, pad_attention_id: int = 0):
+        self.max_length = max_length
+        self.pad_token_id = pad_token_id
+        self.pad_label_id = pad_label_id
+        self.pad_attention_id = pad_attention_id
+
+    def __call__(self, batch):
+        batch_padded = {
+            "input_ids": [],
+            "attention_mask": [],
+            "labels": []
+        }
+
+        # Track other keys
+        other_keys = [k for k in batch[0].keys() if k not in batch_padded]
+
+        for item in batch:
+            length = len(item["input_ids"])
+            pad_len = self.max_length - length
+
+            batch_padded["input_ids"].append(torch.cat([
+                torch.tensor(item["input_ids"]),
+                torch.full((pad_len,), self.pad_token_id, dtype=torch.tensor(item["input_ids"]).dtype)
+            ]))
+
+            batch_padded["attention_mask"].append(torch.cat([
+                torch.tensor(item["attention_mask"]),
+                torch.full((pad_len,), self.pad_attention_id, dtype=torch.tensor(item["attention_mask"]).dtype)
+            ]))
+
+            batch_padded["labels"].append(torch.cat([
+                torch.tensor(item["labels"]),
+                torch.full((pad_len,), self.pad_label_id, dtype=torch.tensor(item["labels"]).dtype)
+            ]))
+
+        # Stack padded fields
+        for k in ["input_ids", "attention_mask", "labels"]:
+            batch_padded[k] = torch.stack(batch_padded[k])
+
+        # Add other keys without padding (just stack as-is)
+        for k in other_keys:
+            values = [item[k] for item in batch]
+            try:
+                batch_padded[k] = torch.stack(values)
+            except:
+                batch_padded[k] = values  # Leave as list if not stackable
+
+        return batch_padded
+    
+class custom_pad_collator:
+    def __init__(self, max_length):
+        self.max_length = max_length
+
+    def __call__(self, batch):
+        input_ids = []
+        attention_mask = []
+        labels = []
+
+        for item in batch:
+            length = len(item["input_ids"])
+            pad_len = self.max_length - length
+            # Pad input_ids and labels with -1
+            input_ids.append(torch.cat([torch.tensor(item["input_ids"]), torch.full((pad_len,), -100)]))
+            labels.append(torch.cat([torch.tensor(item["labels"]), torch.full((pad_len,), -100)]))
+
+            # Pad attention_mask with 0
+            attention_mask.append(torch.cat([torch.tensor(item["attention_mask"]), torch.zeros(pad_len)]))
+
+        return {
+            "input_ids": torch.stack(input_ids),
+            "attention_mask": torch.stack(attention_mask),
+            "labels": torch.stack(labels)
+        }
+
+
+def prepare_dataset(train_ds, eval_ds, config, max_length, seed):
+    # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
+    
+    dc = CustomPadCollator(max_length, 
+                           pad_token_id=151699, 
+                           pad_label_id=-100, 
+                           pad_attention_id=0)
+
     train_sampler = DistributedSampler(
         train_ds,
         dist.get_world_size(),
@@ -342,8 +424,8 @@ def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
         batch_size=config.per_device_train_batch_size,
         sampler=train_sampler,
         shuffle=False,
-        collate_fn=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=AutoTokenizer.from_pretrained(config.student_model_name)),
-        num_workers=8,
+        collate_fn=dc,
+        num_workers=1,
         persistent_workers=False
     )
     eval_dataloader = DataLoader(
@@ -351,8 +433,8 @@ def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
         batch_size=config.eval_batch_size,
         sampler=test_sampler,
         shuffle=False,
-        collate_fn=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=AutoTokenizer.from_pretrained(config.student_model_name)),
-        num_workers=8,
+        collate_fn=dc,
+        num_workers=1,
         persistent_workers=False
     )
     
@@ -393,10 +475,10 @@ def check_batch_shape(train_dataloader):
     temp_input_ids = next(iter(train_dataloader))['input_ids']
     temp_attention_mask = next(iter(train_dataloader))['attention_mask']
     temp_labels = next(iter(train_dataloader))['labels']
-    temp_logprob_values = next(iter(train_dataloader))['logprob_values']
-    temp_logprob_indices = next(iter(train_dataloader))['logprob_indices']
+    # temp_logprob_values = next(iter(train_dataloader))['logprob_values']
+    # temp_logprob_indices = next(iter(train_dataloader))['logprob_indices']
     print("shape input_ids: ", torch.tensor(temp_input_ids).shape)
     print("shape attention_mask: ", torch.tensor(temp_attention_mask).shape)
-    print("shape labels: ", torch.tensor(temp_labels).shape)
-    print("shape logprob_values: ", torch.tensor(temp_logprob_values).shape)
-    print("shape logprob_indices: ", torch.tensor(temp_logprob_indices).shape)
+    # print("shape labels: ", torch.tensor(temp_labels).shape)
+    # print("shape logprob_values: ", torch.tensor(temp_logprob_values).shape)
+    # print("shape logprob_indices: ", torch.tensor(temp_logprob_indices).shape)
