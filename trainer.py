@@ -18,13 +18,11 @@ class Trainer(ABC):
     def __init__(
         self,
         model,
-        tokenizer,
         optim,
         lr_scheduler,
         config,
     ) -> None:
         self.model = model
-        self.tokenizer = tokenizer
         self.optim = optim
         self.lr_scheduler = lr_scheduler
         self.config = config
@@ -149,7 +147,6 @@ class Trainer(ABC):
         mean_eval_loss = gathered_eval_loss / gathered_valid_total
         mean_nk_loss = gathered_nxt_token_loss / gathered_valid_total
         mean_kl_loss = gathered_kl_loss / gathered_valid_total
-        print("Mean eval loss: ", mean_eval_loss)
 
         self.metric = gathered_eval_loss
 
@@ -163,18 +160,18 @@ class Trainer(ABC):
         self.model.train()
         return gathered_eval_loss
     
+    
 class DistillTrainer(Trainer):
     def __init__(
         self,
         model,
-        tokenizer,
         optim,
         lr_scheduler,
         config,
         ensemble_model,
     ) -> None:
         self.ensemble_model = ensemble_model
-        super().__init__(model, tokenizer, optim, lr_scheduler, config)
+        super().__init__(model, optim, lr_scheduler, config)
 
     def compute_loss(self, batch):
         '''
@@ -209,7 +206,6 @@ class DistillTrainer(Trainer):
         # ----------------------------
         ensemble_logits = None
         if self.ensemble_model is not None:
-            raise NotImplementedError
             with torch.no_grad():
                 ensemble_outputs = self.ensemble_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
                 ensemble_logits = ensemble_outputs.logits
@@ -233,7 +229,6 @@ class DistillTrainer(Trainer):
         # Combine model predictions with ensemble
         # ----------------------------------------
         if ensemble_logits is not None:
-            raise NotImplementedError
             num_models = len(self.ensemble_model.models)
             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
 
@@ -245,11 +240,7 @@ class DistillTrainer(Trainer):
         student_masked_probs = student_probs[mask]        # [valid_count, vocab_size]
         teacher_logprob_values = torch.cat([torch.tensor(inputs['logprob_values'][i]) for i in range(len(inputs['logprob_values']))], dim=0).to(student_logits.device)
         teacher_logprob_indices = torch.cat([torch.tensor(inputs['logprob_indices'][i]) for i in range(len(inputs['logprob_indices']))], dim=0).to(torch.int64).to(student_logits.device, dtype=torch.int64)
-        try:
-            student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
-        except:
-            iid = inputs['input_ids']
-            attm = inputs['attention_mask']
+        student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
         kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum()
 
         # Alternatively

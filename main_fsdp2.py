@@ -126,14 +126,6 @@ def main(args):
         )
 
     # ----------------------------------
-    # Load Tokenizer (needed for collator & evaluation)
-    # ----------------------------------
-    main_print("--> Loading Tokenizer")
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    # ----------------------------------
     # Load Student 
     # ----------------------------------
     # with torch.device("meta"):
@@ -197,7 +189,6 @@ def main(args):
                 existing_models.append((i, round_dir))
 
     if existing_models:
-        raise NotImplementedError
         existing_models.sort(key=lambda x: x[0])
         start_round = max((r for r, _ in existing_models)) + 1
         ensemble_model_names = [path for _, path in existing_models]
@@ -218,8 +209,8 @@ def main(args):
     # ----------------------------------
     # TODO: move all the init, prepare steps and DS and DL into the class
     lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
-    trainer = DistillTrainer(student_model, tokenizer, optim, lr_scheduler, config, ensemble_model)
-
+    trainer = DistillTrainer(student_model, optim, lr_scheduler, config, ensemble_model)
+    trainer.prepare_train()
 
     # ----------------------------------
     # Outer Training Loop
@@ -237,21 +228,24 @@ def main(args):
         main_print(f"Round '{round_num}' model stored in: {round_output_dir}")
         
         for epoch_num in range(start_epoch, config.num_train_epochs):
+            epoch_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            main_print(f"\n{'='*50}")
+            main_print(f"--> Starting Epoch {epoch_num} at: {epoch_start_datetime}")
+            main_print(f"{'='*50}")
             # ----------------------------------
             # Prepare dataset
             # ----------------------------------
             train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed + round_num + epoch_num)
             if is_main_process():
                 check_batch_shape(train_dataloader)
-
-            trainer.prepare_train()
+            
             train_dl_iterator = iter(train_dataloader)
 
             # ----------------------------------
             # Inner Training Loop
             # ----------------------------------
 
-            for _ in tqdm(
+            for i in tqdm(
                 range(len(train_dataloader)),
                 disable=rank != 0,
                 file=sys.__stdout__,
