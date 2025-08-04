@@ -171,70 +171,7 @@ class CBTMInference:
             ensemble_logits = torch.zeros(1, vocab_size)
         
         return ensemble_logits
-    
-    # def generate_text(self, 
-    #                  context: str, 
-    #                  max_new_tokens: int = 50,
-    #                  update_weights_every: int = 1,
-    #                  do_sample: bool = True,
-    #                  sampling_temperature: float = 0.7) -> tuple:
-    #     """
-    #     Generate text token by token using C-BTM ensemble
-    #     """
-    #     # Format context as chat message
-    #     formatted_context = self._format_chat_prompt(context)
-    #     print(f"📝 Formatted prompt: {formatted_context[:200]}...")
-        
-    #     # Tokenize formatted context and move to device
-    #     input_ids = self.tokenizer.encode(formatted_context, return_tensors='pt')
-    #     if self.experts:
-    #         device = next(self.experts[0].parameters()).device
-    #         input_ids = input_ids.to(device)
-        
-    #     generated_tokens = []
-    #     current_context = context  # Use original context for weight computation
-        
-    #     print(f"🎯 Starting generation...")
-        
-    #     for step in range(max_new_tokens):
-    #         # Recompute ensemble weights periodically (use original context)
-    #         if step % update_weights_every == 0:
-    #             ensemble_weights = self.compute_ensemble_weights(current_context)
-    #             active_experts = (ensemble_weights > 1e-8).sum().item()
-    #             if step == 0:
-    #                 print(f"🤖 Active experts: {active_experts}/{self.n_experts}")
-    #                 for i, w in enumerate(ensemble_weights):
-    #                     if w > 1e-8:
-    #                         print(f"   Expert {i}: {w:.4f}")
-            
-    #         # Get next token logits from ensemble
-    #         next_token_logits = self.generate_next_token(input_ids, ensemble_weights)
-            
-    #         # Sample or choose next token
-    #         if do_sample:
-    #             next_token_probs = F.softmax(next_token_logits / sampling_temperature, dim=-1)
-    #             next_token_id = torch.multinomial(next_token_probs, num_samples=1)
-    #         else:
-    #             next_token_id = torch.argmax(next_token_logits, dim=-1, keepdim=True)
-            
-    #         # Move to same device as input_ids
-    #         next_token_id = next_token_id.to(input_ids.device)
-            
-    #         # Append to sequence
-    #         input_ids = torch.cat([input_ids, next_token_id], dim=1)
-    #         generated_tokens.append(next_token_id.item())
-            
-    #         # Check for stopping conditions
-    #         if next_token_id.item() == self.tokenizer.eos_token_id:
-    #             print(f"🛑 Generation stopped at EOS token (step {step})")
-    #             break
-        
-    #     # Decode generated text
-    #     generated_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
-    #     full_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)
-        
-    #     print(f"✅ Generated {len(generated_tokens)} tokens")
-    #     return generated_text, full_text
+
 
     def generate_text(self, 
                     context: str, 
