@@ -12,252 +12,252 @@ from transformers import AutoModelForCausalLM
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 
 
-def main_print(*args, **kwargs):
-    if is_main_process():
-        print(*args, **kwargs)
+# def main_print(*args, **kwargs):
+#     if is_main_process():
+#         print(*args, **kwargs)
+# 
+# 
+# def _get_rank():
+#     if dist.is_available() and dist.is_initialized():
+#         return dist.get_rank()
+#     return int(os.environ.get("RANK", 0))
+# 
+# 
+# def is_main_process() -> bool:
+#     return _get_rank() == 0 if config.ddp else True
 
+# 
+# class CSVLogger:
+#     def __init__(
+#         self,
+#         log_dir,
+#         fieldnames: list,
+#         overall_start_time,
+#         filename: str = "metrics.csv",
+#         flush_every: int = 10,
+#     ):
+#         os.makedirs(log_dir, exist_ok=True)
+# 
+#         self.fieldnames = fieldnames
+#         self.overall_start_time = overall_start_time
+#         self.buffer = []
+#         self.flush_every = flush_every
+#         self.counter = 0
+# 
+#         run_dirs = glob.glob(os.path.join(log_dir, "run_*"))
+#         next_run = max([int(os.path.basename(d).split("_")[1]) for d in run_dirs if "_" in d] + [0]) + 1
+# 
+#         if config.custom_run_name is None:
+#             filename = f"run_{next_run}_{filename}"
+#         else:
+#             filename = f"{config.custom_run_name}_metrics.csv"
+# 
+#         self.filepath = os.path.join(log_dir, filename)
+# 
+#         if config.checkpoint_log_path:
+#             # change the specified log dir to the one corresponding to the checkpointed model
+#             self.filepath = config.checkpoint_log_path
+#             if not os.path.exists(self.filepath):
+#                 main_print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
+#                 sys.exit(1)
+#         elif os.path.exists(self.filepath) and not config.overwrite_csv:
+#             main_print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
+#             sys.exit(1)
+#         else:
+#             with open(self.filepath, mode="w", newline="") as f:
+#                 writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+#                 writer.writeheader()
+# 
+#     def log(self, **kwargs):
+#         row = {key: kwargs.get(key, None) for key in self.fieldnames}
+#         row["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#         row["overall_elapsed"] = time.time() - self.overall_start_time
+#         self.buffer.append(row)
+#         self.counter += 1
+#         if self.counter >= self.flush_every:
+#             self.flush()
+# 
+#     def flush(self):
+#         """Write the buffered log entries to file."""
+#         if not self.buffer:
+#             return
+#         with open(self.filepath, mode="a", newline="") as f:
+#             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+#             writer.writerows(self.buffer)
+#         self.buffer.clear()
+#         self.counter = 0
 
-def _get_rank():
-    if dist.is_available() and dist.is_initialized():
-        return dist.get_rank()
-    return int(os.environ.get("RANK", 0))
-
-
-def is_main_process() -> bool:
-    return _get_rank() == 0 if config.ddp else True
-
-
-class CSVLogger:
-    def __init__(
-        self,
-        log_dir,
-        fieldnames: list,
-        overall_start_time,
-        filename: str = "metrics.csv",
-        flush_every: int = 10,
-    ):
-        os.makedirs(log_dir, exist_ok=True)
-
-        self.fieldnames = fieldnames
-        self.overall_start_time = overall_start_time
-        self.buffer = []
-        self.flush_every = flush_every
-        self.counter = 0
-
-        run_dirs = glob.glob(os.path.join(log_dir, "run_*"))
-        next_run = max([int(os.path.basename(d).split("_")[1]) for d in run_dirs if "_" in d] + [0]) + 1
-
-        if config.custom_run_name is None:
-            filename = f"run_{next_run}_{filename}"
-        else:
-            filename = f"{config.custom_run_name}_metrics.csv"
-
-        self.filepath = os.path.join(log_dir, filename)
-
-        if config.checkpoint_log_path:
-            # change the specified log dir to the one corresponding to the checkpointed model
-            self.filepath = config.checkpoint_log_path
-            if not os.path.exists(self.filepath):
-                main_print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
-                sys.exit(1)
-        elif os.path.exists(self.filepath) and not config.overwrite_csv:
-            main_print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
-            sys.exit(1)
-        else:
-            with open(self.filepath, mode="w", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
-                writer.writeheader()
-
-    def log(self, **kwargs):
-        row = {key: kwargs.get(key, None) for key in self.fieldnames}
-        row["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        row["overall_elapsed"] = time.time() - self.overall_start_time
-        self.buffer.append(row)
-        self.counter += 1
-        if self.counter >= self.flush_every:
-            self.flush()
-
-    def flush(self):
-        """Write the buffered log entries to file."""
-        if not self.buffer:
-            return
-        with open(self.filepath, mode="a", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
-            writer.writerows(self.buffer)
-        self.buffer.clear()
-        self.counter = 0
-
-
-class DistillDataset:
-    def __init__(self, device=None):
-        self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.dataset = self.get_dataset()
-
-    def get_dataset(self):
-        if config.synthetic_data:
-            dataset = datasets.load_from_disk(config.synthetic_dataset_path)
-        else:
-            dataset = datasets.load_from_disk(config.dataset_path)
-
-        if config.dataset_type == "single":
-            return {
-                "train": dataset["train"].select([0]),
-                "test": dataset["test"].select([0]),
-            }
-        elif config.dataset_type == "batch":
-            return {
-                "train": dataset["train"].select(range(10)),
-                "test": dataset["test"].select(range(10)),
-            }
-        return dataset
-
-    def get_teacher_logits(self):
-        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
-            self.cache_teacher_logits()
-
-        main_print("--> Loading Teacher Logits")
-        logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
-
-        main_print("--> Loading Done")
-        return logit_values
-
-    def concatenate_logit_chunks(self, split_dirs: list[str]):
-        datasets_list = []
-        for split_dir in split_dirs:
-            chunk_paths = sorted(
-                [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
-                key=lambda p: int(os.path.basename(p).split("_")[-1].split(".")[0]),
-            )
-            main_print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
-            datasets_list.extend(load_from_disk(p) for p in chunk_paths)
-        combined = concatenate_datasets(datasets_list)
-        return combined
-
-    def build_teacher_logits_dataset(self):
-        main_print(f"--> Assembling full teacher-logits dataset")
-        dict = {}
-
-        for split in ["train", "test"]:
-            split_dirs = sorted(
-                [d for d in glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*")) if os.path.isdir(d)]
-            )
-            split_ds = self.concatenate_logit_chunks(split_dirs)
-
-            dict[split] = split_ds
-
-        dataset = DatasetDict(dict)
-        combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
-        dataset.save_to_disk(combined_path)
-
-        main_print(f"--> Full dataset saved to {combined_path}")
-        return combined_path
-
-    def cache_teacher_logits(self):
-        if config.ddp and not dist.is_initialized():
-            dist.init_process_group("nccl")
-            main_print(f"Using {torch.distributed.get_backend()} backend")
-
-        rank = dist.get_rank() if config.ddp else 0
-        world_size = dist.get_world_size() if config.ddp else 1
-        print(f"Rank: {rank}")
-        print(f"World size: {world_size}")
-
-        torch.cuda.set_device(rank)
-
-        teacher_model = AutoModelForCausalLM.from_pretrained(
-            config.teacher_model_name,
-            torch_dtype=torch.bfloat16,
-        ).to(f"cuda:{rank}")
-        teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
-        teacher_model.requires_grad_(False)
-
-        main_print("\n--> Generating Teacher Logits")
-        for split in ["train", "test"]:
-
-            shard = self.dataset[split].shard(num_shards=world_size, index=rank)
-            save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_rank{rank}")
-            os.makedirs(save_dir, exist_ok=True)
-
-            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
-            chunk_id = 0
-
-            batch_size = 32  # tune this to your GPU
-            batch_data = {
-                "input_ids": [],
-                "attention_mask": [],
-                "labels": [],
-            }
-
-            with torch.no_grad():
-                for idx, sample in tqdm(enumerate(shard), total=len(shard)):
-                    batch_data["input_ids"].append(sample["input_ids"])
-                    batch_data["attention_mask"].append(sample["attention_mask"])
-                    batch_data["labels"].append(sample["labels"])
-
-                    if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
-                        input_ids = torch.stack(batch_data["input_ids"]).to(self.device)
-                        attention_mask = torch.stack(batch_data["attention_mask"]).to(self.device)
-                        labels = torch.stack(batch_data["labels"]).to(self.device)
-
-                        outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
-                        logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
-
-                        values, indices = torch.topk(logits, k=100, dim=-1)
-                        values = values.to("cpu")
-                        indices = indices.to("cpu")
-
-                        if len(values.shape) == 2:
-                            save_ds["input_ids"].append(batch_data["input_ids"][0])
-                            save_ds["attention_mask"].append(batch_data["attention_mask"][0])
-                            save_ds["labels"].append(batch_data["labels"][0])
-                            save_ds["logit_values"].append(values)
-                            save_ds["logit_indices"].append(indices)
-                        else:
-                            for b in range(values.size(0)):
-                                save_ds["input_ids"].append(batch_data["input_ids"][b])
-                                save_ds["attention_mask"].append(batch_data["attention_mask"][b])
-                                save_ds["labels"].append(batch_data["labels"][b])
-                                save_ds["logit_values"].append(values[b])
-                                save_ds["logit_indices"].append(indices[b])
-
-                        batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
-
-                        if (idx + 1) % 800 < batch_size:
-                            main_print(f"--> [{split}] Generated {idx + 1} Teacher Logits")
-                        if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
-                            main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
-
-                            save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
-                            if os.path.exists(save_path):
-                                shutil.rmtree(save_path)
-                            Dataset.from_dict(save_ds).save_to_disk(save_path)
-
-                            save_ds = {
-                                "input_ids": [],
-                                "attention_mask": [],
-                                "labels": [],
-                                "logit_values": [],
-                                "logit_indices": [],
-                            }
-                            chunk_id += 1
-
-                    # if (idx + 1) % 3200 == 0:
-                    #     break
-
-            if save_ds["input_ids"]:
-                print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
-                save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
-                if os.path.exists(save_path):
-                    shutil.rmtree(save_path)
-                Dataset.from_dict(save_ds).save_to_disk(save_path)
-
-        dist.barrier() if config.ddp else None
-
-        if _get_rank() == 0:
-            self.build_teacher_logits_dataset()
-
-        main_print("\n--> Generation Done")
-        dist.barrier() if config.ddp else None
+# 
+# class DistillDataset:
+#     def __init__(self, device=None):
+#         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#         self.dataset = self.get_dataset()
+# 
+#     def get_dataset(self):
+#         if config.synthetic_data:
+#             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
+#         else:
+#             dataset = datasets.load_from_disk(config.dataset_path)
+# 
+#         if config.dataset_type == "single":
+#             return {
+#                 "train": dataset["train"].select([0]),
+#                 "test": dataset["test"].select([0]),
+#             }
+#         elif config.dataset_type == "batch":
+#             return {
+#                 "train": dataset["train"].select(range(10)),
+#                 "test": dataset["test"].select(range(10)),
+#             }
+#         return dataset
+# 
+#     def get_teacher_logits(self):
+#         if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
+#             self.cache_teacher_logits()
+# 
+#         main_print("--> Loading Teacher Logits")
+#         logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
+# 
+#         main_print("--> Loading Done")
+#         return logit_values
+# 
+#     def concatenate_logit_chunks(self, split_dirs: list[str]):
+#         datasets_list = []
+#         for split_dir in split_dirs:
+#             chunk_paths = sorted(
+#                 [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
+#                 key=lambda p: int(os.path.basename(p).split("_")[-1].split(".")[0]),
+#             )
+#             main_print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
+#             datasets_list.extend(load_from_disk(p) for p in chunk_paths)
+#         combined = concatenate_datasets(datasets_list)
+#         return combined
+# 
+#     def build_teacher_logits_dataset(self):
+#         main_print(f"--> Assembling full teacher-logits dataset")
+#         dict = {}
+# 
+#         for split in ["train", "test"]:
+#             split_dirs = sorted(
+#                 [d for d in glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*")) if os.path.isdir(d)]
+#             )
+#             split_ds = self.concatenate_logit_chunks(split_dirs)
+# 
+#             dict[split] = split_ds
+# 
+#         dataset = DatasetDict(dict)
+#         combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
+#         dataset.save_to_disk(combined_path)
+# 
+#         main_print(f"--> Full dataset saved to {combined_path}")
+#         return combined_path
+# 
+#     def cache_teacher_logits(self):
+#         if config.ddp and not dist.is_initialized():
+#             dist.init_process_group("nccl")
+#             main_print(f"Using {torch.distributed.get_backend()} backend")
+# 
+#         rank = dist.get_rank() if config.ddp else 0
+#         world_size = dist.get_world_size() if config.ddp else 1
+#         print(f"Rank: {rank}")
+#         print(f"World size: {world_size}")
+# 
+#         torch.cuda.set_device(rank)
+# 
+#         teacher_model = AutoModelForCausalLM.from_pretrained(
+#             config.teacher_model_name,
+#             torch_dtype=torch.bfloat16,
+#         ).to(f"cuda:{rank}")
+#         teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
+#         teacher_model.requires_grad_(False)
+# 
+#         main_print("\n--> Generating Teacher Logits")
+#         for split in ["train", "test"]:
+# 
+#             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
+#             save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_rank{rank}")
+#             os.makedirs(save_dir, exist_ok=True)
+# 
+#             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
+#             chunk_id = 0
+# 
+#             batch_size = 32  # tune this to your GPU
+#             batch_data = {
+#                 "input_ids": [],
+#                 "attention_mask": [],
+#                 "labels": [],
+#             }
+# 
+#             with torch.no_grad():
+#                 for idx, sample in tqdm(enumerate(shard), total=len(shard)):
+#                     batch_data["input_ids"].append(sample["input_ids"])
+#                     batch_data["attention_mask"].append(sample["attention_mask"])
+#                     batch_data["labels"].append(sample["labels"])
+# 
+#                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
+#                         input_ids = torch.stack(batch_data["input_ids"]).to(self.device)
+#                         attention_mask = torch.stack(batch_data["attention_mask"]).to(self.device)
+#                         labels = torch.stack(batch_data["labels"]).to(self.device)
+# 
+#                         outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
+#                         logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
+# 
+#                         values, indices = torch.topk(logits, k=100, dim=-1)
+#                         values = values.to("cpu")
+#                         indices = indices.to("cpu")
+# 
+#                         if len(values.shape) == 2:
+#                             save_ds["input_ids"].append(batch_data["input_ids"][0])
+#                             save_ds["attention_mask"].append(batch_data["attention_mask"][0])
+#                             save_ds["labels"].append(batch_data["labels"][0])
+#                             save_ds["logit_values"].append(values)
+#                             save_ds["logit_indices"].append(indices)
+#                         else:
+#                             for b in range(values.size(0)):
+#                                 save_ds["input_ids"].append(batch_data["input_ids"][b])
+#                                 save_ds["attention_mask"].append(batch_data["attention_mask"][b])
+#                                 save_ds["labels"].append(batch_data["labels"][b])
+#                                 save_ds["logit_values"].append(values[b])
+#                                 save_ds["logit_indices"].append(indices[b])
+# 
+#                         batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
+# 
+#                         if (idx + 1) % 800 < batch_size:
+#                             main_print(f"--> [{split}] Generated {idx + 1} Teacher Logits")
+#                         if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
+#                             main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
+# 
+#                             save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
+#                             if os.path.exists(save_path):
+#                                 shutil.rmtree(save_path)
+#                             Dataset.from_dict(save_ds).save_to_disk(save_path)
+# 
+#                             save_ds = {
+#                                 "input_ids": [],
+#                                 "attention_mask": [],
+#                                 "labels": [],
+#                                 "logit_values": [],
+#                                 "logit_indices": [],
+#                             }
+#                             chunk_id += 1
+# 
+#                     # if (idx + 1) % 3200 == 0:
+#                     #     break
+# 
+#             if save_ds["input_ids"]:
+#                 print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
+#                 save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
+#                 if os.path.exists(save_path):
+#                     shutil.rmtree(save_path)
+#                 Dataset.from_dict(save_ds).save_to_disk(save_path)
+# 
+#         dist.barrier() if config.ddp else None
+# 
+#         if _get_rank() == 0:
+#             self.build_teacher_logits_dataset()
+# 
+#         main_print("\n--> Generation Done")
+#         dist.barrier() if config.ddp else None
 
 
 def format_time_elapsed(seconds):
