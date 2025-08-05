@@ -21,26 +21,6 @@ from tqdm.auto import tqdm
 
 from shard_weight import *
 
-def set_modules_to_forward_prefetch(model, num_to_forward_prefetch):
-    for i, layer in enumerate(model.layers):
-        if i >= len(model.layers) - num_to_forward_prefetch:
-            break
-        layers_to_prefetch = [
-            model.layers[i + j] for j in range(1, num_to_forward_prefetch + 1)
-        ]
-        layer.set_modules_to_forward_prefetch(layers_to_prefetch)
-
-
-def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
-    for i, layer in enumerate(model.layers):
-        if i < num_to_backward_prefetch:
-            continue
-        layers_to_prefetch = [
-            model.layers[i - j] for j in range(1, num_to_backward_prefetch + 1)
-        ]
-        layer.set_modules_to_backward_prefetch(layers_to_prefetch)
-
-
 def main(args):
 
     # ----------------------------------

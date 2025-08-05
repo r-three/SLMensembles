@@ -12,7 +12,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 from trl import DataCollatorForCompletionOnlyLM
 
-# ---------------------- FSDP2-specific functions ----------------------
+# ---------------------- Training and FSDP2-specific functions ----------------------
 try:
     from torch.distributed.fsdp import FSDPModule
     from torch.distributed.tensor import Shard, DTensor
@@ -98,6 +98,29 @@ def check_batch_shape(train_dataloader):
             print(f"  {key}: {[v.shape for v in value[:3]]}...")  # Show first 3 shapes
         else:
             print(f"  {key}: {type(value)}")
+
+
+def set_modules_to_forward_prefetch(model, num_to_forward_prefetch):
+    """Set forward prefetching for model layers."""
+    for i, layer in enumerate(model.layers):
+        if i >= len(model.layers) - num_to_forward_prefetch:
+            break
+        layers_to_prefetch = [
+            model.layers[i + j] for j in range(1, num_to_forward_prefetch + 1)
+        ]
+        layer.set_modules_to_forward_prefetch(layers_to_prefetch)
+
+
+def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
+    """Set backward prefetching for model layers."""
+    for i, layer in enumerate(model.layers):
+        if i < num_to_backward_prefetch:
+            continue
+        layers_to_prefetch = [
+            model.layers[i - j] for j in range(1, num_to_backward_prefetch + 1)
+        ]
+        layer.set_modules_to_backward_prefetch(layers_to_prefetch)
+
 
 # ---------------------- Utility functions ----------------------
 
