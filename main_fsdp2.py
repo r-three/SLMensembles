@@ -4,7 +4,7 @@ import torch
 import atexit
 from datetime import datetime
 import torch.distributed as dist
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 from trl import DataCollatorForCompletionOnlyLM
 from pathlib import Path
 
@@ -253,7 +253,14 @@ def main(args):
         # Initialize trainer
         # ----------------------------------
         # TODO: move all the init, prepare steps and DS and DL into the class
-        lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
+        train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed)       # Just to get the length, initialize again for each epoch.
+        num_training_steps = len(train_dataloader) * config.num_train_epochs
+        num_warmup_steps = config.warm_up_steps  # e.g., 10% warmup
+        lr_scheduler = get_cosine_schedule_with_warmup(
+            optim,
+            num_warmup_steps=num_warmup_steps,
+            num_training_steps=num_training_steps
+        )
         trainer = DistillTrainer(student_model, optim, lr_scheduler, config, ensemble_model)
         trainer.prepare_train()
 
