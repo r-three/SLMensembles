@@ -11,7 +11,7 @@ from pathlib import Path
 from datasets import load_dataset, Dataset, DatasetDict
 import config
 from trainer import Trainer, DistillTrainer
-from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape
+from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape, fix_seed
 from ensemble import ModelEnsemble
 
 from checkpoint import Checkpointer, Checkpoint, index_checkpoints, best_checkpoint
@@ -51,7 +51,7 @@ def main(args):
     device = torch.device(f"cuda:{rank}")
     torch.cuda.set_device(device)
     torch.distributed.init_process_group(backend="nccl", device_id=device)
-    torch.manual_seed(0)
+    fix_seed(config.seed)
 
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -151,11 +151,13 @@ def main(args):
 
 
     for round_num in range(start_round, config.total_rounds):
+
+        # Fix seed again before each round for better reproductivity.
+        fix_seed(config.seed)
+        
         # ----------------------------------
         # Outer Training Loop
         # ----------------------------------
-
-        round_start_time = time.time()
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
         main_print(f"\n{'='*50}")

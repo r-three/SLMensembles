@@ -5,6 +5,8 @@ from torch.distributed.tensor import Shard
 import os, csv, time, glob, sys
 from datetime import datetime
 import pdb
+import random
+import numpy as np
 from tqdm import tqdm
 import shutil
 import datasets
@@ -16,6 +18,15 @@ from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 from torch.distributed.tensor import DTensor
 
 # datasets.config.IN_MEMORY_MAX_SIZE
+
+def fix_seed(seed):
+    # random
+    random.seed(seed)
+    # Numpy
+    np.random.seed(seed)
+    # Pytorch
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 def inspect_model(model: FSDPModule):
     # assert isinstance(model, Transformer)

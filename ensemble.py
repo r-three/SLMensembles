@@ -42,7 +42,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
             for model in self.models:
                 outputs = model(input_ids=input_ids.to(model.device), attention_mask=attention_mask.to(model.device), **kwargs)
                 logits += outputs.logits
-            logits = logits / len(self.models)
 
             loss = None
             if labels is not None:

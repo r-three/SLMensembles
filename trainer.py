@@ -182,12 +182,26 @@ class DistillTrainer(Trainer):
         Compute loss with both next token perdiction and kl div with teacher logits.
         '''
         # ----------------------------
+        # Compute Ensemble Predictions
+        # ----------------------------
+        ensemble_logits = None
+        if self.ensemble_model is not None:
+            with torch.no_grad():
+                ensemble_outputs = self.ensemble_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
+                ensemble_logits = ensemble_outputs.logits
+
+        # ----------------------------
         # Next token prediction and loss (sum)
         # ----------------------------
         embedding_size = self.model.get_input_embeddings().weight.shape[0]
         labels = batch.pop('labels')
         outputs = self.model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
         logits = outputs.logits
+
+        if self.ensemble_model is not None:
+            num_models = len(self.ensemble_model.models)
+            logits += ensemble_logits
+            logits /= num_models + 1
         # Shift so that tokens < n predict n
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
@@ -203,16 +217,6 @@ class DistillTrainer(Trainer):
         valid_count = valid_mask.sum()
         # Only calculate loss for those that are not chat template / question and not padded. 
         # valid_count = batch['attention_mask'].sum() + batch['start_index'].sum()
-
-
-        # ----------------------------
-        # Compute Ensemble Predictions
-        # ----------------------------
-        ensemble_logits = None
-        if self.ensemble_model is not None:
-            with torch.no_grad():
-                ensemble_outputs = self.ensemble_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
-                ensemble_logits = ensemble_outputs.logits
         
         # -------------------------
         # Compute Loss
@@ -222,20 +226,13 @@ class DistillTrainer(Trainer):
         if (labels != -100).sum == 0:
             print(labels)
         if not self.config.synthetic_data:
-            kl_loss = self.compute_kl_loss(logits, ensemble_logits, mask=labels != -100, inputs=batch)
+            kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
     
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
+    def compute_kl_loss(self, student_logits, mask, inputs, temperature=1.0):
         
-        # ----------------------------------------
-        # Combine model predictions with ensemble
-        # ----------------------------------------
-        if ensemble_logits is not None:
-            num_models = len(self.ensemble_model.models)
-            student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
-
         # -----------------------
         # Compute KL Loss
         # -----------------------
