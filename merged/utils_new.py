@@ -165,8 +165,6 @@ def evaluate_model(model, eval_dataset, collator):
 # =============================================================================
 
 class CSVLogger:
-    """Enhanced CSV logger with buffering and automatic flushing."""
-    
     def __init__(
         self,
         log_dir,
@@ -233,14 +231,12 @@ class CSVLogger:
 # =============================================================================
 
 class DistillDataset:
-    """Enhanced dataset class for distillation with teacher logits."""
-    
     def __init__(self, device=None):
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dataset = self.get_dataset()
 
     def get_dataset(self):
-        """Load the base dataset (synthetic or real)."""
+        """Load the base dataset."""
         if config.synthetic_data:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
         else:
@@ -258,15 +254,15 @@ class DistillDataset:
             }
         return dataset
 
-    def get_teacher_logits(self):
+    def get_teacher_logprobs(self):
         """Load or generate teacher logits dataset."""
-        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
-            self.cache_teacher_logits()
+        if not os.path.exists(os.path.join(config.logprob_cache_path, "teacher_logprobs")):
+            self.cache_teacher_logprobs()
 
         main_print("--> Loading Teacher Logits")
-        return datasets.load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
+        return datasets.load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
 
-    def concatenate_logit_chunks(self, split_dirs: list[str]):
+    def concatenate_logprobs_chunks(self, split_dirs: list[str]):
         """Concatenate logit chunks into a single dataset."""
         datasets_to_concat = []
         for chunk_dir in split_dirs:
@@ -277,16 +273,16 @@ class DistillDataset:
             return concatenate_datasets(datasets_to_concat)
         return None
 
-    def build_teacher_logits_dataset(self):
-        """Build the final teacher logits dataset from chunks."""
+    def build_teacher_logprobs_dataset(self):
+        """Build the final teacher logprobs dataset from chunks."""
         for split in ["train", "test"]:
-            split_dir = os.path.join(config.logit_cache_path, "teacher_logits_chunks", split)
+            split_dir = os.path.join(config.logprob_cache_path, "teacher_logprobs_chunks", split)
             chunk_dirs = glob.glob(os.path.join(split_dir, "chunk_*"))
             chunk_dirs.sort(key=lambda x: int(x.split("_")[-1]))
             
-            concatenated_dataset = self.concatenate_logit_chunks(chunk_dirs)
+            concatenated_dataset = self.concatenate_logprobs_chunks(chunk_dirs)
             if concatenated_dataset:
-                save_path = os.path.join(config.logit_cache_path, "teacher_logits", split)
+                save_path = os.path.join(config.logprob_cache_path, "teacher_logprobs", split)
                 if os.path.exists(save_path):
                     shutil.rmtree(save_path)
                 concatenated_dataset.save_to_disk(save_path)
