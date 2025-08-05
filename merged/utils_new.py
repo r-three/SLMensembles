@@ -22,9 +22,7 @@ except ImportError:
     DTensor = None
 
 
-# =============================================================================
 # FSDP2-specific utility functions
-# =============================================================================
 
 def inspect_model(model):
     """Inspect FSDP2 model structure and parameters."""
@@ -36,7 +34,7 @@ def inspect_model(model):
 
     for param in model.parameters():
         assert param.placements == (Shard(0),)
-        assert isinstance(param, DTensor)
+        assert isinstance(param, DTensor) 
 
 
 def inspect_mixed_precision(model):
