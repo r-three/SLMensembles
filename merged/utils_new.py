@@ -264,92 +264,67 @@ class DistillDataset:
 
     def concatenate_logprobs_chunks(self, split_dirs: list[str]):
         """Concatenate logit chunks into a single dataset."""
-        datasets_to_concat = []
-        for chunk_dir in split_dirs:
-            if os.path.exists(chunk_dir):
-                datasets_to_concat.append(datasets.load_from_disk(chunk_dir))
-        
-        if datasets_to_concat:
-            return concatenate_datasets(datasets_to_concat)
-        return None
+        datasets_list = []
+        for split_dir in split_dirs:
+            chunk_paths = sorted(
+                [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
+                key=lambda p: int(os.path.basename(p).split("_")[-1].split(".")[0]),
+            )
+            main_print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
+            datasets_list.extend(load_from_disk(p) for p in chunk_paths)
+        return concatenate_datasets(datasets_list) if datasets_list else None
 
     def build_teacher_logprobs_dataset(self):
         """Build the final teacher logprobs dataset from chunks."""
+        dict = {}
+
         for split in ["train", "test"]:
-            split_dir = os.path.join(config.logprob_cache_path, "teacher_logprobs_chunks", split)
-            chunk_dirs = glob.glob(os.path.join(split_dir, "chunk_*"))
-            chunk_dirs.sort(key=lambda x: int(x.split("_")[-1]))
-            
-            concatenated_dataset = self.concatenate_logprobs_chunks(chunk_dirs)
-            if concatenated_dataset:
-                save_path = os.path.join(config.logprob_cache_path, "teacher_logprobs", split)
-                if os.path.exists(save_path):
-                    shutil.rmtree(save_path)
-                concatenated_dataset.save_to_disk(save_path)
-                main_print(f"--> [{split}] Saved {len(concatenated_dataset)} teacher logit samples")
+            split_dirs = sorted(
+                [d for d in glob.glob(os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_*")) if os.path.isdir(d)]
+            )
+            split_ds = self.concatenate_logprobs_chunks(split_dirs)
+            dict[split] = split_ds
+
+        dataset = DatasetDict(dict)
+        combined_path = os.path.join(config.logprob_cache_path, "teacher_logprobs")
+        dataset.save_to_disk(combined_path)
+
+        return combined_path
 
     def cache_teacher_logits(self):
         """Generate and cache teacher logits for the dataset."""
         main_print("--> Generating Teacher Logits")
-        
-        # Load teacher models
-        teacher_models = []
-        for model_name in config.teacher_model_names:
-            main_print(f"Loading teacher model: {model_name}")
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=torch.bfloat16,
-                device_map="auto" if not config.ddp else None,
-            )
-            if config.ddp:
-                model = model.to(self.device)
-            model.eval()
-            teacher_models.append(model)
 
-        tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
+        teacher_model = AutoModelForCausalLM.from_pretrained(
+            config.teacher_model_name,
+            torch_dtype=torch.bfloat16,
+            device_map="auto" if not config.ddp else None
+        )
+        teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
+        teacher_model.requires_grad_(False)
+        teacher_model.eval()
         
-        # Process each split
         for split in ["train", "test"]:
             main_print(f"--> Processing {split} split")
             
             save_dir = os.path.join(config.logit_cache_path, "teacher_logits_chunks", split)
             os.makedirs(save_dir, exist_ok=True)
             
-            shard = self.dataset[split]
-            if config.ddp:
-                # Distribute work across processes
-                rank = _get_rank()
-                world_size = dist.get_world_size()
-                shard_size = len(shard) // world_size
-                start_idx = rank * shard_size
-                end_idx = start_idx + shard_size if rank < world_size - 1 else len(shard)
-                shard = shard.select(range(start_idx, end_idx))
-            
+            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
+            batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
             batch_size = config.per_device_train_batch_size
             chunk_id = 0
-            
-            save_ds = {
-                "input_ids": [],
-                "attention_mask": [],
-                "labels": [],
-                "logit_values": [],
-                "logit_indices": [],
-            }
-            
-            batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
-            
-            for idx, example in enumerate(tqdm(shard)):
+
+            for idx, example in enumerate(tqdm(self.dataset[split])):
                 batch_data["input_ids"].append(example["input_ids"])
                 batch_data["attention_mask"].append(example["attention_mask"])
                 batch_data["labels"].append(example["labels"])
                 
-                if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
-                    # Process batch
+                if len(batch_data["input_ids"]) == batch_size or idx == len(self.dataset[split]) - 1:
                     input_ids = torch.tensor(batch_data["input_ids"]).to(self.device)
                     attention_mask = torch.tensor(batch_data["attention_mask"]).to(self.device)
                     labels = torch.tensor(batch_data["labels"]).to(self.device)
                     
-                    # Get teacher logits
                     with torch.no_grad():
                         teacher_logits_list = []
                         for teacher_model in teacher_models:
@@ -376,7 +351,7 @@ class DistillDataset:
                     if (idx + 1) % 800 < batch_size:
                         main_print(f"--> [{split}] Generated {idx + 1} Teacher Logits")
                     
-                    if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
+                    if (idx + 1) % 3200 < batch_size or idx == len(self.dataset[split]) - 1:
                         main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
                         
                         save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
