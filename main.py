@@ -12,6 +12,18 @@ from train import DistillationTrainer, LoggingCallback
 from utils import CSVLogger, DistillDataset, evaluate_model, format_time_elapsed, get_round_path, is_main_process, main_print
 from ensemble import ModelEnsemble
 
+import argparse
+from pathlib import Path
+from trainer import Trainer, DistillTrainer
+from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape, fix_seed
+from ensemble import ModelEnsemble
+
+from checkpoint import Checkpointer, Checkpoint, index_checkpoints, best_checkpoint
+from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
+from utils import inspect_mixed_precision, inspect_model
+from tqdm.auto import tqdm
+
+from shard_weight import *
 
 def main():
     overall_start_time = time.time()
@@ -22,16 +34,11 @@ def main():
     # Device Setup
     # ----------------------------------
 
-    default_local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    if config.ddp and torch.cuda.is_available():
-        num_gpus = torch.cuda.device_count()
-        if default_local_rank >= num_gpus:
-            raise RuntimeError(f"LOCAL_RANK={default_local_rank} but only {num_gpus} CUDA devices are available.")
-        torch.cuda.set_device(default_local_rank)
-        device = torch.device(f"cuda:{default_local_rank}")
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    main_print(f"Using device: {device}")
+    rank = int(os.environ["LOCAL_RANK"])
+    device = torch.device(f"cuda:{rank}")
+    torch.cuda.set_device(device)
+    torch.distributed.init_process_group(backend="nccl", device_id=device)
+    fix_seed(config.seed)
 
     # ----------------------------------
     # Logging and Run Name
@@ -63,29 +70,23 @@ def main():
 
     if is_main_process():
         metadata_dict = {
-            "Custom run name": config.custom_run_name,
-            "Description": config.description,
-            "Dataset Name": config.dataset_name,
-            "Dataset Type": config.dataset_type,
-            "Synthetic Data": config.synthetic_data,
-            "Base Output Dir": config.base_output_dir,
-            "Log Dir": config.log_dir,
-            "ID string": config.id_string,
-            "Checkpoint Path": config.checkpoint_path,
-            "Checkpoint Log Path": config.checkpoint_log_path,
-            "Ensemble Paths": config.ensemble_path,
-            "Total Rounds": config.total_rounds,
-            "Learning Rate": config.learning_rate,
-            "KL Temperature": config.kl_temperature,
-            "Alpha": config.alpha,
-            "Eval Steps": config.eval_steps,
-            "Logging Steps": config.logging_steps,
-            "Per Device Train Batch Size": config.per_device_train_batch_size,
-            "Eval Batch Size": config.eval_batch_size,
-            "Gradient Accumulation Steps": config.gradient_accumulation_steps,
-            "Num Train Epochs": config.num_train_epochs,
-            "Start Time": overall_start_datetime,
-            "Model Save Dir": output_path
+            "run_name": config.custom_run_name or "unnamed",
+            "description": config.description,
+            "start_time": overall_start_datetime,
+            "dataset": f"{config.dataset_name} (synthetic: {config.synthetic_data})",
+            "model_dir": output_path,
+            "ensemble_paths": config.ensemble_path,
+            "learning_rate": config.learning_rate,
+            "batch_size": config.per_device_train_batch_size,
+            "grad_accum_steps": config.gradient_accumulation_steps,
+            "total_epochs": config.num_train_epochs,
+            "total_rounds": config.total_rounds,
+            "kl_temperature": config.kl_temperature,
+            "alpha": config.alpha,
+            "eval_steps": config.eval_steps,
+            "logging_steps": config.logging_steps,
+            "checkpoint_path": config.checkpoint_path or "None",
+            "checkpoint_log_path": config.checkpoint_log_path or "None"
         }
     main_print("\n==== RUN CONFIGURATION ====")
 
