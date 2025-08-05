@@ -1,27 +1,58 @@
+import torch
+from torch.distributed.fsdp import FSDPModule
+from torch.distributed.tensor import Shard
+
 import os, csv, time, glob, sys
 from datetime import datetime
 import pdb
+import random
+import numpy as np
 from tqdm import tqdm
 import shutil
-import torch
 import datasets
 import torch.distributed as dist
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 import config
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
+from torch.distributed.tensor import DTensor
 
+# datasets.config.IN_MEMORY_MAX_SIZE
+
+def fix_seed(seed):
+    # random
+    random.seed(seed)
+    # Numpy
+    np.random.seed(seed)
+    # Pytorch
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+def inspect_model(model: FSDPModule):
+    # assert isinstance(model, Transformer)
+    assert isinstance(model, FSDPModule)
+
+    for param in model.parameters():
+        assert param.placements == (Shard(0),)
+        # assert param.dtype == torch.float32
+        assert isinstance(param, DTensor)
+        # print(param.get_local_tensor())
+
+
+def inspect_mixed_precision(model: FSDPModule):
+    model.unshard()
+    for param in model.parameters(recurse=False):
+        assert param.dtype == torch.bfloat16
+    model.reshard()
 
 def main_print(*args, **kwargs):
     if is_main_process():
         print(*args, **kwargs)
 
-
 def _get_rank():
     if dist.is_available() and dist.is_initialized():
         return dist.get_rank()
     return int(os.environ.get("RANK", 0))
-
 
 def is_main_process() -> bool:
     return _get_rank() == 0 if config.ddp else True
@@ -89,8 +120,7 @@ class CSVLogger:
 
 
 class DistillDataset:
-    def __init__(self, device=None):
-        self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self):
         self.dataset = self.get_dataset()
 
     def get_dataset(self):
@@ -111,17 +141,17 @@ class DistillDataset:
             }
         return dataset
 
-    def get_teacher_logits(self):
-        if not os.path.exists(os.path.join(config.logit_cache_path, "teacher_logits")):
-            self.cache_teacher_logits()
+    def get_teacher_logprobs(self):
+        if not os.path.exists(os.path.join(config.logprob_cache_path, "teacher_logprobs")):
+            self.cache_teacher_logprobs()
 
         main_print("--> Loading Teacher Logits")
-        logit_values = load_from_disk(os.path.join(config.logit_cache_path, "teacher_logits"))
+        logprob_values = load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
 
         main_print("--> Loading Done")
-        return logit_values
+        return logprob_values
 
-    def concatenate_logit_chunks(self, split_dirs: list[str]):
+    def concatenate_logprobs_chunks(self, split_dirs: list[str]):
         datasets_list = []
         for split_dir in split_dirs:
             chunk_paths = sorted(
@@ -133,26 +163,28 @@ class DistillDataset:
         combined = concatenate_datasets(datasets_list)
         return combined
 
-    def build_teacher_logits_dataset(self):
-        main_print(f"--> Assembling full teacher-logits dataset")
+    def build_teacher_logprobs_dataset(self):
+        main_print(f"--> Assembling full teacher-logprobs dataset")
         dict = {}
 
         for split in ["train", "test"]:
             split_dirs = sorted(
-                [d for d in glob.glob(os.path.join(config.logit_cache_path, f"teacher_logits_{split}_*")) if os.path.isdir(d)]
+                [d for d in glob.glob(os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_*")) if os.path.isdir(d)]
             )
-            split_ds = self.concatenate_logit_chunks(split_dirs)
+            split_ds = self.concatenate_logprobs_chunks(split_dirs)
 
             dict[split] = split_ds
 
         dataset = DatasetDict(dict)
-        combined_path = os.path.join(config.logit_cache_path, "teacher_logits")
+        combined_path = os.path.join(config.logprob_cache_path, "teacher_logprobs")
         dataset.save_to_disk(combined_path)
 
         main_print(f"--> Full dataset saved to {combined_path}")
         return combined_path
 
-    def cache_teacher_logits(self):
+    def cache_teacher_logprobs(self):
+        if dist.get_world_size() != 1:
+            raise Exception("The ")
         if config.ddp and not dist.is_initialized():
             dist.init_process_group("nccl")
             main_print(f"Using {torch.distributed.get_backend()} backend")
@@ -175,10 +207,10 @@ class DistillDataset:
         for split in ["train", "test"]:
 
             shard = self.dataset[split].shard(num_shards=world_size, index=rank)
-            save_dir = os.path.join(config.logit_cache_path, f"teacher_logits_{split}_rank{rank}")
+            save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_rank{rank}")
             os.makedirs(save_dir, exist_ok=True)
 
-            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logit_values": [], "logit_indices": []}
+            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": []}
             chunk_id = 0
 
             batch_size = 32  # tune this to your GPU
@@ -193,37 +225,68 @@ class DistillDataset:
                     batch_data["input_ids"].append(sample["input_ids"])
                     batch_data["attention_mask"].append(sample["attention_mask"])
                     batch_data["labels"].append(sample["labels"])
-
+                    
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
-                        input_ids = torch.stack(batch_data["input_ids"]).to(self.device)
-                        attention_mask = torch.stack(batch_data["attention_mask"]).to(self.device)
-                        labels = torch.stack(batch_data["labels"]).to(self.device)
+                        input_ids = torch.stack(batch_data["input_ids"]).to(f"cuda:{rank}")
+                        attention_mask = torch.stack(batch_data["attention_mask"]).to(f"cuda:{rank}")
+
+                        tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
 
                         outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
                         logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
+                        logprobs = torch.nn.functional.log_softmax(logits, dim=-1)
 
-                        values, indices = torch.topk(logits, k=100, dim=-1)
-                        values = values.to("cpu")
-                        indices = indices.to("cpu")
+                        values, indices = torch.topk(logprobs, k=100, dim=-1)
+                        values = values.to('cpu')                           # BF16
+                        indices = indices.to(torch.int32).to('cpu')         # INT32
 
                         if len(values.shape) == 2:
-                            save_ds["input_ids"].append(batch_data["input_ids"][0])
-                            save_ds["attention_mask"].append(batch_data["attention_mask"][0])
-                            save_ds["labels"].append(batch_data["labels"][0])
-                            save_ds["logit_values"].append(values)
-                            save_ds["logit_indices"].append(indices)
+                            start = torch.where(batch_data['labels'][0] != -100)[0]
+                            if len(start) == 0:
+                                start_idx = 0
+                            else:
+                                start_idx = start[0].item()
+                            end = torch.where(batch_data['input_ids'][0] == tokenizer.pad_token_id)[0]
+                            if len(end) == 0:
+                                end_idx = len(batch_data['input_ids'][0]) - 1
+                            else:
+                                end_idx = end[0].item()
+                            save_ds["input_ids"].append(batch_data["input_ids"][0][:end_idx])
+                            save_ds["attention_mask"].append(batch_data["attention_mask"][0][:end_idx])
+                            save_ds["labels"].append(batch_data["labels"][0][:end_idx])
+                            save_ds["logprob_values"].append(values[start_idx:end_idx])
+                            save_ds["logprob_indices"].append(indices[start_idx:end_idx])
+                            save_ds["start_idx"].append(start_idx)
+                            save_ds["end_idx"].append(end_idx)
                         else:
                             for b in range(values.size(0)):
-                                save_ds["input_ids"].append(batch_data["input_ids"][b])
-                                save_ds["attention_mask"].append(batch_data["attention_mask"][b])
-                                save_ds["labels"].append(batch_data["labels"][b])
-                                save_ds["logit_values"].append(values[b])
-                                save_ds["logit_indices"].append(indices[b])
+                                """
+                                Truncate the labels, logprob_values, logprob_indices.
+                                Exclude the logits for the chat template.
+                                If the input_ids/labels have a valid sequence length of s, which includes <|im_end|>/n
+                                We will pad again with the new collate function during training. 
+                                """
+                                start = torch.where(batch_data['labels'][b] != -100)[0]
+                                if len(start) == 0:
+                                    # Invalid example, skip
+                                    continue
+                                else:
+                                    start_idx = start[0].item()
+                                end = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0]
+                                if len(end) == 0:
+                                    end_idx = len(batch_data['input_ids'][b]) - 1
+                                else:
+                                    end_idx = end[0].item()        # This value should equal to where batch_data['attention_mask'][b] != 1
+                                save_ds["input_ids"].append(batch_data["input_ids"][b][:end_idx])
+                                save_ds["attention_mask"].append(batch_data["attention_mask"][b][:end_idx])
+                                save_ds["labels"].append(batch_data["labels"][b][:end_idx])
+                                save_ds["logprob_values"].append(values[b][start_idx:end_idx])
+                                save_ds["logprob_indices"].append(indices[b][start_idx:end_idx])
+                                save_ds["start_idx"].append(start_idx)
+                                save_ds["end_idx"].append(end_idx)
 
                         batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
 
-                        if (idx + 1) % 800 < batch_size:
-                            main_print(f"--> [{split}] Generated {idx + 1} Teacher Logits")
                         if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
                             main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
@@ -236,13 +299,19 @@ class DistillDataset:
                                 "input_ids": [],
                                 "attention_mask": [],
                                 "labels": [],
-                                "logit_values": [],
-                                "logit_indices": [],
+                                "logprob_values": [],
+                                "logprob_indices": [],
+                                "start_idx": [],
+                                "end_idx": [],
                             }
                             chunk_id += 1
 
                     # if (idx + 1) % 3200 == 0:
                     #     break
+
+            # look into contents and size of the stored dataset
+            # # of flops + utilization - measure the time and gpu usage
+            # cumulative logit mass plot - pick adaptive k?
 
             if save_ds["input_ids"]:
                 print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
@@ -250,14 +319,140 @@ class DistillDataset:
                 if os.path.exists(save_path):
                     shutil.rmtree(save_path)
                 Dataset.from_dict(save_ds).save_to_disk(save_path)
-
+        
         dist.barrier() if config.ddp else None
 
         if _get_rank() == 0:
-            self.build_teacher_logits_dataset()
-
+            self.build_teacher_logprobs_dataset()
+        
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
+    
+    def cache_ensemble_logprobs():
+        '''
+        Cache the logprobs generated by the ensemble models for later ensemble training.
+        TODO: accumulate as part of the whole dataset to avoid redundant computation.
+        '''
+        pass
+
+class CustomPadCollator:
+    def __init__(self, max_length, pad_token_id: int = -100, pad_label_id: int = -100, pad_attention_id: int = 0):
+        self.max_length = max_length
+        self.pad_token_id = pad_token_id
+        self.pad_label_id = pad_label_id
+        self.pad_attention_id = pad_attention_id
+
+    def __call__(self, batch):
+        batch_padded = {
+            "input_ids": [],
+            "attention_mask": [],
+            "labels": []
+        }
+
+        # Track other keys
+        other_keys = [k for k in batch[0].keys() if k not in batch_padded]
+
+        for item in batch:
+            length = len(item["input_ids"])
+            pad_len = self.max_length - length
+
+            batch_padded["input_ids"].append(torch.cat([
+                torch.tensor(item["input_ids"]),
+                torch.full((pad_len,), self.pad_token_id, dtype=torch.tensor(item["input_ids"]).dtype)
+            ]))
+
+            batch_padded["attention_mask"].append(torch.cat([
+                torch.tensor(item["attention_mask"]),
+                torch.full((pad_len,), self.pad_attention_id, dtype=torch.tensor(item["attention_mask"]).dtype)
+            ]))
+
+            batch_padded["labels"].append(torch.cat([
+                torch.tensor(item["labels"]),
+                torch.full((pad_len,), self.pad_label_id, dtype=torch.tensor(item["labels"]).dtype)
+            ]))
+
+        # Stack padded fields
+        for k in ["input_ids", "attention_mask", "labels"]:
+            batch_padded[k] = torch.stack(batch_padded[k])
+
+        # Add other keys without padding (just stack as-is)
+        for k in other_keys:
+            values = [item[k] for item in batch]
+            try:
+                batch_padded[k] = torch.stack(values)
+            except:
+                batch_padded[k] = values  # Leave as list if not stackable
+
+        return batch_padded
+    
+class custom_pad_collator:
+    def __init__(self, max_length):
+        self.max_length = max_length
+
+    def __call__(self, batch):
+        input_ids = []
+        attention_mask = []
+        labels = []
+
+        for item in batch:
+            length = len(item["input_ids"])
+            pad_len = self.max_length - length
+            # Pad input_ids and labels with -1
+            input_ids.append(torch.cat([torch.tensor(item["input_ids"]), torch.full((pad_len,), -100)]))
+            labels.append(torch.cat([torch.tensor(item["labels"]), torch.full((pad_len,), -100)]))
+
+            # Pad attention_mask with 0
+            attention_mask.append(torch.cat([torch.tensor(item["attention_mask"]), torch.zeros(pad_len)]))
+
+        return {
+            "input_ids": torch.stack(input_ids),
+            "attention_mask": torch.stack(attention_mask),
+            "labels": torch.stack(labels)
+        }
+
+
+def prepare_dataset(train_ds, eval_ds, config, max_length, seed):
+    # Writing seperately cuz the dataset may vary. Could replace with subclasses but too lazy. 
+    
+    dc = CustomPadCollator(max_length, 
+                           pad_token_id=151699, 
+                           pad_label_id=-100, 
+                           pad_attention_id=0)
+
+    train_sampler = DistributedSampler(
+        train_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=True,
+        seed=seed,
+    )
+    test_sampler = DistributedSampler(
+        eval_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=False,
+    )
+
+    train_dataloader = DataLoader(
+        train_ds,
+        batch_size=config.per_device_train_batch_size,
+        sampler=train_sampler,
+        shuffle=False,
+        collate_fn=dc,
+        num_workers=16,
+        persistent_workers=False
+    )
+    eval_dataloader = DataLoader(
+        eval_ds,
+        batch_size=config.eval_batch_size,
+        sampler=test_sampler,
+        shuffle=False,
+        collate_fn=dc,
+        num_workers=16,
+        persistent_workers=False
+    )
+    
+    return train_dataloader, eval_dataloader
 
 
 def format_time_elapsed(seconds):
@@ -290,33 +485,14 @@ def evaluate_model(model, eval_dataset, collator):
     perplexity = torch.exp(torch.tensor(avg_loss)).item()
     return {"eval_loss": avg_loss, "perplexity": perplexity}
 
-
-if __name__ == "__main__":
-    import torch
-    import time
-    import pdb
-    import datasets
-    from transformers import AutoTokenizer, AutoModelForCausalLM
-    from trl import DataCollatorForCompletionOnlyLM
-    import config
-
-    main_print("--> Evaluate model")
-
-    device = torch.cuda.current_device()
-    main_print(device)
-
-    dataset = datasets.load_from_disk("/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized")
-    logit_dataset = datasets.load_from_disk("/scratch/klambert/slm_ensembles/teacher_logits/teacher_logits")
-
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("1assistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(device)
-
-    main_print("sampling 100 examples")
-    small_test = dataset["test"]
-    evaluate_model(student_model, small_test, collator)
+def check_batch_shape(train_dataloader):
+    temp_input_ids = next(iter(train_dataloader))['input_ids']
+    temp_attention_mask = next(iter(train_dataloader))['attention_mask']
+    temp_labels = next(iter(train_dataloader))['labels']
+    # temp_logprob_values = next(iter(train_dataloader))['logprob_values']
+    # temp_logprob_indices = next(iter(train_dataloader))['logprob_indices']
+    print("shape input_ids: ", torch.tensor(temp_input_ids).shape)
+    print("shape attention_mask: ", torch.tensor(temp_attention_mask).shape)
+    # print("shape labels: ", torch.tensor(temp_labels).shape)
+    # print("shape logprob_values: ", torch.tensor(temp_logprob_values).shape)
+    # print("shape logprob_indices: ", torch.tensor(temp_logprob_indices).shape)
