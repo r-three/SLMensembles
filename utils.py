@@ -14,16 +14,12 @@ import config
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 from torch.distributed.tensor import DTensor
-from trl import DataCollatorForCompletionOnlyLM
 
 # datasets.config.IN_MEMORY_MAX_SIZE
 
 def inspect_model(model: FSDPModule):
     # assert isinstance(model, Transformer)
     assert isinstance(model, FSDPModule)
-
-    if torch.distributed.get_rank() == 0:
-        print(model)
 
     for param in model.parameters():
         assert param.placements == (Shard(0),)
@@ -46,7 +42,6 @@ def _get_rank():
     if dist.is_available() and dist.is_initialized():
         return dist.get_rank()
     return int(os.environ.get("RANK", 0))
-
 
 def is_main_process() -> bool:
     return _get_rank() == 0 if config.ddp else True

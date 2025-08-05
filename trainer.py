@@ -31,6 +31,8 @@ class Trainer(ABC):
         self.gas = config.gradient_accumulation_steps
         self.tr_step = 0    # Need to update when read ckpt
         self.rank = dist.get_rank()
+        self.min_eval_loss = 1e12
+        self.current_eval_loss = 1e12
 
     def prepare_train(self):
         if dist.get_rank() == 0:
@@ -157,6 +159,8 @@ class Trainer(ABC):
                 writer = csv.writer(f)
                 writer.writerow([self.tr_step, mean_eval_loss, mean_nk_loss, mean_kl_loss, gathered_valid_total])
 
+        self.min_eval_loss = min(mean_eval_loss, self.min_eval_loss)
+        self.current_eval_loss = mean_eval_loss
         self.model.train()
         return gathered_eval_loss
     

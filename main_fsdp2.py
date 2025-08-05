@@ -6,6 +6,7 @@ from datetime import datetime
 import torch.distributed as dist
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import DataCollatorForCompletionOnlyLM
+from pathlib import Path
 
 from datasets import load_dataset, Dataset, DatasetDict
 import config
@@ -13,7 +14,7 @@ from trainer import Trainer, DistillTrainer
 from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape
 from ensemble import ModelEnsemble
 
-from checkpoint import Checkpointer
+from checkpoint import Checkpointer, Checkpoint, index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from utils import inspect_mixed_precision, inspect_model
 from tqdm.auto import tqdm
@@ -125,98 +126,35 @@ def main(args):
             metadata=metadata_dict,
         )
 
-    # ----------------------------------
-    # Load Student 
-    # ----------------------------------
-    # with torch.device("meta"):
-    # TODO: not exactly following the example
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to('cuda')
-    fsdp_kwargs = {}
-    if args.mixed_precision:
-        fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
-            param_dtype=torch.bfloat16,
-            reduce_dtype=torch.float32,
-        )
-    # TODO: not sure if mp will be properly triggered. Didn't verify
-    for layer in student_model.model.layers:
-        fully_shard(layer, **fsdp_kwargs)
-    fully_shard(student_model, **fsdp_kwargs)
-
-    inspect_model(student_model)
-
-    if args.explicit_prefetching:
-        set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
-        set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
+    ckpt_index = index_checkpoints('distill_ckpt/')
+    if len(ckpt_index) != 0:
+        completed_rounds = ckpt_index.keys()
+        completed_rounds = list(completed_rounds)
+        completed_rounds = sorted(completed_rounds)
+        is_continuous = completed_rounds == list(range(len(completed_rounds)))
+        max_rounds = max(completed_rounds)
+        if not is_continuous:
+            raise Exception("The rounds obtained is not continuous.")
+        best_ckpts = [best_checkpoint(ckpt_index, r) for r in range(max_rounds + 1)]
+    else:
+        best_ckpts = []
     
-    # ----------------------------------
-    # Load checkpoint
-    # ----------------------------------
-        
-    checkpointer = Checkpointer("checkpoints", dcp_api=args.dcp_api)
-    student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
-    # TODO: also checkpoint the dataloader sampler
-    # TODO: fix to device issue (can't initialize). If use to_empty(device="cuda"), cannot reload the state_dict. If load state_dict, will get: NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.
-    # if checkpointer.last_training_time is None:
-    #     student_model.to(device="cuda")
-        # checkpointer.load_org_model(student_model, student_state_dict)
-        # load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=False)
-    # else:
-        # checkpointer.load_model(student_model)
-    
-    if args.mixed_precision:
-        inspect_mixed_precision(student_model)
+    print("Best ckpts: ", best_ckpts)
 
-    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-    if checkpointer.last_training_time is not None:
-        checkpointer.load_optim(student_model, optim)
-
-    # ----------------------------------
-    # Load Existing Models
-    # ----------------------------------
-    # TODO: to be checked if correctly distributed.
-    # Ideally it should be properly distributed, for distributed inference. But here I think each proc will save it's own copies.
-    # Maybe easy thing to do is to shard all ensemble models. 
-
-    existing_models = []
-    for run_dir in config.ensemble_members:
-        for i in range(config.total_rounds):
-            round_dir = os.path.join(run_dir, f"round_{i}")
-            model_file = os.path.join(round_dir, "config.json")
-            if os.path.exists(model_file):
-                existing_models.append((i, round_dir))
-
-    if existing_models:
-        existing_models.sort(key=lambda x: x[0])
-        start_round = max((r for r, _ in existing_models)) + 1
-        ensemble_model_names = [path for _, path in existing_models]
-        ensemble_model = ModelEnsemble(
-            model_names=ensemble_model_names,
-            torch_dtype=torch.bfloat16,
-            vocab_size=student_model.config.vocab_size,
-        ).to(device)
-        # TODO: check placement
-        ensemble_model.requires_grad_(False)
+    if best_ckpts:
+        start_round = max_rounds + 1
+        start_epoch = 0
     else:
         start_round = 0
         start_epoch = 0
         ensemble_model = None
 
-    # ----------------------------------
-    # Initialize trainer
-    # ----------------------------------
-    # TODO: move all the init, prepare steps and DS and DL into the class
-    lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
-    trainer = DistillTrainer(student_model, optim, lr_scheduler, config, ensemble_model)
-    trainer.prepare_train()
-
-    # ----------------------------------
-    # Outer Training Loop
-    # ----------------------------------
 
     for round_num in range(start_round, config.total_rounds):
+        # ----------------------------------
+        # Outer Training Loop
+        # ----------------------------------
+
         round_start_time = time.time()
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
@@ -224,9 +162,99 @@ def main(args):
         main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
         main_print(f"{'='*50}")
 
-        round_output_dir = get_round_path(output_path, round_num)
-        main_print(f"Round '{round_num}' model stored in: {round_output_dir}")
+        # ----------------------------------
+        # Load Student 
+        # ----------------------------------
+        # with torch.device("meta"):
+        # TODO: not exactly following the example
+        student_model = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name,
+            torch_dtype=torch.bfloat16,
+        ).to('cuda')
+        fsdp_kwargs = {}
+        if args.mixed_precision:
+            fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
+                param_dtype=torch.bfloat16,
+                reduce_dtype=torch.float32,
+            )
+        # TODO: not sure if mp will be properly triggered. Didn't verify
+        for layer in student_model.model.layers:
+            fully_shard(layer, **fsdp_kwargs)
+        fully_shard(student_model, **fsdp_kwargs)
+
+        inspect_model(student_model)
+
+        if args.explicit_prefetching:
+            set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
+            set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
         
+        # ----------------------------------
+        # Load checkpoint
+        # ----------------------------------
+            
+        checkpointer = Checkpointer("checkpoints", dcp_api=args.dcp_api)
+        student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
+        # TODO: also checkpoint the dataloader sampler
+        # TODO: fix to device issue (can't initialize). If use to_empty(device="cuda"), cannot reload the state_dict. If load state_dict, will get: NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.
+        # if checkpointer.last_training_time is None:
+        #     student_model.to(device="cuda")
+            # checkpointer.load_org_model(student_model, student_state_dict)
+            # load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=False)
+        # else:
+            # checkpointer.load_model(student_model)
+        
+        if args.mixed_precision:
+            inspect_mixed_precision(student_model)
+
+        optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
+        if checkpointer.last_training_time is not None:
+            checkpointer.load_optim(student_model, optim)
+
+        # ----------------------------------
+        # Load Existing Models
+        # ----------------------------------
+        # TODO: to be checked if correctly distributed.
+        # Ideally it should be properly distributed, for distributed inference. But here I think each proc will save it's own copies.
+        # Maybe easy thing to do is to shard all ensemble models. 
+
+        ckpt_index = index_checkpoints('distill_ckpt/')
+        if len(ckpt_index) != 0:
+            completed_rounds = ckpt_index.keys()
+            completed_rounds = list(completed_rounds)
+            completed_rounds = sorted(completed_rounds)
+            is_continuous = completed_rounds == list(range(len(completed_rounds)))
+            max_rounds = max(completed_rounds)
+            if not is_continuous:
+                raise Exception("The rounds obtained is not continuous.")
+            best_ckpts = [best_checkpoint(ckpt_index, r) for r in range(max_rounds + 1)]
+        else:
+            best_ckpts = []
+        
+        print("Best ckpts: ", best_ckpts)
+
+        if best_ckpts:
+            ensemble_model = ModelEnsemble(
+                model_paths=best_ckpts,
+                model_base=config.student_model_name,
+                torch_dtype=torch.bfloat16,
+                vocab_size=student_model.config.vocab_size,
+            ).to(device)
+            ensemble_model.requires_grad_(False)
+            start_round = max_rounds + 1
+            start_epoch = 0
+        else:
+            start_round = 0
+            start_epoch = 0
+            ensemble_model = None
+
+        # ----------------------------------
+        # Initialize trainer
+        # ----------------------------------
+        # TODO: move all the init, prepare steps and DS and DL into the class
+        lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
+        trainer = DistillTrainer(student_model, optim, lr_scheduler, config, ensemble_model)
+        trainer.prepare_train()
+
         for epoch_num in range(start_epoch, config.num_train_epochs):
             epoch_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             main_print(f"\n{'='*50}")
@@ -255,10 +283,11 @@ def main(args):
                 batch = next(train_dl_iterator)
                 trainer.step(batch, eval_dataloader, epoch_num)
 
-        # ----------------------------------
-        # Save checkpoint
-        # ----------------------------------
-            checkpointer.save(trainer.model, optim)
+            # ----------------------------------
+            # Save checkpoint
+            # ----------------------------------
+            path = f"distill_ckpt/{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss}_{trainer.min_eval_loss}"
+            checkpointer.save(trainer.model, optim, path)
 
     checkpointer.save(trainer.model, optim)
     torch.distributed.destroy_process_group()
