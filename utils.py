@@ -260,14 +260,14 @@ from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 #         dist.barrier() if config.ddp else None
 
 
-def format_time_elapsed(seconds):
-    minutes, seconds = divmod(seconds, 60)
-    return f"{int(minutes)}m {int(seconds)}s"
-
-
-def get_round_path(output_path, round_num):
-    return os.path.join(output_path, f"round_{round_num}")
-
+# def format_time_elapsed(seconds):
+#     minutes, seconds = divmod(seconds, 60)
+#     return f"{int(minutes)}m {int(seconds)}s"
+# 
+# 
+# def get_round_path(output_path, round_num):
+#     return os.path.join(output_path, f"round_{round_num}")
+# 
 
 def evaluate_model(model, eval_dataset, collator):
     model.eval()
