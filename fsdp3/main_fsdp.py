@@ -41,8 +41,6 @@ def main(args):
     # Logging and Run Name
     # ----------------------------------
 
-    main_print("--> Setting up logging and run name")
-
     log_dir = None
     logger = None
 
@@ -56,8 +54,9 @@ def main(args):
     os.makedirs(config.logprob_cache_path, exist_ok=True)
 
     # ----------------------------------
-    # Loading the Teacher Dataset
+    # Loading the Dataset
     # ----------------------------------
+
     dataClass = DistillDataset()
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
@@ -106,6 +105,10 @@ def main(args):
             metadata=metadata_dict,
         )
 
+    # ----------------------------------
+    # Load Checkpoint Index
+    # ----------------------------------
+
     ckpt_index = index_checkpoints('distill_ckpt/')
     if len(ckpt_index) != 0:
         completed_rounds = ckpt_index.keys()
@@ -129,36 +132,37 @@ def main(args):
         start_epoch = 0
         ensemble_model = None
 
+    # ----------------------------------
+    # Outer Training Loop
+    # ----------------------------------
 
     for round_num in range(start_round, config.total_rounds):
-
-        # Fix seed again before each round for better reproductivity.
         fix_seed(config.seed)
-        
-        # ----------------------------------
-        # Outer Training Loop
-        # ----------------------------------
-        round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
         main_print(f"\n{'='*50}")
+        round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
         main_print(f"{'='*50}")
 
         # ----------------------------------
-        # Load Student 
+        # Load and Shard Student Model
         # ----------------------------------
+
         # with torch.device("meta"):
         # TODO: not exactly following the example
+
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
         ).to('cuda')
+
         fsdp_kwargs = {}
         if args.mixed_precision:
             fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
                 param_dtype=torch.bfloat16,
                 reduce_dtype=torch.float32,
             )
+        
         # TODO: not sure if mp will be properly triggered. Didn't verify
         for layer in student_model.model.layers:
             fully_shard(layer, **fsdp_kwargs)
@@ -171,11 +175,12 @@ def main(args):
             set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
         
         # ----------------------------------
-        # Load checkpoint
+        # Set up Checkpointer and optimizer
         # ----------------------------------
             
         checkpointer = Checkpointer("checkpoints", dcp_api=args.dcp_api)
         student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
+        
         # TODO: also checkpoint the dataloader sampler
         # TODO: fix to device issue (can't initialize). If use to_empty(device="cuda"), cannot reload the state_dict. If load state_dict, will get: NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.
         # if checkpointer.last_training_time is None:
@@ -193,13 +198,15 @@ def main(args):
             checkpointer.load_optim(student_model, optim)
 
         # ----------------------------------
-        # Load Existing Models
+        # Load Checkpointed Models
         # ----------------------------------
+
         # TODO: to be checked if correctly distributed.
         # Ideally it should be properly distributed, for distributed inference. But here I think each proc will save it's own copies.
         # Maybe easy thing to do is to shard all ensemble models. 
 
         ckpt_index = index_checkpoints('distill_ckpt/')
+
         if len(ckpt_index) != 0:
             completed_rounds = ckpt_index.keys()
             completed_rounds = list(completed_rounds)
@@ -232,6 +239,7 @@ def main(args):
         # ----------------------------------
         # Initialize trainer
         # ----------------------------------
+
         # TODO: move all the init, prepare steps and DS and DL into the class
         train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed)       # Just to get the length, initialize again for each epoch.
         num_training_steps = len(train_dataloader) * config.num_train_epochs
@@ -244,14 +252,20 @@ def main(args):
         trainer = DistillTrainer(student_model, optim, lr_scheduler, config, ensemble_model)
         trainer.prepare_train()
 
+        # ----------------------------------
+        # Epoch Loop
+        # ----------------------------------
+
         for epoch_num in range(start_epoch, config.num_train_epochs):
             epoch_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             main_print(f"\n{'='*50}")
             main_print(f"--> Starting Epoch {epoch_num} at: {epoch_start_datetime}")
             main_print(f"{'='*50}")
+
             # ----------------------------------
             # Prepare dataset
             # ----------------------------------
+
             train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed + round_num + epoch_num)
             if is_main_process():
                 check_batch_shape(train_dataloader)
@@ -280,8 +294,6 @@ def main(args):
 
     checkpointer.save(trainer.model, optim)
     torch.distributed.destroy_process_group()
-    # Finish all process so no process exit early.
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")

@@ -45,48 +45,6 @@ def inspect_mixed_precision(model):
         assert param.dtype == torch.bfloat16
     model.reshard()
 
-
-def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
-    """Prepare datasets with distributed samplers for FSDP2 training."""
-    train_sampler = DistributedSampler(
-        train_ds,
-        dist.get_world_size(),
-        dist.get_rank(),
-        shuffle=True,
-        seed=seed,
-    )
-    test_sampler = DistributedSampler(
-        eval_ds,
-        dist.get_world_size(),
-        dist.get_rank(),
-        shuffle=False,
-    )
-
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    collate_fn = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    train_dataloader = DataLoader(
-        train_ds,
-        batch_size=config.per_device_train_batch_size,
-        sampler=train_sampler,
-        shuffle=False,
-        collate_fn=collate_fn,
-        num_workers=8,
-        persistent_workers=False
-    )
-    eval_dataloader = DataLoader(
-        eval_ds,
-        batch_size=config.eval_batch_size,
-        sampler=test_sampler,
-        shuffle=False,
-        collate_fn=collate_fn,
-        num_workers=8,
-        persistent_workers=False
-    )
-    
-    return train_dataloader, eval_dataloader
-
-
 def check_batch_shape(train_dataloader):
     """Debug utility to check batch shapes."""
     batch = next(iter(train_dataloader))
@@ -217,6 +175,47 @@ class CSVLogger:
 
 
 # ---------------------- Dataset handling ----------------------
+
+def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
+    """Prepare datasets with distributed samplers for FSDP2 training."""
+    train_sampler = DistributedSampler(
+        train_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=True,
+        seed=seed,
+    )
+    test_sampler = DistributedSampler(
+        eval_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
+        shuffle=False,
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
+    collate_fn = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+
+    train_dataloader = DataLoader(
+        train_ds,
+        batch_size=config.per_device_train_batch_size,
+        sampler=train_sampler,
+        shuffle=False,
+        collate_fn=collate_fn,
+        num_workers=8,
+        persistent_workers=False
+    )
+    eval_dataloader = DataLoader(
+        eval_ds,
+        batch_size=config.eval_batch_size,
+        sampler=test_sampler,
+        shuffle=False,
+        collate_fn=collate_fn,
+        num_workers=8,
+        persistent_workers=False
+    )
+    
+    return train_dataloader, eval_dataloader
+    
 class DistillDataset:
     def __init__(self, device=None):
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
