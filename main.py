@@ -106,10 +106,15 @@ def main(args):
         )
 
     # ----------------------------------
+    # Set up Checkpoint Directory
+    # ----------------------------------
+    os.makedirs(config.checkpoint_dir, exist_ok=True)
+    main_print(f"Checkpoints will be saved to: {config.checkpoint_dir}")
+
+    # ----------------------------------
     # Load Checkpoint Index
     # ----------------------------------
-
-    ckpt_index = index_checkpoints('distill_ckpt/')
+    ckpt_index = index_checkpoints(config.checkpoint_dir)
     if len(ckpt_index) != 0:
         completed_rounds = ckpt_index.keys()
         completed_rounds = list(completed_rounds)
@@ -205,7 +210,7 @@ def main(args):
         # Ideally it should be properly distributed, for distributed inference. But here I think each proc will save it's own copies.
         # Maybe easy thing to do is to shard all ensemble models. 
 
-        ckpt_index = index_checkpoints('distill_ckpt/')
+        ckpt_index = index_checkpoints(config.checkpoint_dir)
 
         if len(ckpt_index) != 0:
             completed_rounds = ckpt_index.keys()
@@ -299,7 +304,8 @@ def main(args):
             # ----------------------------------
             # Save checkpoint
             # ----------------------------------
-            path = f"distill_ckpt/{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss}_{trainer.min_eval_loss}"
+            checkpoint_name = f"{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
+            path = os.path.join(config.checkpoint_dir, checkpoint_name)
             checkpointer.save(trainer.model, optim, path)
 
     checkpointer.save(trainer.model, optim)
