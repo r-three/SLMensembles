@@ -13,7 +13,7 @@ config = {
     "project_name": "SLMensembles",
     "dataset": {
         "name": "Malikeh1375/clustered_tulu_3_8",
-        "config_name": "programming_and_code_development",
+        "config_name": "qanda_and_logical_reasoning",
         "split": "train",
         "num_samples": 25000, # You can pass a number here to limit the number of samples to use.
         "seed": 1997
@@ -606,7 +606,7 @@ class LogitsTrainer(SFTTrainer):
             ) * (temperature ** 2)
 
         ce_loss = original_loss
-        total_loss = (1 - alpha) * loss_kd + alpha * ce_loss
+        total_loss = alpha * loss_kd + (1-alpha) * ce_loss
 
         return total_loss, ce_loss, loss_kd
 
@@ -627,7 +627,7 @@ class LogitsTrainer(SFTTrainer):
             result.metrics.update({
                 "eval_cross_entropy_loss": avg_ce_loss,
                 "eval_kl_divergence_loss": avg_kl_loss,
-                "eval_combined_loss": (1-config["distillation"]["alpha"]) * avg_kl_loss + config["distillation"]["alpha"] * avg_ce_loss,
+                "eval_combined_loss": config["distillation"]["alpha"] * avg_kl_loss + (1-config["distillation"]["alpha"]) * avg_ce_loss,
             })
         
         self.is_evaluating = False
