@@ -1,25 +1,29 @@
 import argparse
-import os, gc, time, sys, pdb
+import os
+import time
 import torch
-import atexit
 from datetime import datetime
 import torch.distributed as dist
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 from trl import DataCollatorForCompletionOnlyLM
-from pathlib import Path
 
-from datasets import load_dataset, Dataset, DatasetDict
+from datasets import load_dataset
 import config
 from trainer import Trainer, DistillTrainer
-from utils import CSVLogger, DistillDataset, evaluate_model, prepare_dataset, format_time_elapsed, get_round_path, is_main_process, main_print, check_batch_shape, fix_seed
+from utils import (CSVLogger, prepare_dataset, format_time_elapsed, 
+                  is_main_process, main_print, check_batch_shape, fix_seed,
+                  inspect_mixed_precision, inspect_model)
 from ensemble import ModelEnsemble
-
-from checkpoint import Checkpointer, Checkpoint, index_checkpoints, best_checkpoint
+from checkpoint import Checkpointer, index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
-from utils import inspect_mixed_precision, inspect_model
 from tqdm.auto import tqdm
-
 from shard_weight import *
+from utils import fix_seed
+import atexit
+from pathlib import Path
+from datasets import Dataset, DatasetDict
+from utils import DistillDataset, get_round_path
+from checkpoint import Checkpoint
 
 def main(args):
 

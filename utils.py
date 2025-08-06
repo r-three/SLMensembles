@@ -11,6 +11,8 @@ import config
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 from trl import DataCollatorForCompletionOnlyLM
+import random
+import numpy as np
 
 # ---------------------- Training and FSDP2-specific functions ----------------------
 try:
@@ -81,6 +83,15 @@ def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
 
 
 # ---------------------- Utility functions ----------------------
+
+def fix_seed(seed):
+    # random
+    random.seed(seed)
+    # Numpy
+    np.random.seed(seed)
+    # Pytorch
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 def main_print(*args, **kwargs):
     """Print only from main process in distributed training."""
