@@ -241,11 +241,17 @@ class Trainer(ABC):
         optim,
         lr_scheduler,
         config,
+        logger=None,
+        round_num=0,
+        overall_start_time=None,
     ) -> None:
         self.model = model
         self.optim = optim
         self.lr_scheduler = lr_scheduler
         self.config = config
+        self.logger = logger
+        self.round_num = round_num
+        self.overall_start_time = overall_start_time
         self.processed_id = 0
         self.gad = 0    # gradient accumulated incremented before fwd pass.
         self.gas = config.gradient_accumulation_steps
@@ -337,7 +343,17 @@ class Trainer(ABC):
         gathered_tr_step_loss = _gather(tr_step_loss.reshape(1)).mean().item()
         # gather with sum
 
-        # No logging for train steps.
+        # Log training steps if logger is available
+        if self.logger is not None and self.rank == 0:
+            self.logger.log(
+                function="train_step",
+                round_num=self.round_num,
+                phase="train",
+                role="student",
+                step=self.tr_step,
+                train_loss=gathered_tr_step_loss,
+                learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
+            )
 
         return gathered_tr_step_loss
     
@@ -378,6 +394,19 @@ class Trainer(ABC):
             with open("results.csv", "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow([self.tr_step, mean_eval_loss, mean_nk_loss, mean_kl_loss, gathered_valid_total])
+            
+            # Log evaluation results if logger is available
+            if self.logger is not None:
+                self.logger.log(
+                    function="eval_step",
+                    round_num=self.round_num,
+                    phase="eval",
+                    role="student",
+                    step=self.tr_step,
+                    eval_loss=mean_eval_loss,
+                    eval_next_token_loss=mean_nk_loss,
+                    eval_kl_loss=mean_kl_loss,
+                )
 
         self.min_eval_loss = min(mean_eval_loss, self.min_eval_loss)
         self.current_eval_loss = mean_eval_loss
@@ -393,9 +422,12 @@ class DistillTrainer(Trainer):
         lr_scheduler,
         config,
         ensemble_model,
+        logger=None,
+        round_num=0,
+        overall_start_time=None,
     ) -> None:
         self.ensemble_model = ensemble_model
-        super().__init__(model, optim, lr_scheduler, config)
+        super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time)
 
     def compute_loss(self, batch):
         '''
@@ -448,6 +480,21 @@ class DistillTrainer(Trainer):
         if not self.config.synthetic_data:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
+        
+        # Log training loss details if logger is available
+        if self.logger is not None and self.rank == 0 and self.tr_step % self.config.logging_steps == 0:
+            self.logger.log(
+                function="compute_loss",
+                round_num=self.round_num,
+                phase="train",
+                role="student",
+                step=self.tr_step,
+                train_loss=hybrid_loss.item(),
+                train_next_token_loss=next_token_loss.item(),
+                train_kl_loss=kl_loss.item() if isinstance(kl_loss, torch.Tensor) else kl_loss,
+                alpha=alpha,
+                learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
+            )
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
     

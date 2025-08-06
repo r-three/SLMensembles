@@ -249,7 +249,17 @@ def main(args):
             num_warmup_steps=num_warmup_steps,
             num_training_steps=num_training_steps
         )
-        trainer = DistillTrainer(student_model, optim, lr_scheduler, config, ensemble_model)
+        # Initialize trainer with logger and round information
+        trainer = DistillTrainer(
+            student_model, 
+            optim, 
+            lr_scheduler, 
+            config, 
+            ensemble_model,
+            logger=logger,
+            round_num=round_num,
+            overall_start_time=overall_start_time
+        )
         trainer.prepare_train()
 
         # ----------------------------------
