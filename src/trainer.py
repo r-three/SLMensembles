@@ -11,7 +11,6 @@ from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from utils import main_print
 from tqdm.auto import tqdm
 from datetime import datetime
-from torch.distributed import is_main_process
 
 # ---------------------- High-Level Implementation ----------------------
 
@@ -477,7 +476,7 @@ class DistillTrainer(Trainer):
         alpha = self.config.alpha if not self.config.synthetic_data else 1
         kl_loss = 0
         if (labels != -100).sum == 0:
-            print(labels)
+            main_print(labels)
         if not self.config.synthetic_data:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
@@ -527,7 +526,7 @@ class DistillTrainer(Trainer):
         # kl_manual = kl_manual.sum(-1)[mask].sum()                                         # [B,T]
 
         # if dist.get_rank() == 0:
-        #     print("KL: ", kl_loss.item(), kl_manual.item())
+        #     main_print("KL: ", kl_loss.item(), kl_manual.item())
         # Alternative (manual) method is slightly different from the exact method. But experimentally it doesn't save any memory.
 
         return kl_loss

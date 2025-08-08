@@ -108,7 +108,9 @@ def _get_rank():
 
 def is_main_process() -> bool:
     """Check if current process is the main process."""
-    return _get_rank() == 0 if config.ddp else True
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_rank() == 0
+    return True
 
 
 def format_time_elapsed(seconds):
@@ -378,7 +380,7 @@ class DistillDataset:
 
                         batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
 
-                        if (idx + 1) % batch_size < batch_size or idx == len(shard) - 1:
+                        if (idx + 1) % 300 == 0 or idx == len(shard) - 1:
                             main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
                             save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
@@ -425,9 +427,9 @@ if __name__ == "__main__":
     from trl import DataCollatorForCompletionOnlyLM
     import config
 
-    main_print("--> Evaluate model")
-
     device = torch.cuda.current_device()
     main_print(device)
 
-    cache_teacher_logprobs()
+    dataClass = DistillDataset()
+    dataset = dataClass.get_dataset()
+    dataClass.cache_teacher_logprobs()

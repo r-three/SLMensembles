@@ -39,8 +39,7 @@ def main(args):
 
     overall_start_time = time.time()
     overall_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if is_main_process():
-        main_print(f"--> Starting training at: {overall_start_datetime}\n")
+    main_print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
     # Logging and Run Name
@@ -87,26 +86,21 @@ def main(args):
             "ID string": config.id_string,
             "Description": config.description,
         }
-    if is_main_process():
-        main_print("\n==== RUN CONFIGURATION ====")
+    main_print("\n==== RUN CONFIGURATION ====")
+    main_print(f"Run: {run_name}")
+    main_print(f"Created logging directory: {log_dir}")
+    main_print(f"Models stored in: {output_path}")
+    main_print(f"{config.id_string}")
+    main_print(f"{config.description}\n")
 
-    if is_main_process():
-        main_print(f"Run: {run_name}")
-        main_print(f"Created logging directory: {log_dir}")
-        main_print(f"Models stored in: {output_path}")
+    for k, v in metadata_dict.items():
+        main_print(f"{k}: {v}")
 
-        main_print(f"{config.id_string}")
-        main_print(f"{config.description}\n")
+    main_print("===========================")
 
-        for k, v in metadata_dict.items():
-            main_print(f"{k}: {v}")
-
-        main_print("===========================")
-
-    if is_main_process():
-        logger.log(
-            function="main",
-            phase="none",
+    logger.log(
+        function="main",
+        phase="none",
             round_num=0,
             metadata=metadata_dict,
         )
@@ -115,8 +109,7 @@ def main(args):
     # Set up Checkpoint Directory
     # ----------------------------------
     os.makedirs(config.checkpoint_dir, exist_ok=True)
-    if is_main_process():
-        main_print(f"Checkpoints will be saved to: {config.checkpoint_dir}")
+    main_print(f"Checkpoints will be saved to: {config.checkpoint_dir}")
 
     # ----------------------------------
     # Load Checkpoint Index
@@ -134,8 +127,7 @@ def main(args):
     else:
         best_ckpts = []
     
-    if is_main_process():
-        print("Best ckpts: ", best_ckpts)
+    main_print("Best ckpts: ", best_ckpts)
 
     if best_ckpts:
         start_round = max_rounds + 1
@@ -152,11 +144,10 @@ def main(args):
     for round_num in range(start_round, config.total_rounds):
         fix_seed(config.seed)
 
-        if is_main_process():
-            main_print(f"\n{'='*50}")
-            round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-            main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
-            main_print(f"{'='*50}")
+        main_print(f"\n{'='*50}")
+        round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
+        main_print(f"{'='*50}")
 
         # ----------------------------------
         # Load and Shard Student Model
@@ -191,7 +182,6 @@ def main(args):
         # ----------------------------------
         # Set up Checkpointer and optimizer
         # ----------------------------------
-            
         checkpointer = Checkpointer("checkpoints", dcp_api=args.dcp_api)
         student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
         
@@ -233,8 +223,7 @@ def main(args):
         else:
             best_ckpts = []
         
-        if is_main_process():
-            print("Best ckpts: ", best_ckpts)
+        main_print("Best ckpts: ", best_ckpts)
 
         if best_ckpts:
             ensemble_model = ModelEnsemble(
@@ -283,18 +272,16 @@ def main(args):
 
         for epoch_num in range(start_epoch, config.num_train_epochs):
             epoch_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-            if is_main_process():
-                main_print(f"\n{'='*50}")
-                main_print(f"--> Starting Epoch {epoch_num} at: {epoch_start_datetime}")
-                main_print(f"{'='*50}")
+            main_print(f"\n{'='*50}")
+            main_print(f"--> Starting Epoch {epoch_num} at: {epoch_start_datetime}")
+            main_print(f"{'='*50}")
 
             # ----------------------------------
             # Prepare dataset
             # ----------------------------------
 
             train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed + round_num + epoch_num)
-            if is_main_process():
-                check_batch_shape(train_dataloader)
+            check_batch_shape(train_dataloader)
             
             train_dl_iterator = iter(train_dataloader)
 
