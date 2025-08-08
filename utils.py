@@ -317,7 +317,7 @@ class DistillDataset:
             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": []}
             chunk_id = 0
 
-            batch_size = 32  # tune this to your GPU
+            batch_size = config.per_device_train_batch_size 
             batch_data = {
                 "input_ids": [],
                 "attention_mask": [],
@@ -378,7 +378,7 @@ class DistillDataset:
 
                         batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
 
-                        if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
+                        if (idx + 1) % batch_size < batch_size or idx == len(shard) - 1:
                             main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
                             save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
@@ -430,18 +430,4 @@ if __name__ == "__main__":
     device = torch.cuda.current_device()
     main_print(device)
 
-    dataset = datasets.load_from_disk("/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized")
-    logit_dataset = datasets.load_from_disk("/scratch/klambert/slm_ensembles/teacher_logits/teacher_logits")
-
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("1assistant\n")["input_ids"]
-    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    student_model = AutoModelForCausalLM.from_pretrained(
-        config.student_model_name,
-        torch_dtype=torch.bfloat16,
-    ).to(device)
-
-    main_print("sampling 100 examples")
-    small_test = dataset["test"]
-    evaluate_model(student_model, small_test, collator)
+    cache_teacher_logprobs()
