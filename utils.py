@@ -325,6 +325,7 @@ class DistillDataset:
             }
 
             with torch.no_grad():
+                tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
                 for idx, sample in tqdm(enumerate(shard), total=len(shard)):
                     batch_data["input_ids"].append(sample["input_ids"])
                     batch_data["attention_mask"].append(sample["attention_mask"])
@@ -333,8 +334,6 @@ class DistillDataset:
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
                         input_ids = torch.stack(batch_data["input_ids"]).to(f"cuda:{rank}")
                         attention_mask = torch.stack(batch_data["attention_mask"]).to(f"cuda:{rank}")
-
-                        tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
 
                         outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
                         logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
