@@ -11,6 +11,7 @@ from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from utils import main_print
 from tqdm.auto import tqdm
 from datetime import datetime
+from torch.distributed import is_main_process
 
 # ---------------------- High-Level Implementation ----------------------
 
@@ -530,13 +531,3 @@ class DistillTrainer(Trainer):
         # Alternative (manual) method is slightly different from the exact method. But experimentally it doesn't save any memory.
 
         return kl_loss
-
-
-
-
-
-
-
-
-
-
