@@ -146,6 +146,7 @@ def main(args):
 
         main_print(f"\n{'='*50}")
         round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        round_output_dir = get_round_path(output_path, round_num)
         main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
         main_print(f"{'='*50}")
 
@@ -257,7 +258,7 @@ def main(args):
 
         if is_main_process():
             training_args.eval_strategy = "steps"
-            training_args.eval_steps = config.eval_steps
+            training_args.eval_steps = config.eval_steps    
             training_args.eval_on_start = False
             training_args.logging_strategy = "steps"
             training_args.logging_steps = config.logging_steps
@@ -282,7 +283,6 @@ def main(args):
             callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
         )
         trainer.prepare_train()
-
 
         # ----------------------------------
         # Epoch Loop
