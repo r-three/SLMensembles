@@ -425,6 +425,8 @@ class DistillTrainer(Trainer):
         logger=None,
         round_num=0,
         overall_start_time=None,
+        *args,
+        **kwargs
     ) -> None:
         self.ensemble_model = ensemble_model
         super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time, *args, **kwargs)
