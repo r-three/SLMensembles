@@ -237,13 +237,13 @@ def _gather(x: torch.Tensor) -> torch.Tensor:
 class Trainer(ABC):
     def __init__(
         self,
-        model,
-        optim,
-        lr_scheduler,
-        config,
-        logger=None,
-        round_num=0,
-        overall_start_time=None,
+        model: torch.nn.Module,
+        optim: Optimizer,
+        lr_scheduler: Optional[_LRScheduler],
+        config: Any,
+        logger: Optional[Any] = None,
+        round_num: int = 0,
+        overall_start_time: Optional[float] = None,
     ) -> None:
         self.model = model
         self.optim = optim
@@ -417,19 +417,26 @@ class Trainer(ABC):
 class DistillTrainer(Trainer):
     def __init__(
         self,
-        model,
-        optim,
-        lr_scheduler,
-        config,
         ensemble_model,
         logger=None,
         round_num=0,
         overall_start_time=None,
-        *args,
         **kwargs
-    ) -> None:
+    ):
+        # Save your custom fields
         self.ensemble_model = ensemble_model
-        super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time, *args, **kwargs)
+        self.logger = logger
+        self.round_num = round_num
+        self.overall_start_time = overall_start_time
+
+        # Accept user-supplied optimizer/scheduler and pass them the HF way
+        optim = kwargs.pop("optim", None)
+        lr_scheduler = kwargs.pop("lr_scheduler", None)
+        if optim is not None or lr_scheduler is not None:
+            kwargs["optimizers"] = (optim, lr_scheduler)
+
+        # Now call Trainer with proper keywords only
+        super().__init__(**kwargs)
 
     def compute_loss(self, batch):
         '''
