@@ -9,7 +9,7 @@ from trl import DataCollatorForCompletionOnlyLM
 
 from datasets import load_dataset
 import config
-from trainer import Trainer, DistillTrainer
+from trainer import Trainer, DistillTrainer, LoggingCallback
 from utils import (CSVLogger, prepare_dataset, format_time_elapsed, 
                   is_main_process, main_print, check_batch_shape, fix_seed,
                   inspect_mixed_precision, inspect_model)
