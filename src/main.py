@@ -272,7 +272,6 @@ def main(args):
 
         trainer = DistillTrainer(
             model=student_model,
-            args=training_args,
             optim=optim, 
             lr_scheduler=config.lr_scheduler,
             ensemble_model=ensemble_model,

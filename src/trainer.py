@@ -6,6 +6,7 @@ from transformers import TrainerCallback
 from trl import SFTTrainer
 import config
 from abc import ABC, abstractmethod
+from torch.optim import Optimizer
 import csv
 from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from utils import main_print
