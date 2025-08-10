@@ -427,7 +427,7 @@ class DistillTrainer(Trainer):
         overall_start_time=None,
     ) -> None:
         self.ensemble_model = ensemble_model
-        super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time)
+        super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time, *args, **kwargs)
 
     def compute_loss(self, batch):
         '''

@@ -246,25 +246,43 @@ def main(args):
 
         # TODO: move all the init, prepare steps and DS and DL into the class
         train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed)       # Just to get the length, initialize again for each epoch.
-        num_training_steps = len(train_dataloader) * config.num_train_epochs
-        num_warmup_steps = config.warm_up_steps  # e.g., 10% warmup
-        lr_scheduler = get_cosine_schedule_with_warmup(
-            optim,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=num_training_steps
-        )
-        # Initialize trainer with logger and round information
+        # num_training_steps = len(train_dataloader) * config.num_train_epochs
+        # lr_scheduler = get_cosine_schedule_with_warmup(
+        #     optim,
+        #     num_warmup_steps=config.warmup_steps,
+        #     num_training_steps=num_training_steps
+        # )
+        
+        training_args = config.get_training_args(round_output_dir)
+
+        if is_main_process():
+            training_args.eval_strategy = "steps"
+            training_args.eval_steps = config.eval_steps
+            training_args.eval_on_start = False
+            training_args.logging_strategy = "steps"
+            training_args.logging_steps = config.logging_steps
+            training_args.save_strategy = "steps"
+            training_args.save_steps = config.save_steps
+            training_args.save_total_limit = config.save_total_limit
+        else:
+            training_args.eval_strategy = "no"
+            training_args.logging_strategy = "no"
+            training_args.save_strategy = "no"
+
         trainer = DistillTrainer(
-            student_model, 
-            optim, 
-            lr_scheduler, 
-            config, 
-            ensemble_model,
-            logger=logger,
+            model=student_model,
+            optim=optim, 
+            lr_scheduler=config.lr_scheduler,
+            config=config,
+            ensemble_model=ensemble_model,
+            logger=logger if is_main_process() else None,
             round_num=round_num,
-            overall_start_time=overall_start_time
+            overall_start_time=overall_start_time,
+            args=training_args,
+            callbacks=[LoggingCallback(logger, round_num, overall_start_time)] if is_main_process() else [],
         )
         trainer.prepare_train()
+
 
         # ----------------------------------
         # Epoch Loop

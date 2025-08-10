@@ -220,7 +220,6 @@ def main(args):
     lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
     trainer = DistillTrainer(student_model, tokenizer, optim, lr_scheduler, config, ensemble_model)
 
-
     # ----------------------------------
     # Outer Training Loop
     # ----------------------------------
