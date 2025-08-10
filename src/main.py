@@ -10,9 +10,17 @@ from trl import DataCollatorForCompletionOnlyLM
 from datasets import load_dataset
 import config
 from trainer import Trainer, DistillTrainer, LoggingCallback
-from utils import (CSVLogger, prepare_dataset, format_time_elapsed, 
-                  is_main_process, main_print, check_batch_shape, fix_seed,
-                  inspect_mixed_precision, inspect_model)
+from utils import (
+    CSVLogger,
+    prepare_dataset,
+    format_time_elapsed,
+    is_main_process,
+    main_print,
+    check_batch_shape,
+    fix_seed,
+    inspect_mixed_precision,
+    inspect_model,
+)
 from ensemble import ModelEnsemble
 from checkpoint import Checkpointer, index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -25,12 +33,12 @@ from datasets import Dataset, DatasetDict
 from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
 
+
 def main(args):
 
     # ----------------------------------
     # Device Setup
     # ----------------------------------
-
     rank = int(os.environ["LOCAL_RANK"])
     device = torch.device(f"cuda:{rank}")
     torch.cuda.set_device(device)
@@ -68,7 +76,7 @@ def main(args):
     # Metrics
     # ----------------------------------
 
-    if is_main_process():   
+    if is_main_process():
         metadata_dict = {
             "Custom run name": config.custom_run_name,
             "Description": config.description,
@@ -101,9 +109,9 @@ def main(args):
     logger.log(
         function="main",
         phase="none",
-            round_num=0,
-            metadata=metadata_dict,
-        )
+        round_num=0,
+        metadata=metadata_dict,
+    )
 
     # ----------------------------------
     # Set up Checkpoint Directory
@@ -126,7 +134,7 @@ def main(args):
         best_ckpts = [best_checkpoint(ckpt_index, r) for r in range(max_rounds + 1)]
     else:
         best_ckpts = []
-    
+
     main_print("Best ckpts: ", best_ckpts)
 
     if best_ckpts:
@@ -160,7 +168,7 @@ def main(args):
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
-        ).to('cuda')
+        ).to("cuda")
 
         fsdp_kwargs = {}
         if args.mixed_precision:
@@ -168,7 +176,7 @@ def main(args):
                 param_dtype=torch.bfloat16,
                 reduce_dtype=torch.float32,
             )
-        
+
         # TODO: not sure if mp will be properly triggered. Didn't verify
         for layer in student_model.model.layers:
             fully_shard(layer, **fsdp_kwargs)
@@ -179,22 +187,24 @@ def main(args):
         if args.explicit_prefetching:
             set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
             set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
-        
+
         # ----------------------------------
         # Set up Checkpointer and optimizer
         # ----------------------------------
         checkpointer = Checkpointer("checkpoints", dcp_api=args.dcp_api)
-        student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
-        
+        student_state_dict = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name, torch_dtype=torch.bfloat16
+        ).state_dict()
+
         # TODO: also checkpoint the dataloader sampler
         # TODO: fix to device issue (can't initialize). If use to_empty(device="cuda"), cannot reload the state_dict. If load state_dict, will get: NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.
         # if checkpointer.last_training_time is None:
         #     student_model.to(device="cuda")
-            # checkpointer.load_org_model(student_model, student_state_dict)
-            # load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=False)
+        # checkpointer.load_org_model(student_model, student_state_dict)
+        # load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=False)
         # else:
-            # checkpointer.load_model(student_model)
-        
+        # checkpointer.load_model(student_model)
+
         if args.mixed_precision:
             inspect_mixed_precision(student_model)
 
@@ -208,7 +218,7 @@ def main(args):
 
         # TODO: to be checked if correctly distributed.
         # Ideally it should be properly distributed, for distributed inference. But here I think each proc will save it's own copies.
-        # Maybe easy thing to do is to shard all ensemble models. 
+        # Maybe easy thing to do is to shard all ensemble models.
 
         ckpt_index = index_checkpoints(config.checkpoint_dir)
 
@@ -223,7 +233,7 @@ def main(args):
             best_ckpts = [best_checkpoint(ckpt_index, r) for r in range(max_rounds + 1)]
         else:
             best_ckpts = []
-        
+
         main_print("Best ckpts: ", best_ckpts)
 
         if best_ckpts:
@@ -246,19 +256,21 @@ def main(args):
         # ----------------------------------
 
         # TODO: move all the init, prepare steps and DS and DL into the class
-        train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed)       # Just to get the length, initialize again for each epoch.
+        train_dataloader, eval_dataloader = prepare_dataset(
+            dataset["train"], dataset["test"], config, 1024, config.seed
+        )  # Just to get the length, initialize again for each epoch.
         # num_training_steps = len(train_dataloader) * config.num_train_epochs
         # lr_scheduler = get_cosine_schedule_with_warmup(
         #     optim,
         #     num_warmup_steps=config.warmup_steps,
         #     num_training_steps=num_training_steps
         # )
-        
+
         # training_args = config.get_training_args(round_output_dir)
 
         # if is_main_process():
         #     training_args.evaluation_strategy = "steps"
-        #     training_args.eval_steps = config.eval_steps    
+        #     training_args.eval_steps = config.eval_steps
         #     training_args.eval_on_start = False
         #     training_args.logging_strategy = "steps"
         #     training_args.logging_steps = config.logging_steps
@@ -272,9 +284,9 @@ def main(args):
 
         trainer = DistillTrainer(
             model=student_model,
-            optim=optim, 
+            optim=optim,
             lr_scheduler=config.lr_scheduler,
-            config=config, 
+            config=config,
             ensemble_model=ensemble_model,
             logger=logger if is_main_process() else None,
             round_num=round_num,
@@ -296,9 +308,11 @@ def main(args):
             # Prepare dataset
             # ----------------------------------
 
-            train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed + round_num + epoch_num)
+            train_dataloader, eval_dataloader = prepare_dataset(
+                dataset["train"], dataset["test"], config, 1024, config.seed + round_num + epoch_num
+            )
             check_batch_shape(train_dataloader)
-            
+
             train_dl_iterator = iter(train_dataloader)
 
             # ----------------------------------
@@ -318,12 +332,15 @@ def main(args):
             # ----------------------------------
             # Save checkpoint
             # ----------------------------------
-            checkpoint_name = f"{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
+            checkpoint_name = (
+                f"{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
+            )
             path = os.path.join(config.checkpoint_dir, checkpoint_name)
             checkpointer.save(trainer.model, optim, path)
 
     checkpointer.save(trainer.model, optim)
     torch.distributed.destroy_process_group()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")
