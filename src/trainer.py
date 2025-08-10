@@ -10,7 +10,7 @@ from torch.optim import Optimizer
 from typing import Optional, Any
 from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau, LRScheduler
 import csv
-from utils import main_print
+from utils import main_print, get_rank_default0, get_world_size_default1
 from tqdm.auto import tqdm
 from datetime import datetime
 
@@ -263,8 +263,8 @@ class Trainer(ABC):
 
         self.tr_step = 0    # Need to update when read ckpt
 
-        self.rank = _get_rank_default0()
-        self.world_size = _get_world_size_default1()
+        self.rank = get_rank_default0()
+        self.world_size = get_world_size_default1()
 
         self.min_eval_loss = 1e12
         self.current_eval_loss = 1e12

@@ -81,6 +81,15 @@ def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
         ]
         layer.set_modules_to_backward_prefetch(layers_to_prefetch)
 
+def get_rank_default0() -> int:
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_rank()
+    return 0
+
+def get_world_size_default1() -> int:
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_world_size()
+    return 1
 
 # ---------------------- Utility functions ----------------------
 
