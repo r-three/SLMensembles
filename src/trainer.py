@@ -252,11 +252,18 @@ class Trainer(ABC):
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
+
         self.processed_id = 0
-        self.gad = 0    # gradient accumulated incremented before fwd pass.
-        self.gas = config.gradient_accumulation_steps
+        self.gad = 0  # gradient accum counter (before fwd)
+        self.gas = getattr(config, "gradient_accumulation_steps", 1)
+        if self.gas < 1:
+            self.gas = 1
+
         self.tr_step = 0    # Need to update when read ckpt
-        self.rank = dist.get_rank()
+
+        self.rank = _get_rank_default0()
+        self.world_size = _get_world_size_default1()
+
         self.min_eval_loss = 1e12
         self.current_eval_loss = 1e12
 
@@ -417,11 +424,15 @@ class Trainer(ABC):
 class DistillTrainer(Trainer):
     def __init__(
         self,
+        model,
+        optim,
+        lr_scheduler,
+        config,
         ensemble_model,
         logger=None,
         round_num=0,
         overall_start_time=None,
-        **kwargs
+        **kwargs,
     ):
         # Save your custom fields
         self.ensemble_model = ensemble_model
@@ -429,14 +440,15 @@ class DistillTrainer(Trainer):
         self.round_num = round_num
         self.overall_start_time = overall_start_time
 
-        # Accept user-supplied optimizer/scheduler and pass them the HF way
-        optim = kwargs.pop("optim", None)
-        lr_scheduler = kwargs.pop("lr_scheduler", None)
-        if optim is not None or lr_scheduler is not None:
-            kwargs["optimizers"] = (optim, lr_scheduler)
-
-        # Now call Trainer with proper keywords only
-        super().__init__(**kwargs)
+        super().__init__(
+            model=model,
+            optim=optim,
+            lr_scheduler=lr_scheduler,
+            config=config,
+            logger=logger,
+            round_num=round_num,
+            overall_start_time=overall_start_time,
+        )
 
     def compute_loss(self, batch):
         '''
