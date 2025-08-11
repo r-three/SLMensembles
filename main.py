@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 import time
 import torch
 from datetime import datetime
@@ -12,7 +13,8 @@ import config
 from trainer import Trainer, DistillTrainer
 from utils import (CSVLogger, prepare_dataset, format_time_elapsed, 
                   is_main_process, main_print, check_batch_shape, fix_seed,
-                  inspect_mixed_precision, inspect_model)
+                  inspect_mixed_precision, inspect_model,
+                  set_modules_to_forward_prefetch, set_modules_to_backward_prefetch)
 from ensemble import ModelEnsemble
 from checkpoint import Checkpointer, index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -26,6 +28,14 @@ from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
 
 def main(args):
+
+    # ----------------------------------
+    # Pipeline
+    # ----------------------------------
+    # Raw Dataset → Chat Template → Tokenization → Label Creation → Teacher Inference → Logit Caching → Distributed Sampling → Custom Collation → FSDP2 Model → Training Loop
+    #  ↓              ↓                  ↓               ↓                 ↓                   ↓                  ↓                  ↓               ↓             ↓
+    # Messages    Single String       Token IDs     Loss Labels       Top-K Logits        Cached Data           Batches            Padded         Sharded       Training
+    # (JSON)      (Text)             (Tensors)       (-100/IDs)         (Tensors)           (Disk)               (GPU)              (GPU)          (GPU)         (GPU)
 
     # ----------------------------------
     # Device Setup
@@ -63,6 +73,15 @@ def main(args):
 
     dataClass = DistillDataset()
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
+
+    # ----------------------------------
+    # Tokenizer
+    # ----------------------------------
+
+    # Response template used to mark the start of the assistant's reply in the
+    # tokenized sequence. Must be a LIST of token ids, not an integer.
+    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
+    response_template_ids = tokenizer("<|im_start|>assistant\n", add_special_tokens=False)["input_ids"]
 
     # ----------------------------------
     # Metrics
@@ -250,7 +269,13 @@ def main(args):
         # ----------------------------------
 
         # TODO: move all the init, prepare steps and DS and DL into the class
-        train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed)       # Just to get the length, initialize again for each epoch.
+        train_dataloader, eval_dataloader = prepare_dataset(
+            dataset['train'],
+            dataset['test'],
+            config,
+            response_template_ids,
+            config.seed,
+        )  # Just to get the length, initialize again for each epoch.
         num_training_steps = len(train_dataloader) * config.num_train_epochs
         num_warmup_steps = config.warmup_steps  # e.g., 10% warmup
         lr_scheduler = get_cosine_schedule_with_warmup(
@@ -285,7 +310,13 @@ def main(args):
             # Prepare dataset
             # ----------------------------------
 
-            train_dataloader, eval_dataloader = prepare_dataset(dataset['train'], dataset['test'], config, 1024, config.seed + round_num + epoch_num)
+            train_dataloader, eval_dataloader = prepare_dataset(
+                dataset['train'],
+                dataset['test'],
+                config,
+                response_template_ids,
+                config.seed + round_num + epoch_num,
+            )
             if is_main_process():
                 check_batch_shape(train_dataloader)
             

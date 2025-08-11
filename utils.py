@@ -469,7 +469,7 @@ if __name__ == "__main__":
     logit_dataset = datasets.load_from_disk("/scratch/klambert/slm_ensembles/teacher_logits/teacher_logits")
 
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("1assistant\n")["input_ids"]
+    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     student_model = AutoModelForCausalLM.from_pretrained(
@@ -477,6 +477,3 @@ if __name__ == "__main__":
         torch_dtype=torch.bfloat16,
     ).to(device)
 
-    main_print("sampling 100 examples")
-    small_test = dataset["test"]
-    evaluate_model(student_model, small_test, collator)
