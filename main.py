@@ -314,7 +314,7 @@ def main(args):
                 dataset['train'],
                 dataset['test'],
                 config,
-                response_template_ids,
+                1024,
                 config.seed + round_num + epoch_num,
             )
             if is_main_process():
