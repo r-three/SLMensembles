@@ -17,3 +17,4 @@ datasets/
 csv_files/
 teacher_logits/
 teacher_logits2/
+results.csv
