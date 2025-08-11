@@ -310,7 +310,7 @@ class Trainer(ABC):
         valid_count = valid_mask.sum()
         return loss, None, None, valid_count
 
-    def step(self, train_batch, eval_dl, epoch):
+    def step(self, train_batch, eval_dl, epoch, wandb_run):
         train_loss = self.train_step(train_batch, epoch)
 
         test_loss = None
