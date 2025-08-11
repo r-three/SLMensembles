@@ -511,23 +511,15 @@ class DistillTrainer(Trainer):
 
         # sum(len(inputs['logprob_indices'][i])) = mask.sum()
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        student_masked_probs = student_probs[mask]        # [valid_count, vocab]
-
-        teacher_logprob_values  = torch.cat(
-            [torch.tensor(v) for v in inputs['logprob_values']], 0
-        ).to(student_logits.device)
-        teacher_logprob_indices = torch.cat(
-            [torch.tensor(i) for i in inputs['logprob_indices']], 0
-        ).to(student_logits.device, dtype=torch.int64)
-
-        label_mask_flat = inputs['labels'].view(-1).ne(-100)
-        teacher_logprob_values  = teacher_logprob_values[label_mask_flat]
-        teacher_logprob_indices = teacher_logprob_indices[label_mask_flat]
-
-        student_selected_probs = student_masked_probs.gather(-1, teacher_logprob_indices)
-        kl_loss = F.kl_div(student_selected_probs,
-                        teacher_logprob_values,
-                        log_target=True, reduction='none').sum()
+        student_masked_probs = student_probs[mask]        # [valid_count, vocab_size]
+        
+        teacher_logprob_values = torch.cat([torch.tensor(inputs['logprob_values'][i]) for i in range(len(inputs['logprob_values']))], dim=0).to(student_logits.device)
+        teacher_logprob_indices = torch.cat([torch.tensor(inputs['logprob_indices'][i]) for i in range(len(inputs['logprob_indices']))], dim=0).to(torch.int64).to(student_logits.device, dtype=torch.int64)
+        
+        student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
+        
+        kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum()
+        
         return kl_loss
 
 
