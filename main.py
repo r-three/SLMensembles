@@ -26,6 +26,7 @@ from pathlib import Path
 from datasets import Dataset, DatasetDict
 from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
+import wandb
 
 def main(args):
 
@@ -292,7 +293,8 @@ def main(args):
             ensemble_model,
             logger=logger,
             round_num=round_num,
-            overall_start_time=overall_start_time
+            overall_start_time=overall_start_time,  
+            wandb_run=wandb_run,
         )
         trainer.prepare_train()
 
@@ -306,43 +308,95 @@ def main(args):
             main_print(f"--> Starting Epoch {epoch_num} at: {epoch_start_datetime}")
             main_print(f"{'='*50}")
 
-            # ----------------------------------
-            # Prepare dataset
-            # ----------------------------------
 
-            train_dataloader, eval_dataloader = prepare_dataset(
-                dataset['train'],
-                dataset['test'],
-                config,
-                1024,
-                config.seed + round_num + epoch_num,
+    # Initialize wandb
+    if is_main_process():
+        try:
+            wandb_run = wandb.init(
+                project="slm-ensembles",  # Your project name
+                name=f"{config.run_name}+round_{round_num}",  # Run name
+                config={
+                    "model_name": config.student_model_name,
+                    "teacher_model": config.teacher_model_name,
+                    "learning_rate": config.learning_rate,
+                    "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
+                    "max_length": 1024,
+                    "alpha": config.alpha,
+                    "seed": config.seed,
+                    "description": config.description,
+                    "round": round_num,
+                    "dataset_name": config.dataset_name,
+                    "dataset_type": config.dataset_type,
+                    "total_rounds": config.total_rounds,
+                    "num_train_epochs": config.num_train_epochs,
+                    "gradient_accumulation_steps": config.gradient_accumulation_steps,
+                    "max_grad_norm": getattr(config, 'max_grad_norm', 1.0),
+                },
+                tags=["knowledge-distillation", "fsdp2", "ensemble"],
+                notes=f"Round {round_num} started at {round_start_datetime}",
+                resume="allow",
             )
-            if is_main_process():
-                check_batch_shape(train_dataloader)
-            
-            train_dl_iterator = iter(train_dataloader)
+            main_print(f"--> Initialized wandb run: {wandb_run.name}")
+        except Exception as e:
+            main_print(f"--> Warning: Failed to initialize wandb: {e}")
+            main_print("--> Continuing without wandb logging")
+            wandb_run = None
+    else:
+        wandb_run = None
+        
+        # ----------------------------------
+        # Prepare dataset
+        # ----------------------------------
 
-            # ----------------------------------
-            # Inner Training Loop
-            # ----------------------------------
+        train_dataloader, eval_dataloader = prepare_dataset(
+            dataset['train'],
+            dataset['test'],
+            config,
+            1024,
+            config.seed + round_num + epoch_num,
+        )
+        if is_main_process():
+            check_batch_shape(train_dataloader)
+        
+        train_dl_iterator = iter(train_dataloader)
 
-            for i in tqdm(
-                range(len(train_dataloader)),
-                disable=rank != 0,
-                file=sys.__stdout__,
-            ):
-                if args.explicit_prefetching:
-                    trainer.model.unshard()
-                batch = next(train_dl_iterator)
-                trainer.step(batch, eval_dataloader, epoch_num)
+        # ----------------------------------
+        # Inner Training Loop
+        # ----------------------------------
 
-            # ----------------------------------
-            # Save checkpoint
-            # ----------------------------------
-            checkpoint_name = f"{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
-            path = os.path.join(config.checkpoint_dir, checkpoint_name)
-            checkpointer.save(trainer.model, optim, path)
+        for i in tqdm(
+            range(len(train_dataloader)),
+            disable=rank != 0,
+            file=sys.__stdout__,
+        ):
+            if args.explicit_prefetching:
+                trainer.model.unshard()
+            batch = next(train_dl_iterator)
+            trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
 
+        # ----------------------------------
+        # Update wandb run name and log metrics
+        # ----------------------------------
+
+        if is_main_process() and wandb_run is not None:
+            wandb_run.name = f"round_{round_num}_epoch_{epoch_num}"
+            wandb_run.log({"epoch": epoch_num, "round": round_num}) 
+
+        # ----------------------------------
+        # Save checkpoint
+        # ----------------------------------
+        
+        checkpoint_name = f"{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
+        path = os.path.join(config.checkpoint_dir, checkpoint_name)
+        checkpointer.save(trainer.model, optim, path)
+
+    # ----------------------------------
+    # Cleanup
+    # ----------------------------------
+    if is_main_process() and wandb_run is not None:
+        wandb_run.finish()
+        main_print("--> Finished wandb run")
+    
     checkpointer.save(trainer.model, optim)
     torch.distributed.destroy_process_group()
 

@@ -250,6 +250,7 @@ class Trainer(ABC):
         logger=None,
         round_num=0,
         overall_start_time=None,
+        wandb_run=None,
     ) -> None:
         self.model = model
         self.optim = optim
@@ -258,6 +259,7 @@ class Trainer(ABC):
         self.logger = logger
         self.round_num = round_num
         self.overall_start_time = overall_start_time
+        self.wandb_run = wandb_run
         self.processed_id = 0
         self.gad = 0    # gradient accumulated incremented before fwd pass.
         self.gas = config.gradient_accumulation_steps
@@ -314,6 +316,26 @@ class Trainer(ABC):
         test_loss = None
         if self.tr_step % self.config.logging_steps == 0:
             test_loss = self.eval_step(eval_dl, epoch)
+        
+        if self.wandb_run is not None:
+            log_dict = {
+                "train/loss": train_loss,
+                "train/epoch": epoch,
+                "train/round": self.round_num,
+                "train/step": self.tr_step,
+                "train/learning_rate": self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
+            }
+            
+            if test_loss is not None:
+                log_dict.update({
+                    "eval/loss": test_loss,
+                    "eval/epoch": epoch,
+                    "eval/round": self.round_num,
+                    "eval/step": self.tr_step,
+                })
+            
+            self.wandb_run.log(log_dict, step=self.tr_step)
+        
         self.tr_step += 1
         return train_loss, test_loss
     
@@ -431,6 +453,7 @@ class DistillTrainer(Trainer):
         logger=None,
         round_num=0,
         overall_start_time=None,
+        wandb_run=None,
     ) -> None:
         self.ensemble_model = ensemble_model
         super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time)
