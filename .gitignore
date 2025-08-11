@@ -7,6 +7,7 @@ trl/
 .vscode/
 .venv/
 csv_logs/
+csv_logs_prev/
 models/
 train.sh
 config.py
