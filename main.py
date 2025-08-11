@@ -299,6 +299,44 @@ def main(args):
         trainer.prepare_train()
 
         # ----------------------------------
+        # Initialize wandb
+        # ----------------------------------
+        
+        if is_main_process():
+            try:
+                wandb_run = wandb.init(
+                    project="slm-ensembles",  # Your project name
+                    name=f"{config.run_name}+round_{round_num}",  # Run name
+                    config={
+                        "model_name": config.student_model_name,
+                        "teacher_model": config.teacher_model_name,
+                        "learning_rate": config.learning_rate,
+                        "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
+                        "max_length": 1024,
+                        "alpha": config.alpha,
+                        "seed": config.seed,
+                        "description": config.description,
+                        "round": round_num,
+                        "dataset_name": config.dataset_name,
+                        "dataset_type": config.dataset_type,
+                        "total_rounds": config.total_rounds,
+                        "num_train_epochs": config.num_train_epochs,
+                        "gradient_accumulation_steps": config.gradient_accumulation_steps,
+                        "max_grad_norm": getattr(config, 'max_grad_norm', 1.0),
+                    },
+                    tags=["knowledge-distillation", "fsdp2", "ensemble"],
+                    notes=f"Round {round_num} started at {round_start_datetime}",
+                    resume="allow",
+                )
+                main_print(f"--> Initialized wandb run: {wandb_run.name}")
+            except Exception as e:
+                main_print(f"--> Warning: Failed to initialize wandb: {e}")
+                main_print("--> Continuing without wandb logging")
+                wandb_run = None
+        else:
+            wandb_run = None
+
+        # ----------------------------------
         # Epoch Loop
         # ----------------------------------
 
@@ -307,98 +345,81 @@ def main(args):
             main_print(f"\n{'='*50}")
             main_print(f"--> Starting Epoch {epoch_num} at: {epoch_start_datetime}")
             main_print(f"{'='*50}")
+            
+            # ----------------------------------
+            # Prepare dataset
+            # ----------------------------------
 
-
-    # Initialize wandb
-    if is_main_process():
-        try:
-            wandb_run = wandb.init(
-                project="slm-ensembles",  # Your project name
-                name=f"{config.run_name}+round_{round_num}",  # Run name
-                config={
-                    "model_name": config.student_model_name,
-                    "teacher_model": config.teacher_model_name,
-                    "learning_rate": config.learning_rate,
-                    "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
-                    "max_length": 1024,
-                    "alpha": config.alpha,
-                    "seed": config.seed,
-                    "description": config.description,
-                    "round": round_num,
-                    "dataset_name": config.dataset_name,
-                    "dataset_type": config.dataset_type,
-                    "total_rounds": config.total_rounds,
-                    "num_train_epochs": config.num_train_epochs,
-                    "gradient_accumulation_steps": config.gradient_accumulation_steps,
-                    "max_grad_norm": getattr(config, 'max_grad_norm', 1.0),
-                },
-                tags=["knowledge-distillation", "fsdp2", "ensemble"],
-                notes=f"Round {round_num} started at {round_start_datetime}",
-                resume="allow",
+            train_dataloader, eval_dataloader = prepare_dataset(
+                dataset['train'],
+                dataset['test'],
+                config,
+                1024,
+                config.seed + round_num + epoch_num,
             )
-            main_print(f"--> Initialized wandb run: {wandb_run.name}")
-        except Exception as e:
-            main_print(f"--> Warning: Failed to initialize wandb: {e}")
-            main_print("--> Continuing without wandb logging")
-            wandb_run = None
-    else:
-        wandb_run = None
-        
-        # ----------------------------------
-        # Prepare dataset
-        # ----------------------------------
+            if is_main_process():
+                check_batch_shape(train_dataloader)
+            
+            train_dl_iterator = iter(train_dataloader)
 
-        train_dataloader, eval_dataloader = prepare_dataset(
-            dataset['train'],
-            dataset['test'],
-            config,
-            1024,
-            config.seed + round_num + epoch_num,
-        )
-        if is_main_process():
-            check_batch_shape(train_dataloader)
-        
-        train_dl_iterator = iter(train_dataloader)
+            # ----------------------------------
+            # Inner Training Loop
+            # ----------------------------------
 
-        # ----------------------------------
-        # Inner Training Loop
-        # ----------------------------------
+            for i in tqdm(
+                range(len(train_dataloader)),
+                disable=rank != 0,
+                file=sys.__stdout__,
+            ):
+                if args.explicit_prefetching:
+                    trainer.model.unshard()
+                batch = next(train_dl_iterator)
+                trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
 
-        for i in tqdm(
-            range(len(train_dataloader)),
-            disable=rank != 0,
-            file=sys.__stdout__,
-        ):
-            if args.explicit_prefetching:
-                trainer.model.unshard()
-            batch = next(train_dl_iterator)
-            trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
+            # ----------------------------------
+            # Save checkpoint
+            # ----------------------------------
+            torch.distributed.barrier()  # Wait for all ranks to finish the epoch
+            
+            # Rank 0 picks the checkpoint name, broadcasts to others
+            if rank == 0:
+                checkpoint_name = (
+                    f"{round_num}_{epoch_num}_{trainer.tr_step}_"
+                    f"{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
+                )
+            else:
+                checkpoint_name = None
+                
+            # Broadcast the checkpoint name to all ranks
+            name_holder = [checkpoint_name]
+            torch.distributed.broadcast_object_list(name_holder, src=0)
+            checkpoint_name = name_holder[0]
+            
+            # All ranks call save (but only rank 0 will write)
+            path = os.path.join(config.checkpoint_dir, checkpoint_name)
+            checkpointer.save(trainer.model, optim, path)
 
-        # ----------------------------------
-        # Update wandb run name and log metrics
-        # ----------------------------------
+            # ----------------------------------
+            # Update wandb run name and log metrics
+            # ----------------------------------
 
         if is_main_process() and wandb_run is not None:
             wandb_run.name = f"round_{round_num}_epoch_{epoch_num}"
             wandb_run.log({"epoch": epoch_num, "round": round_num}) 
 
         # ----------------------------------
-        # Save checkpoint
-        # ----------------------------------
+        # Final sync before cleanup
+        torch.distributed.barrier()
         
-        checkpoint_name = f"{round_num}_{epoch_num}_{trainer.tr_step}_{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
-        path = os.path.join(config.checkpoint_dir, checkpoint_name)
-        checkpointer.save(trainer.model, optim, path)
-
-    # ----------------------------------
-    # Cleanup
-    # ----------------------------------
-    if is_main_process() and wandb_run is not None:
-        wandb_run.finish()
-        main_print("--> Finished wandb run")
-    
-    checkpointer.save(trainer.model, optim)
-    torch.distributed.destroy_process_group()
+        # Final checkpoint (all ranks call, only rank 0 writes)
+        checkpointer.save(trainer.model, optim)
+        
+        # Cleanup (main rank only)
+        if is_main_process() and wandb_run is not None:
+            wandb_run.finish()
+            main_print("--> Finished wandb run")
+            
+        torch.distributed.destroy_process_group()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")
