@@ -51,182 +51,186 @@ class LoggingCallback(TrainerCallback):
         return control
 
 
-class DistillationTrainer(SFTTrainer):
-    def __init__(self, ensemble_model, logger, round_num, overall_start_time, *args, **kwargs):
-        self.ensemble_model = ensemble_model
-        self.logger = logger
-        self.round_num = round_num
-        self.overall_start_time = overall_start_time
-        self.extra_logging_info = {"kl_losses": []}
-
-        super().__init__(*args, **kwargs)
-
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
-        labels = inputs["labels"]
-
-        # -------------------------
-        # Compute Student Predictions
-        # -------------------------
-        student_outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-        student_logits = student_outputs.logits
-
-        if hasattr(model, "module"):
-            model = model.module
-
-        next_token_loss = model.loss_function(
-            logits=student_logits,
-            labels=labels,
-            vocab_size=config.student_vocab_size,
-        )
-
-        # ----------------------------
-        # Compute Ensemble Predictions
-        # ----------------------------
-        ensemble_logits = None
-        if self.ensemble_model is not None:
-            with torch.no_grad():
-                ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
-                ensemble_logits = ensemble_outputs.logits
-
-        # -------------------------
-        # Compute Loss
-        # -------------------------
-        alpha = config.alpha if not config.synthetic_data else 1
-        kl_loss = 0
-        if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
-        hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
-        
-        # -------------------------
-        # Log
-        # -------------------------
-        if self.state.global_step % self.args.logging_steps == 0:
-            self.logger.log(
-                function="compute_loss",
-                round_num=self.round_num,
-                phase="train",
-                role="student",
-                step=self.state.global_step,
-                train_loss=hybrid_loss.item(),
-                train_next_token_loss=next_token_loss.item(),
-                train_kl_loss=kl_loss.item(),
-                alpha=alpha,
-                learning_rate=self._get_learning_rate(),
-            )
-
-        return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
-
-    def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
-        teacher_logit_indices = inputs["logit_indices"]
-        teacher_logit_values = inputs["logit_values"]
-
-        # ----------------------------------------
-        # Combine model predictions with ensemble
-        # ----------------------------------------
-        if ensemble_logits is not None:
-            num_models = len(self.ensemble_model.models)
-            student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
-
-        # ------------------------------
-        # Reconstruct the teacher logits
-        # ------------------------------
-        batch_size, seq_len, vocab_size = student_logits.shape  # [8, 1024, 151936]
-        teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e8, device=student_logits.device)
-        teacher_logits.scatter_(-1, teacher_logit_indices, teacher_logit_values)
-
-        # -----------------------
-        # Compute KL Loss
-        # -----------------------
-        student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        teacher_probs = F.log_softmax(teacher_logits / temperature, dim=-1)
-        kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
-        return kl_loss[mask].mean()
-
-    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
-        labels = inputs["labels"]
-
-        # -------------------------
-        # Compute Predictions
-        # -------------------------
-        with torch.no_grad():
-            student_logits = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels).logits
-            ensemble_logits = None
-            if self.ensemble_model is not None:
-                ensemble_logits = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits
-
-            if ensemble_logits is not None:
-                num_models = len(self.ensemble_model.models)
-                total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
-            else:
-                total_ensemble_logits = student_logits
-
-        # ------------------------------
-        # Handle potential DDP wrapping
-        # ------------------------------
-        if config.ddp and hasattr(model, "module"):
-            model = model.module
-
-        # ------------------------------
-        # Compute Loss
-        # ------------------------------
-        loss = model.loss_function(
-            logits=total_ensemble_logits,
-            labels=labels,
-            vocab_size=model.config.vocab_size,
-        )
-
-        kl_loss = 0
-        if not config.synthetic_data:
-            kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
-            self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
-
-        # ------------------------------
-        # Log
-        # ------------------------------
-        if self.state.global_step % self.args.logging_steps == 0:
-            self.logger.log(
-                function="prediction_step",
-                round_num=self.round_num,
-                phase="eval",
-                role="student",
-                step=self.state.global_step,
-                eval_loss=loss.item(),
-                eval_kl_loss=kl_loss.item(),
-            )
-
-        return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
-
-    def evaluation_loop(
-        self,
-        dataloader,
-        description,
-        prediction_loss_only=None,
-        ignore_keys=None,
-        metric_key_prefix="eval",
-    ):
-        output = super().evaluation_loop(
-            dataloader,
-            description,
-            prediction_loss_only,
-            ignore_keys,
-            metric_key_prefix,
-        )
-
-        self.logger.log(
-            function="evaluation_loop",
-            round_num=self.round_num,
-            phase="eval",
-            role="student",
-            step=self.state.global_step,
-            eval_loss=output.metrics["eval_loss"],
-            eval_kl_loss=np.mean(self.extra_logging_info["kl_losses"]),
-        )
-        self.extra_logging_info = {"kl_losses": []}
-        return output
+# class DistillationTrainer(SFTTrainer):
+#     def __init__(self, ensemble_model, logger, round_num, overall_start_time, *args, **kwargs):
+#         self.ensemble_model = ensemble_model
+#         self.logger = logger
+#         self.round_num = round_num
+#         self.overall_start_time = overall_start_time
+#         self.extra_logging_info = {"kl_losses": []}
+# 
+#         super().__init__(*args, **kwargs)
+# 
+#     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+#         input_ids = inputs["input_ids"]
+#         attention_mask = inputs["attention_mask"]
+#         labels = inputs["labels"]
+# 
+#         # -------------------------
+#         # Compute Student Predictions
+#         # -------------------------
+#         student_outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+#         student_logits = student_outputs.logits
+# 
+#         if hasattr(model, "module"):
+#             model = model.module
+# 
+#         next_token_loss = model.loss_function(
+#             logits=student_logits,
+#             labels=labels,
+#             vocab_size=config.student_vocab_size,
+#         )
+# 
+#         # ----------------------------
+#         # Compute Ensemble Predictions
+#         # ----------------------------
+#         ensemble_logits = None
+#         if self.ensemble_model is not None:
+#             with torch.no_grad():
+#                 ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
+#                 ensemble_logits = ensemble_outputs.logits
+# 
+#         # -------------------------
+#         # Compute Loss
+#         # -------------------------
+#         alpha = config.alpha if not config.synthetic_data else 1
+#         kl_loss = 0
+#         if not config.synthetic_data:
+#             kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
+#         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
+#         
+#         # -------------------------
+#         # Log
+#         # -------------------------
+#         if self.state.global_step % self.args.logging_steps == 0:
+#             self.logger.log(
+#                 function="compute_loss",
+#                 round_num=self.round_num,
+#                 phase="train",
+#                 role="student",
+#                 step=self.state.global_step,
+#                 train_loss=hybrid_loss.item(),
+#                 train_next_token_loss=next_token_loss.item(),
+#                 train_kl_loss=kl_loss.item(),
+#                 alpha=alpha,
+#                 learning_rate=self._get_learning_rate(),
+#             )
+# 
+#         return (hybrid_loss, student_logits) if return_outputs else hybrid_loss
+# 
+#     def compute_kl_loss(self, student_logits, ensemble_logits, mask, inputs, temperature=1.0):
+#         # check_batch_shape takes a dataloader as input, but here we only have the current batch (inputs).
+#         # If you want to inspect the current batch, you can print its shape directly:
+#         print({k: (v.shape if isinstance(v, torch.Tensor) else type(v)) for k, v in inputs.items()})
+#         teacher_logit_indices = inputs["logit_indices"]
+#         teacher_logit_values = inputs["logit_values"]
+# 
+#         # ----------------------------------------
+#         # Combine model predictions with ensemble
+#         # ----------------------------------------
+#         if ensemble_logits is not None:
+#             num_models = len(self.ensemble_model.models)
+#             student_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
+# 
+#         # ------------------------------
+#         # Reconstruct the teacher logits
+#         # ------------------------------
+#         batch_size, seq_len, vocab_size = student_logits.shape  # [8, 1024, 151936]
+#         teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e8, device=student_logits.device)
+#         teacher_logits.scatter_(-1, teacher_logit_indices, teacher_logit_values)
+# 
+#         # -----------------------
+#         # Compute KL Loss
+#         # -----------------------
+#         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
+#         teacher_probs = F.log_softmax(teacher_logits / temperature, dim=-1)
+#         kl_loss = F.kl_div(student_probs, teacher_probs, log_target=True, reduction="none").sum(-1)
+#         return kl_loss[mask].mean()
+# 
+# 
+#     def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+#         input_ids = inputs["input_ids"]
+#         attention_mask = inputs["attention_mask"]
+#         labels = inputs["labels"]
+# 
+#         # -------------------------
+#         # Compute Predictions
+#         # -------------------------
+#         with torch.no_grad():
+#             student_logits = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels).logits
+#             ensemble_logits = None
+#             if self.ensemble_model is not None:
+#                 ensemble_logits = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask).logits
+# 
+#             if ensemble_logits is not None:
+#                 num_models = len(self.ensemble_model.models)
+#                 total_ensemble_logits = student_logits / (num_models + 1) + ensemble_logits * (num_models / (num_models + 1))
+#             else:
+#                 total_ensemble_logits = student_logits
+# 
+#         # ------------------------------
+#         # Handle potential DDP wrapping
+#         # ------------------------------
+#         if config.ddp and hasattr(model, "module"):
+#             model = model.module
+# 
+#         # ------------------------------
+#         # Compute Loss
+#         # ------------------------------
+#         loss = model.loss_function(
+#             logits=total_ensemble_logits,
+#             labels=labels,
+#             vocab_size=model.config.vocab_size,
+#         )
+# 
+#         kl_loss = 0
+#         if not config.synthetic_data:
+#             kl_loss = self.compute_kl_loss(student_logits, ensemble_logits, mask=labels != -100, inputs=inputs)
+#             self.extra_logging_info.setdefault("kl_losses", []).append(kl_loss.item())
+# 
+#         # ------------------------------
+#         # Log
+#         # ------------------------------
+#         if self.state.global_step % self.args.logging_steps == 0:
+#             self.logger.log(
+#                 function="prediction_step",
+#                 round_num=self.round_num,
+#                 phase="eval",
+#                 role="student",
+#                 step=self.state.global_step,
+#                 eval_loss=loss.item(),
+#                 eval_kl_loss=kl_loss.item(),
+#             )
+# 
+#         return (loss, None, None) if prediction_loss_only else (loss, student_logits, labels)
+# 
+#     def evaluation_loop(
+#         self,
+#         dataloader,
+#         description,
+#         prediction_loss_only=None,
+#         ignore_keys=None,
+#         metric_key_prefix="eval",
+#     ):
+#         output = super().evaluation_loop(
+#             dataloader,
+#             description,
+#             prediction_loss_only,
+#             ignore_keys,
+#             metric_key_prefix,
+#         )
+# 
+#         self.logger.log(
+#             function="evaluation_loop",
+#             round_num=self.round_num,
+#             phase="eval",
+#             role="student",
+#             step=self.state.global_step,
+#             eval_loss=output.metrics["eval_loss"],
+#             eval_kl_loss=np.mean(self.extra_logging_info["kl_losses"]),
+#         )
+#         self.extra_logging_info = {"kl_losses": []}
+#         return output
 
 
 # ---------------------- Manual Implementation ----------------------
@@ -499,43 +503,32 @@ class DistillTrainer(Trainer):
             )
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
-    
+
     def compute_kl_loss(self, student_logits, mask, inputs, temperature=1.0):
-        
         # -----------------------
         # Compute KL Loss
         # -----------------------
+
         # sum(len(inputs['logprob_indices'][i])) = mask.sum()
         student_probs = F.log_softmax(student_logits / temperature, dim=-1)
-        student_masked_probs = student_probs[mask]        # [valid_count, vocab_size]
-        teacher_logprob_values = torch.cat([torch.tensor(inputs['logprob_values'][i]) for i in range(len(inputs['logprob_values']))], dim=0).to(student_logits.device)
-        teacher_logprob_indices = torch.cat([torch.tensor(inputs['logprob_indices'][i]) for i in range(len(inputs['logprob_indices']))], dim=0).to(torch.int64).to(student_logits.device, dtype=torch.int64)
-        student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
-        kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum()
+        student_masked_probs = student_probs[mask]        # [valid_count, vocab]
 
-        # Alternatively
-        # t = (teacher_logit_values / temperature)
-        # t_logZ = torch.logsumexp(t, dim=-1, keepdim=True)                 # [B,T,1]
-        # teacher_logp_S = t - t_logZ                                       # [B,T,K]
+        teacher_logprob_values  = torch.cat(
+            [torch.tensor(v) for v in inputs['logprob_values']], 0
+        ).to(student_logits.device)
+        teacher_logprob_indices = torch.cat(
+            [torch.tensor(i) for i in inputs['logprob_indices']], 0
+        ).to(student_logits.device, dtype=torch.int64)
 
-        # # student log-probs on S but with FULL-vocab normalization
-        # s_logZ_full = torch.logsumexp(student_logits / temperature, dim=-1, keepdim=True)  # [B,T,1]
-        # student_selected = student_logits.gather(-1, teacher_logit_indices)       # [B,T,K]
-        # student_logp_S_full = (student_selected / temperature) - s_logZ_full                # [B,T,K]
+        label_mask_flat = inputs['labels'].view(-1).ne(-100)
+        teacher_logprob_values  = teacher_logprob_values[label_mask_flat]
+        teacher_logprob_indices = teacher_logprob_indices[label_mask_flat]
 
-        # # KL(teacher || student) over the full vocab equals sum over S of p_T * (log p_T - log q_full)
-        # kl_manual = torch.exp(teacher_logp_S) * (teacher_logp_S - student_logp_S_full)
-        # kl_manual = kl_manual.sum(-1)[mask].sum()                                         # [B,T]
-
-        # if dist.get_rank() == 0:
-        #     print("KL: ", kl_loss.item(), kl_manual.item())
-        # Alternative (manual) method is slightly different from the exact method. But experimentally it doesn't save any memory.
-
+        student_selected_probs = student_masked_probs.gather(-1, teacher_logprob_indices)
+        kl_loss = F.kl_div(student_selected_probs,
+                        teacher_logprob_values,
+                        log_target=True, reduction='none').sum()
         return kl_loss
-
-
-
-
 
 
 

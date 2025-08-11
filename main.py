@@ -80,8 +80,8 @@ def main(args):
 
     # Response template used to mark the start of the assistant's reply in the
     # tokenized sequence. Must be a LIST of token ids, not an integer.
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    response_template_ids = tokenizer("<|im_start|>assistant\n", add_special_tokens=False)["input_ids"]
+    # tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
+    # response_template_ids = tokenizer("<|im_start|>assistant\n", add_special_tokens=False)["input_ids"]
 
     # ----------------------------------
     # Metrics
@@ -273,7 +273,7 @@ def main(args):
             dataset['train'],
             dataset['test'],
             config,
-            response_template_ids,
+            1024,
             config.seed,
         )  # Just to get the length, initialize again for each epoch.
         num_training_steps = len(train_dataloader) * config.num_train_epochs

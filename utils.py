@@ -187,8 +187,64 @@ class CSVLogger:
 
 # ---------------------- Dataset handling ----------------------
 
-def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
+class CustomPadCollator:
+    def __init__(self, max_length, pad_token_id: int = -100, pad_label_id: int = -100, pad_attention_id: int = 0):
+        self.max_length = max_length
+        self.pad_token_id = pad_token_id
+        self.pad_label_id = pad_label_id
+        self.pad_attention_id = pad_attention_id
+
+    def __call__(self, batch):
+        batch_padded = {
+            "input_ids": [],
+            "attention_mask": [],
+            "labels": []
+        }
+
+        # Track other keys
+        other_keys = [k for k in batch[0].keys() if k not in batch_padded]
+
+        for item in batch:
+            length = len(item["input_ids"])
+            pad_len = self.max_length - length
+
+            batch_padded["input_ids"].append(torch.cat([
+                torch.tensor(item["input_ids"]),
+                torch.full((pad_len,), self.pad_token_id, dtype=torch.tensor(item["input_ids"]).dtype)
+            ]))
+
+            batch_padded["attention_mask"].append(torch.cat([
+                torch.tensor(item["attention_mask"]),
+                torch.full((pad_len,), self.pad_attention_id, dtype=torch.tensor(item["attention_mask"]).dtype)
+            ]))
+
+            batch_padded["labels"].append(torch.cat([
+                torch.tensor(item["labels"]),
+                torch.full((pad_len,), self.pad_label_id, dtype=torch.tensor(item["labels"]).dtype)
+            ]))
+
+        # Stack padded fields
+        for k in ["input_ids", "attention_mask", "labels"]:
+            batch_padded[k] = torch.stack(batch_padded[k])
+
+        # Add other keys without padding (just stack as-is)
+        for k in other_keys:
+            values = [item[k] for item in batch]
+            try:
+                batch_padded[k] = torch.stack(values)
+            except:
+                batch_padded[k] = values  # Leave as list if not stackable
+
+        return batch_padded
+  
+def prepare_dataset(train_ds, eval_ds, config, max_length, seed):
     """Prepare datasets with distributed samplers for FSDP2 training."""
+
+    dc = CustomPadCollator(max_length, 
+                           pad_token_id=151699, 
+                           pad_label_id=-100, 
+                           pad_attention_id=0)
+
     train_sampler = DistributedSampler(
         train_ds,
         dist.get_world_size(),
@@ -209,45 +265,38 @@ def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
     # teacher-logit metadata) that `tokenizer.pad` cannot handle.  We then add
     # those keys back to the final batch so downstream loss functions can still
     # access them.
-    _base_collate = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-    def collate_fn(features):
-        """Wrapper around `DataCollatorForCompletionOnlyLM` that preserves
-        variable-length teacher-logit metadata while ensuring the underlying
-        tokenizer only sees fields it knows how to pad."""
-
-        # Keys that should NOT be passed through tokenizer.pad because they are
-        # either variable-length lists or already contain token ids of varying
-        # length.  'labels' is included because TRL's collator will recreate it
-        # after padding.
-        extra_keys = [
-            "logprob_indices",
-            "logprob_values",
-            "start_idx",
-            "end_idx",
-            "labels",  
-        ]
-
-        extras = {}
-        for k in extra_keys:
-            if k in features[0]:
-                extras[k] = [f.pop(k) for f in features]
-
-        # We do NOT add 'labels' back because _base_collate will generate
-        # correctly padded labels itself.  Other metadata is restored below.
-        extras.pop("labels", None)
-
-        batch = _base_collate(features)
-        if extras:
-            batch.update(extras)  # restore metadata (except labels)
-        return batch
+#     _base_collate = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+# 
+#     def collate_fn(features):
+#         """Wrapper around `DataCollatorForCompletionOnlyLM` that preserves
+#         variable-length teacher-logit metadata while ensuring the underlying
+#         tokenizer only sees fields it knows how to pad."""
+# 
+#         extra_keys = [
+#             "logprob_indices",
+#             "logprob_values",
+#             "start_idx",
+#             "end_idx",
+#             "labels",  
+#         ]
+# 
+#         extras = {}
+#         for k in extra_keys:
+#             if k in features[0]:
+#                 extras[k] = [f.pop(k) for f in features]
+# 
+#         batch = _base_collate(features)
+#         if extras:
+#             batch.update(extras)  # restore metadata (except labels)
+# 
+#         return batch
 
     train_dataloader = DataLoader(
         train_ds,
         batch_size=config.per_device_train_batch_size,
         sampler=train_sampler,
         shuffle=False,
-        collate_fn=collate_fn,
+        collate_fn=dc,
         num_workers=8,
         persistent_workers=False
     )
@@ -256,7 +305,7 @@ def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
         batch_size=config.eval_batch_size,
         sampler=test_sampler,
         shuffle=False,
-        collate_fn=collate_fn,
+        collate_fn=dc,
         num_workers=8,
         persistent_workers=False
     )
