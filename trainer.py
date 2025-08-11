@@ -317,7 +317,7 @@ class Trainer(ABC):
         if self.tr_step % self.config.logging_steps == 0:
             test_loss = self.eval_step(eval_dl, epoch)
         
-        if self.wandb_run is not None:
+        if self.wandb_run is not None and dist.get_rank() == 0:
             log_dict = {
                 "train/loss": train_loss,
                 "train/epoch": epoch,

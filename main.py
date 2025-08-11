@@ -332,7 +332,7 @@ def main(args):
             logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,  
-            wandb_run=wandb_run,
+            wandb_run=wandb_run if is_main_process() else None
         )
         trainer.prepare_train()
 
