@@ -85,12 +85,46 @@ def main(args):
     # response_template_ids = tokenizer("<|im_start|>assistant\n", add_special_tokens=False)["input_ids"]
 
     # ----------------------------------
+    # Initialize wandb (single run per experiment)
+    # ----------------------------------
+    if is_main_process():
+        try:
+            wandb_run = wandb.init(
+                project="slm-ensembles",
+                name=config.run_name,
+                config={
+                    "model_name": config.student_model_name,
+                    "teacher_model": config.teacher_model_name,
+                    "learning_rate": config.learning_rate,
+                    "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
+                    "max_length": 1024,
+                    "alpha": config.alpha,
+                    "seed": config.seed,
+                    "description": config.description,
+                    "dataset_name": config.dataset_name,
+                    "dataset_type": config.dataset_type,
+                    "total_rounds": config.total_rounds,
+                    "num_train_epochs": config.num_train_epochs,
+                    "gradient_accumulation_steps": config.gradient_accumulation_steps,
+                    "max_grad_norm": getattr(config, 'max_grad_norm', 1.0),
+                },
+                tags=["knowledge-distillation", "fsdp2", "ensemble"],
+                resume="allow",
+            )
+            main_print(f"--> Initialized wandb run: {wandb_run.name}")
+        except Exception as e:
+            main_print(f"--> Warning: Failed to initialize wandb: {e}")
+            main_print("--> Continuing without wandb logging")
+            wandb_run = None
+    else:
+        wandb_run = None
+
+    # ----------------------------------
     # Metrics
     # ----------------------------------
-
     if is_main_process():   
         metadata_dict = {
-            "Custom run name": config.custom_run_name,
+            "Run name": config.run_name,
             "Description": config.description,
             "Teacher Model": config.teacher_model_name,
             "Student Model": config.student_model_name,
@@ -104,7 +138,6 @@ def main(args):
             "Start Time": overall_start_datetime,
             "Model Save Dir": output_path,
             "ID string": config.id_string,
-            "Description": config.description,
         }
     main_print("\n==== RUN CONFIGURATION ====")
 
@@ -265,6 +298,11 @@ def main(args):
             start_epoch = 0
             ensemble_model = None
 
+        # Update wandb run name for this round
+        if is_main_process() and wandb_run is not None:
+            wandb_run.name = f"{config.run_name}_round_{round_num}"
+            wandb_run.log({"round": round_num})
+
         # ----------------------------------
         # Initialize trainer
         # ----------------------------------
@@ -297,44 +335,6 @@ def main(args):
             wandb_run=wandb_run,
         )
         trainer.prepare_train()
-
-        # ----------------------------------
-        # Initialize wandb
-        # ----------------------------------
-        
-        if is_main_process():
-            try:
-                wandb_run = wandb.init(
-                    project="slm-ensembles",  # Your project name
-                    name=f"{config.run_name}+round_{round_num}",  # Run name
-                    config={
-                        "model_name": config.student_model_name,
-                        "teacher_model": config.teacher_model_name,
-                        "learning_rate": config.learning_rate,
-                        "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
-                        "max_length": 1024,
-                        "alpha": config.alpha,
-                        "seed": config.seed,
-                        "description": config.description,
-                        "round": round_num,
-                        "dataset_name": config.dataset_name,
-                        "dataset_type": config.dataset_type,
-                        "total_rounds": config.total_rounds,
-                        "num_train_epochs": config.num_train_epochs,
-                        "gradient_accumulation_steps": config.gradient_accumulation_steps,
-                        "max_grad_norm": getattr(config, 'max_grad_norm', 1.0),
-                    },
-                    tags=["knowledge-distillation", "fsdp2", "ensemble"],
-                    notes=f"Round {round_num} started at {round_start_datetime}",
-                    resume="allow",
-                )
-                main_print(f"--> Initialized wandb run: {wandb_run.name}")
-            except Exception as e:
-                main_print(f"--> Warning: Failed to initialize wandb: {e}")
-                main_print("--> Continuing without wandb logging")
-                wandb_run = None
-        else:
-            wandb_run = None
 
         # ----------------------------------
         # Epoch Loop
