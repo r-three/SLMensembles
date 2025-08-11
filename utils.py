@@ -204,7 +204,43 @@ def prepare_dataset(train_ds, eval_ds, config, response_template_ids, seed):
     )
 
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    collate_fn = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+    
+    # Use the TRL collator to build labels, but first remove any extra keys (e.g.
+    # teacher-logit metadata) that `tokenizer.pad` cannot handle.  We then add
+    # those keys back to the final batch so downstream loss functions can still
+    # access them.
+    _base_collate = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+
+    def collate_fn(features):
+        """Wrapper around `DataCollatorForCompletionOnlyLM` that preserves
+        variable-length teacher-logit metadata while ensuring the underlying
+        tokenizer only sees fields it knows how to pad."""
+
+        # Keys that should NOT be passed through tokenizer.pad because they are
+        # either variable-length lists or already contain token ids of varying
+        # length.  'labels' is included because TRL's collator will recreate it
+        # after padding.
+        extra_keys = [
+            "logprob_indices",
+            "logprob_values",
+            "start_idx",
+            "end_idx",
+            "labels",  
+        ]
+
+        extras = {}
+        for k in extra_keys:
+            if k in features[0]:
+                extras[k] = [f.pop(k) for f in features]
+
+        # We do NOT add 'labels' back because _base_collate will generate
+        # correctly padded labels itself.  Other metadata is restored below.
+        extras.pop("labels", None)
+
+        batch = _base_collate(features)
+        if extras:
+            batch.update(extras)  # restore metadata (except labels)
+        return batch
 
     train_dataloader = DataLoader(
         train_ds,
