@@ -143,26 +143,38 @@ class CSVLogger:
         run_dirs = glob.glob(os.path.join(log_dir, "run_*"))
         next_run = max([int(os.path.basename(d).split("_")[1]) for d in run_dirs if "_" in d] + [0]) + 1
 
-        if config.custom_run_name is None:
-            filename = f"run_{next_run}_{filename}"
-        else:
-            filename = f"{config.custom_run_name}_metrics.csv"
+        run_name = config.run_name if config.run_name else f"run_{next_run}"
 
-        self.filepath = os.path.join(log_dir, filename)
+        hyper_str = (
+            f"ens{config.total_rounds}_"
+            f"alpha{config.alpha}_"
+            f"temp{config.kl_temperature}_"
+            f"lr{config.learning_rate}"
+        )
+
+        run_dir_tag = os.path.basename(config.get_directory(config.base_output_dir))
+
+        filename_base = f"{run_name}_{hyper_str}_{run_dir_tag}_metrics"
+        filename = f"{filename_base}.csv"
 
         if config.checkpoint_log_path:
-            # change the specified log dir to the one corresponding to the checkpointed model
             self.filepath = config.checkpoint_log_path
             if not os.path.exists(self.filepath):
                 main_print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
                 sys.exit(1)
-        elif os.path.exists(self.filepath) and not config.overwrite_csv:
-            main_print(f"[ERROR] Log file {self.filepath} already exists. Aborting to prevent overwrite.")
-            sys.exit(1)
         else:
-            with open(self.filepath, mode="w", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
-                writer.writeheader()
+            if os.path.exists(os.path.join(log_dir, filename)) and not config.overwrite_csv:
+                idx = 2
+                while os.path.exists(os.path.join(log_dir, f"{filename_base}_{idx}.csv")):
+                    idx += 1
+                filename = f"{filename_base}_{idx}.csv"
+
+            self.filepath = os.path.join(log_dir, filename)
+
+            if not os.path.exists(self.filepath) or config.overwrite_csv:
+                with open(self.filepath, mode="w", newline="") as f:
+                    writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                    writer.writeheader()
 
     def log(self, **kwargs):
         """Log a row of data with automatic timestamping."""
