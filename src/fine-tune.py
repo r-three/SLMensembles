@@ -23,19 +23,12 @@ from checkpoint import Checkpoint
 import wandb
 
 def main():
-    # ----------------------------------
-    # Logging and Run Name
-    # ----------------------------------
+    dataset = datasets.load_from_disk(config.dataset_path)
+    tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name)
 
-    log_dir = None
-    logger = None
+    teacher_model = AutoModelForCausalLM.from_pretrained(
+        config.teacher_model_name,
+        torch_dtype=torch.bfloat16,
+    ).to('cuda')
 
-    if is_main_process():
-        log_dir = config.get_directory(config.log_dir)
-        logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
-        atexit.register(logger.flush)
-
-    output_path = config.get_directory(config.base_output_dir)
-    run_name = f"{os.path.basename(output_path)}"
-    os.makedirs(config.logprob_cache_path, exist_ok=True)
-
+    
