@@ -366,7 +366,7 @@ def main(args):
             # Inner Training Loop
             # ----------------------------------
 
-            for i in tqdm(
+            for _ in tqdm(
                 range(len(train_dataloader)),
                 disable=rank != 0,
                 file=sys.__stdout__,
@@ -375,6 +375,8 @@ def main(args):
                     trainer.model.unshard()
                 batch = next(train_dl_iterator)
                 trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
+                if trainer.should_stop:
+                    break
 
             # ----------------------------------
             # Save checkpoint

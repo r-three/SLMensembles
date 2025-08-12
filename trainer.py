@@ -268,8 +268,8 @@ class Trainer(ABC):
         self.min_eval_loss = 1e12
         self.current_eval_loss = 1e12
         # Early stopping state
-        self.best_eval_loss = float('inf')
-        self.early_stop_wait = 0
+        self.best_loss = float('inf')
+        self.wait = 0
         self.should_stop = False
 
     def prepare_train(self):
@@ -444,15 +444,15 @@ class Trainer(ABC):
         self.current_eval_loss = mean_eval_loss
 
         # -------- Early stopping --------
-        if mean_eval_loss + self.config.early_stop_min_delta < self.best_eval_loss:
-            self.best_eval_loss = mean_eval_loss
-            self.early_stop_wait = 0
+        if self.best_loss - self.mean_eval_loss < config.early_stop_min_delta:
+            self.best_loss = mean_eval_loss
+            self.wait = 0
         else:
-            self.early_stop_wait += 1
-        if self.early_stop_wait >= self.config.early_stop_patience:
-            if self.rank == 0:
-                main_print(f"Early stopping triggered: no improvement for {self.early_stop_wait} evaluations.")
+            self.wait += 1
+        if self.wait >= config.early_stop_patience:
+            main_print(f"Early stopping triggered: no improvement for {self.wait} evaluations.")
             self.should_stop = True
+        
         self.model.train()
         return gathered_eval_loss
     
