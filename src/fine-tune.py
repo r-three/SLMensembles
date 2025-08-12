@@ -20,15 +20,56 @@ from pathlib import Path
 from datasets import Dataset, DatasetDict
 from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
+from transformers import TrainingArguments
 import wandb
 
 def main():
+    print("Loading ...")
     dataset = datasets.load_from_disk(config.dataset_path)
-    tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name)
+
+    tokenizer = AutoTokenizer.from_pretrained(config.teacher_model_name)
+    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+    collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     teacher_model = AutoModelForCausalLM.from_pretrained(
         config.teacher_model_name,
         torch_dtype=torch.bfloat16,
     ).to('cuda')
 
-    
+    print("Initializing trainer...")
+    training_args = TrainingArguments(
+        output_dir=config.get_directory(config.base_output_dir),
+        overwrite_output_dir=False,
+        per_device_train_batch_size=config.per_device_train_batch_size,
+        per_device_eval_batch_size=config.per_device_eval_batch_size,
+        gradient_accumulation_steps=config.gradient_accumulation_steps,
+        report_to="wandb",
+        learning_rate=config.learning_rate,
+        lr_scheduler_type=config.lr_scheduler,
+        weight_decay=config.weight_decay,
+        hub_model_id=None,
+        warmup_steps=config.warmup_steps,
+        gradient_checkpointing=False,
+        bf16=True,
+        remove_unused_columns=False,
+        max_steps=config.steps_per_round,
+        num_train_epochs=config.num_train_epochs,
+        evaluation_strategy="steps",
+        eval_steps=config.eval_steps,
+        eval_on_start=False,
+        logging_strategy="steps",
+        logging_steps=config.logging_steps,
+        save_strategy="no",
+    )
+
+    trainer = Trainer(
+        model=teacher_model,
+        args=training_args,
+        train_dataset=dataset['train'],
+        eval_dataset=dataset['test'],
+        tokenizer=tokenizer,
+        data_collator=collator,
+    )
+    print("Training...")
+    trainer.train()
+    print("Done training")
