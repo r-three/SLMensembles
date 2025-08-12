@@ -527,13 +527,13 @@ class DistillTrainer(Trainer):
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
 
-    def compute_kl_loss(self, student_logits, mask, inputs, temperature=1.0):
+    def compute_kl_loss(self, student_logits, mask, inputs):
         # -----------------------
         # Compute KL Loss
         # -----------------------
 
         # sum(len(inputs['logprob_indices'][i])) = mask.sum()
-        student_probs = F.log_softmax(student_logits / temperature, dim=-1)
+        student_probs = F.log_softmax(student_logits / config.kl_temperature, dim=-1)
         student_masked_probs = student_probs[mask]        # [valid_count, vocab_size]
         
         teacher_logprob_values = torch.cat([torch.tensor(inputs['logprob_values'][i]) for i in range(len(inputs['logprob_values']))], dim=0).to(student_logits.device)

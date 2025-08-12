@@ -153,6 +153,7 @@ class CSVLogger:
         )
 
         run_dir_tag = os.path.basename(config.get_directory(config.base_output_dir))
+        run_dir_tag = run_dir_tag.replace('/', '-')
 
         filename_base = f"{run_name}_{hyper_str}_{run_dir_tag}_metrics"
         filename = f"{filename_base}.csv"
