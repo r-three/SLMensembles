@@ -43,7 +43,7 @@ def main():
         config={
             "model_name": config.teacher_model_name,
             "learning_rate": config.learning_rate,
-            "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
+            "batch_size": config.per_device_train_batch_size,
             "seed": config.seed,
             "description": config.description,
             "dataset_name": config.dataset_name,
