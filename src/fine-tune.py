@@ -64,7 +64,6 @@ def main():
         output_dir=config.get_directory(config.base_output_dir),
         overwrite_output_dir=False,
         per_device_train_batch_size=config.per_device_train_batch_size,
-        per_device_eval_batch_size=config.per_device_eval_batch_size,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         report_to="wandb",
         learning_rate=config.learning_rate,
