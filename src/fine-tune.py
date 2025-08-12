@@ -1,5 +1,4 @@
 import os
-import time
 import torch
 from datetime import datetime
 import torch.distributed as dist
@@ -22,6 +21,7 @@ from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
 from transformers import TrainingArguments
 import wandb
+import config
 
 def main():
     print("Loading ...")
@@ -35,6 +35,28 @@ def main():
         config.teacher_model_name,
         torch_dtype=torch.bfloat16,
     ).to('cuda')
+
+    wandb_run = wandb.init(
+        project="slm-ensembles",
+        name=config.run_name,
+        config={
+            "model_name": config.teacher_model_name,
+            "learning_rate": config.learning_rate,
+            "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
+            "seed": config.seed,
+            "description": config.description,
+            "dataset_name": config.dataset_name,
+            "dataset_type": config.dataset_type,
+            "total_rounds": config.total_rounds,
+            "num_train_epochs": config.num_train_epochs,
+            "gradient_accumulation_steps": config.gradient_accumulation_steps,
+            "max_grad_norm": getattr(config, 'max_grad_norm', 1.0),
+        },
+        tags=["fine-tuning"],
+        resume="allow",
+    )
+
+    main_print(f"--> Initialized wandb run: {wandb_run.name}")
 
     print("Initializing trainer...")
     training_args = TrainingArguments(
@@ -73,3 +95,8 @@ def main():
     print("Training...")
     trainer.train()
     print("Done training")
+
+    teacher_model.save_pretrained(os.path.join(config.get_directory(config.base_output_dir), "fine-tuned-teacher"))
+
+    if wandb_run is not None:
+        wandb.finish()
