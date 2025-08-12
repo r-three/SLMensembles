@@ -20,6 +20,7 @@ from datasets import Dataset, DatasetDict
 from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
 from transformers import TrainingArguments, Trainer
+from datasets import load_from_disk
 import wandb
 import config
 
