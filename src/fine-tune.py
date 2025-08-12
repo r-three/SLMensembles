@@ -19,7 +19,7 @@ from pathlib import Path
 from datasets import Dataset, DatasetDict
 from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
-from transformers import TrainingArguments
+from transformers import TrainingArguments, Trainer
 import wandb
 import config
 
@@ -100,3 +100,7 @@ def main():
 
     if wandb_run is not None:
         wandb.finish()
+
+if __name__ == "__main__":
+    main()
+    
