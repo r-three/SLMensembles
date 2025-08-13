@@ -177,14 +177,12 @@ class DistillDataset:
 
         dataset = DatasetDict(dict)
         combined_path = os.path.join(config.logprob_cache_path, "teacher_logprobs")
-        dataset.save_to_disk(combined_path)
+        dataset.save_to_disk(combined_path, num_proc=32)
 
         main_print(f"--> Full dataset saved to {combined_path}")
         return combined_path
 
     def cache_teacher_logprobs(self):
-        if dist.get_world_size() != 1:
-            raise Exception("The ")
         if config.ddp and not dist.is_initialized():
             dist.init_process_group("nccl")
             main_print(f"Using {torch.distributed.get_backend()} backend")
@@ -221,6 +219,7 @@ class DistillDataset:
             }
 
             with torch.no_grad():
+                tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
                 for idx, sample in tqdm(enumerate(shard), total=len(shard)):
                     batch_data["input_ids"].append(sample["input_ids"])
                     batch_data["attention_mask"].append(sample["attention_mask"])
@@ -229,8 +228,6 @@ class DistillDataset:
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
                         input_ids = torch.stack(batch_data["input_ids"]).to(f"cuda:{rank}")
                         attention_mask = torch.stack(batch_data["attention_mask"]).to(f"cuda:{rank}")
-
-                        tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
 
                         outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
                         logits = outputs.logits.squeeze(0)  # [sample, 1024, 151000]
@@ -439,6 +436,7 @@ def prepare_dataset(train_ds, eval_ds, config, max_length, seed):
         sampler=train_sampler,
         shuffle=False,
         collate_fn=dc,
+        drop_last=True,
         num_workers=16,
         persistent_workers=False
     )
@@ -496,3 +494,30 @@ def check_batch_shape(train_dataloader):
     # print("shape labels: ", torch.tensor(temp_labels).shape)
     # print("shape logprob_values: ", torch.tensor(temp_logprob_values).shape)
     # print("shape logprob_indices: ", torch.tensor(temp_logprob_indices).shape)
+
+def log_lr(optimizer, step, log_every=100, label=""):
+    """
+    Print the current LR(s) at a regular interval.
+
+    Args
+    ----
+    optimizer : torch.optim.Optimizer
+        Your optimizer (Adam, AdamW, SGD …).
+    step      : int
+        Global training-step counter.
+    log_every : int
+        Print every `log_every` steps.
+    label     : str
+        Optional prefix (useful if you have multiple schedulers).
+    """
+    if step % log_every != 0:
+        return
+
+    # only print from rank-0 so DDP jobs don’t spam the console
+    if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:
+        return
+
+    # some schedulers keep one LR per param-group
+    lrs = [pg["lr"] for pg in optimizer.param_groups]
+    lr_str = ", ".join(f"{lr:.8e}" for lr in lrs)
+    print(f"{label}step {step:>6d} | lr = [{lr_str}]")

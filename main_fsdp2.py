@@ -1,10 +1,10 @@
 import argparse
-import os, gc, time, sys, pdb
+import os, gc, time, sys, pdb, csv
 import torch
 import atexit
 from datetime import datetime
 import torch.distributed as dist
-from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, Qwen2ForCausalLM, get_cosine_schedule_with_warmup
 from trl import DataCollatorForCompletionOnlyLM
 from pathlib import Path
 
@@ -150,7 +150,8 @@ def main(args):
         ensemble_model = None
 
 
-    for round_num in range(start_round, config.total_rounds):
+    # for round_num in range(start_round, config.total_rounds):
+    for round_num in range(start_round, start_round + 1):
 
         # Fix seed again before each round for better reproductivity.
         fix_seed(config.seed)
@@ -169,10 +170,16 @@ def main(args):
         # ----------------------------------
         # with torch.device("meta"):
         # TODO: not exactly following the example
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-        ).to('cuda')
+        if round_num == 0 or not config.ensemble_random_init:
+            student_model = AutoModelForCausalLM.from_pretrained(
+                config.student_model_name,
+                torch_dtype=torch.bfloat16,
+            ).to('cuda')
+        else:
+            # Initialize from scratch for round > 1
+            cfg = AutoConfig.from_pretrained(config.student_model_name)
+            student_model = Qwen2ForCausalLM(cfg).to('cuda')
+        
         fsdp_kwargs = {}
         if args.mixed_precision:
             fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
@@ -282,6 +289,7 @@ def main(args):
             # Inner Training Loop
             # ----------------------------------
 
+            trainer.eval_step(eval_dataloader, epoch_num)
             for i in tqdm(
                 range(len(train_dataloader)),
                 disable=rank != 0,
@@ -291,6 +299,15 @@ def main(args):
                     trainer.model.unshard()
                 batch = next(train_dl_iterator)
                 trainer.step(batch, eval_dataloader, epoch_num)
+
+            if trainer.gad % trainer.gas != 0:            # leftover grads
+                trainer.model.set_requires_gradient_sync(True)
+                torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), trainer.config.max_grad_norm)
+                trainer.optim.step()
+                trainer.lr_scheduler.step()
+                trainer.optim.zero_grad()
+                trainer.gad = 0
+            trainer.eval_step(eval_dataloader, epoch_num)
 
             # ----------------------------------
             # Save checkpoint

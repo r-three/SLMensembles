@@ -1,5 +1,7 @@
+import time, csv
 import torch
 from torch import nn
+import torch.distributed as dist
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
 import config
@@ -38,20 +40,21 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
 
     def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
         with torch.no_grad():
-            logits = torch.zeros((input_ids.shape[0], input_ids.shape[1], self.vocab_size), dtype=torch.bfloat16).to(self.models[0].device)
-            for model in self.models:
-                outputs = model(input_ids=input_ids.to(model.device), attention_mask=attention_mask.to(model.device), **kwargs)
-                logits += outputs.logits
+            outputs = self.models[0](input_ids=input_ids.to(self.models[0].device), attention_mask=attention_mask.to(self.models[0].device), **kwargs)
+            sum_logits = outputs.logits
+            for model in self.models[1:]:
+                sum_logits += model(input_ids=input_ids.to(model.device), attention_mask=attention_mask.to(model.device), **kwargs).logits
 
             loss = None
             if labels is not None:
                 loss = self.models[0].loss_function(
-                    logits=logits,
-                    labels=labels.to(logits.device),
+                    logits=outputs.logits,
+                    labels=labels.to(outputs.logits.device),
                     vocab_size=config.student_vocab_size,
                     **kwargs
                 )
-        return CausalLMOutputWithPast(logits=logits, loss=loss)
+
+        return CausalLMOutputWithPast(logits=sum_logits, loss=loss)
 
     def add_model(self, model_name):
         new_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.torch_dtype)

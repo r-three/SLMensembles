@@ -84,15 +84,15 @@ print(dataset[random.randint(0, len(dataset) - 1)]["messages"])
 # Shuffle and Sample Dataset
 # ----------------------------------
 dataset = dataset.shuffle(config.seed)
-dataset = dataset.select(range(200_000))
-dataset = dataset.train_test_split(test_size=2000)
+# dataset = dataset.select(range(200_000))
+dataset = dataset.train_test_split(test_size=10000)
 print(f"\nAfter sampling - Train size: {len(dataset['train'])}, Test size: {len(dataset['test'])}")
 
 # ------------------------------------------
 # Apply preprocessing to format chat data
 # ------------------------------------------
 print("\n=== APPLYING CHAT TEMPLATE ===")
-processed_dataset = dataset.map(format_chat_data, num_proc=8)
+processed_dataset = dataset.map(format_chat_data, num_proc=128)
 
 print(f"Examples after chat formatting:")
 print(f"Train example chat_text (first 300 chars):\n{processed_dataset['train'][0]['chat_text'][:300]}...")
@@ -102,13 +102,13 @@ print(f"Test example chat_text (first 300 chars):\n{processed_dataset['test'][0]
 # Tokenize the text
 # --------------------------
 print("\n=== TOKENIZING TEXT ===")
-tokenized_dataset = processed_dataset.map(tokenize_text, remove_columns=["messages", "id", "source"], num_proc=8)
+tokenized_dataset = processed_dataset.map(tokenize_text, remove_columns=["messages", "id", "source"], num_proc=128)
 print(f"Dataset features after tokenization: {tokenized_dataset['train'].features}")
 
 print(f"Train example input_ids shape: {torch.tensor(tokenized_dataset['train'][0]['input_ids']).shape}")
 print(f"Train example attention_mask shape: {torch.tensor(tokenized_dataset['train'][0]['attention_mask']).shape}")
 
-labeled_dataset = tokenized_dataset.map(add_labels, num_proc=8)
+labeled_dataset = tokenized_dataset.map(add_labels, num_proc=128)
 print(f"Dataset features after adding labels: {labeled_dataset['train'].features}")
 
 # -----------------------------------------
@@ -129,7 +129,7 @@ print(
     f"Estimated percentage of train examples to keep: {train_keep_count/min(1000, num_train_before)*100:.2f}% (based on 1000 samples)"
 )
 
-final_dataset = labeled_dataset.filter(contains_complete_response_template, num_proc=8)
+final_dataset = labeled_dataset.filter(contains_complete_response_template, num_proc=128)
 print(f"Dataset size after filtering - Train: {len(final_dataset['train'])}, Test: {len(final_dataset['test'])}")
 
 # ------------------------------

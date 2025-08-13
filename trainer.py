@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-import sys
-import csv
+import sys, csv, time
 import torch
 import torch.distributed as dist
 from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
@@ -83,6 +82,12 @@ class Trainer(ABC):
         if self.tr_step % self.config.logging_steps == 0:
             test_loss = self.eval_step(eval_dl, epoch)
         self.tr_step += 1
+
+        if dist.get_rank() == 0:
+            with open("train_log.csv", "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([self.tr_step, train_loss, test_loss, self.optim.param_groups[0]["lr"]])
+        
         return train_loss, test_loss
     
     def train_step(self, batch, epoch):
@@ -94,7 +99,7 @@ class Trainer(ABC):
         self.processed_id += 1
         # TODO: change to proper dataset ckpt
 
-        if (self.tr_step + 1) % self.gas != self.gas - 1:
+        if self.gad % self.gas != 0:
             # no need to sync while accumulating gradients
             self.model.set_requires_gradient_sync(False) # with (grad = False):
             tr_step_loss, _, _, _ = self.compute_loss(batch)
@@ -181,6 +186,12 @@ class DistillTrainer(Trainer):
         '''
         Compute loss with both next token perdiction and kl div with teacher logits.
         '''
+        if dist.get_rank() == 0:
+            timer = True
+        else:
+            timer = False
+        if timer:
+            ensemble_start_time = time.time()
         # ----------------------------
         # Compute Ensemble Predictions
         # ----------------------------
@@ -189,6 +200,8 @@ class DistillTrainer(Trainer):
             with torch.no_grad():
                 ensemble_outputs = self.ensemble_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
                 ensemble_logits = ensemble_outputs.logits
+        if timer:
+            ensemble_end_time = time.time()
 
         # ----------------------------
         # Next token prediction and loss (sum)
@@ -197,6 +210,8 @@ class DistillTrainer(Trainer):
         labels = batch.pop('labels')
         outputs = self.model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
         logits = outputs.logits
+        if timer:
+            model_end_time = time.time()
 
         if self.ensemble_model is not None:
             num_models = len(self.ensemble_model.models)
@@ -217,6 +232,8 @@ class DistillTrainer(Trainer):
         valid_count = valid_mask.sum()
         # Only calculate loss for those that are not chat template / question and not padded. 
         # valid_count = batch['attention_mask'].sum() + batch['start_index'].sum()
+        if timer:
+            nxt_loss_end_time = time.time()
         
         # -------------------------
         # Compute Loss
@@ -228,6 +245,16 @@ class DistillTrainer(Trainer):
         if not self.config.synthetic_data:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
+
+        if timer:
+            hybrid_loss_end_time = time.time()
+            with open("timer.csv", "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([self.tr_step, 
+                                 ensemble_end_time - ensemble_start_time, 
+                                 model_end_time - ensemble_end_time, 
+                                 nxt_loss_end_time - model_end_time,
+                                 hybrid_loss_end_time - model_end_time])
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
     
