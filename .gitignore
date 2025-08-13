@@ -20,3 +20,4 @@ teacher_logits/
 teacher_logits2/
 results.csv
 wandb/
+notes.txt
