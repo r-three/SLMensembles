@@ -35,7 +35,8 @@ def main():
     teacher_model = AutoModelForCausalLM.from_pretrained(
         config.teacher_model_name,
         torch_dtype=torch.bfloat16,
-    ).to('cuda')
+        device_map="auto",
+    )
 
     wandb_run = wandb.init(
         project="slm-ensembles",
@@ -71,13 +72,11 @@ def main():
         weight_decay=config.weight_decay,
         hub_model_id=None,
         warmup_steps=config.warmup_steps,
-        gradient_checkpointing=False,
+        gradient_checkpointing=True,
         bf16=True,
         remove_unused_columns=False,
         max_steps=config.steps_per_round,
         num_train_epochs=config.num_train_epochs,
-        evaluation_strategy="steps",
-        eval_steps=config.eval_steps,
         eval_on_start=False,
         logging_strategy="steps",
         logging_steps=config.logging_steps,
