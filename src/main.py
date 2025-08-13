@@ -5,7 +5,7 @@ import time
 import torch
 from datetime import datetime
 import torch.distributed as dist
-from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, Qwen2ForCausalLM, get_cosine_schedule_with_warmup
 from trl import DataCollatorForCompletionOnlyLM
 
 from datasets import load_dataset
@@ -212,12 +212,16 @@ def main(args):
 
         # with torch.device("meta"):
         # TODO: not exactly following the example
-
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-        ).to('cuda')
-
+        if round_num == 0 or not config.ensemble_random_init:
+            student_model = AutoModelForCausalLM.from_pretrained(
+                config.student_model_name,
+                torch_dtype=torch.bfloat16,
+            ).to('cuda')
+        else:
+            # Initialize from scratch for round > 1
+            cfg = AutoConfig.from_pretrained(config.student_model_name)
+            student_model = Qwen2ForCausalLM(cfg).to('cuda')
+        
         fsdp_kwargs = {}
         if args.mixed_precision:
             fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
