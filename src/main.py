@@ -58,13 +58,13 @@ def main(args):
 
     log_dir = None
     logger = None
+    output_path = config.get_directory(config.base_output_dir)
 
     if is_main_process():
-        log_dir = config.get_directory(config.log_dir)
+        log_dir = output_path
         logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
 
-    output_path = config.get_directory(config.base_output_dir)
     run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logprob_cache_path, exist_ok=True)
 
@@ -76,22 +76,14 @@ def main(args):
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
     # ----------------------------------
-    # Tokenizer
-    # ----------------------------------
-
-    # Response template used to mark the start of the assistant's reply in the
-    # tokenized sequence. Must be a LIST of token ids, not an integer.
-    # tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    # response_template_ids = tokenizer("<|im_start|>assistant\n", add_special_tokens=False)["input_ids"]
-
-    # ----------------------------------
     # Initialize wandb (single run per experiment)
     # ----------------------------------
     if is_main_process():
         try:
             wandb_run = wandb.init(
                 project="slm-ensembles",
-                name=config.run_name,
+                id=RUN_ID,   
+                name=RUN_ID,
                 config={
                     "model_name": config.student_model_name,
                     "teacher_model": config.teacher_model_name,
@@ -124,6 +116,8 @@ def main(args):
     # ----------------------------------
     if is_main_process():   
         metadata_dict = {
+            "Run id": config.id_string,
+            "Wandb run id": wandb_run.id if wandb_run else None,
             "Run name": config.run_name,
             "Description": config.description,
             "Teacher Model": config.teacher_model_name,
@@ -137,7 +131,6 @@ def main(args):
             "Eval batch size": config.eval_batch_size,
             "Start Time": overall_start_datetime,
             "Model Save Dir": output_path,
-            "ID string": config.id_string,
         }
     main_print("\n==== RUN CONFIGURATION ====")
 
