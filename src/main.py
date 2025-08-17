@@ -39,7 +39,7 @@ def main(args):
     # (JSON)      (Text)             (Tensors)       (-100/IDs)         (Tensors)           (Disk)               (GPU)              (GPU)          (GPU)         (GPU)
 
     # ----------------------------------
-    # Device Setup
+    # FSDP Setup
     # ----------------------------------
 
     rank = int(os.environ["LOCAL_RANK"])
@@ -53,7 +53,7 @@ def main(args):
     main_print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
-    # Logging and Run Name
+    # Logging and Run Configuration 
     # ----------------------------------
 
     log_dir = None
@@ -67,9 +67,12 @@ def main(args):
 
     run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logprob_cache_path, exist_ok=True)
+    
+    os.makedirs(config.checkpoint_dir, exist_ok=True)
+    main_print(f"Checkpoints will be saved to: {config.checkpoint_dir}")
 
     # ----------------------------------
-    # Loading the Dataset
+    # Dataset Loading
     # ----------------------------------
 
     dataClass = DistillDataset()
@@ -156,10 +159,15 @@ def main(args):
         )
 
     # ----------------------------------
-    # Set up Checkpoint Directory
+    # Manifest File Creation
     # ----------------------------------
-    os.makedirs(config.checkpoint_dir, exist_ok=True)
-    main_print(f"Checkpoints will be saved to: {config.checkpoint_dir}")
+    
+    if is_main_process():
+        with open(os.path.join(output_path, "manifest.json"), "w") as f:
+            json.dump(metadata_dict | {"RUN_ID": RUN_ID}, f, indent=2)
+
+        open(os.path.join(output_path, "STATUS.RUNNING"), "w").close() # TODO add STATUS.DONE when finished and STATUS.FAILED on exception
+
 
     # ----------------------------------
     # Load Checkpoint Index
@@ -408,13 +416,12 @@ def main(args):
             wandb_run.log({"epoch": epoch_num, "round": round_num}) 
 
         # ----------------------------------
-        # Final sync before cleanup
+        # Cleanup
+        # ----------------------------------
         torch.distributed.barrier()
         
-        # Final checkpoint (all ranks call, only rank 0 writes)
         checkpointer.save(trainer.model, optim)
         
-        # Cleanup (main rank only)
         if is_main_process() and wandb_run is not None:
             wandb_run.finish()
             main_print("--> Finished wandb run")
