@@ -17,7 +17,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory)
 from ensemble import ModelEnsemble
-from checkpoint import Checkpointer, index_checkpoints, best_checkpoint, create_training_state, save_rng_states, restore_rng_states
+from checkpoint import index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from tqdm.auto import tqdm
 from shard_weight import *
@@ -171,34 +171,10 @@ def main(args):
 
 
     # ----------------------------------
-    # Initialize Checkpointer and Resume Logic
+    # Checkpoint Logic
     # ----------------------------------
-    checkpointer = Checkpointer(checkpoint_dir, args.dcp_api, use_flat_structure=True)
     
-    # Check for existing checkpoints and resumption
-    resume_info = None
-    start_round = 0
-    start_epoch = 0
-    start_step = 0
-    ensemble_model = None
-    
-    if not checkpointer.is_empty():
-        main_print("Found existing checkpoints, attempting to resume...")
-        resume_info = checkpointer.get_checkpoint_info()
-        if resume_info:
-            start_round = resume_info['round']
-            start_epoch = resume_info['epoch'] + 1  # Start from next epoch
-            start_step = resume_info['step']
-            main_print(f"Resuming from round {start_round}, epoch {start_epoch}, step {start_step}")
-            
-            # Load training state for additional context
-            training_state = checkpointer.load_training_state()
-            if training_state:
-                main_print(f"Loaded training state: loss={training_state.get('current_loss', 'N/A')}")
-        else:
-            main_print("Could not parse checkpoint info, starting fresh")
-    
-    # Load checkpoint index for ensemble building (if needed)
+    # Load checkpoint index for ensemble building and resumption
     ckpt_index = index_checkpoints(checkpoint_dir)
     if len(ckpt_index) != 0:
         completed_rounds = list(sorted(ckpt_index.keys()))
@@ -214,6 +190,7 @@ def main(args):
         best_ckpts = []
         start_round = 0
         start_epoch = 0
+        ensemble_model = None
 
     # ----------------------------------
     # Outer Training Loop
@@ -300,7 +277,7 @@ def main(args):
 
         # Set up optimizer
         optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-        
+
         # Load optimizer state if resuming
         if resume_info and not checkpointer.is_empty():
             try:
@@ -404,6 +381,28 @@ def main(args):
             wandb_run=wandb_run if is_main_process() else None,
             report_to="wandb" if is_main_process() else "none",
         )
+        
+        # Configure simple checkpointing
+        trainer.checkpoint_dir = checkpoint_dir
+        trainer.save_steps = getattr(config, 'checkpoint_every_n_steps', 500)
+        
+        # Try to resume from latest checkpoint if it exists
+        latest_checkpoint = None
+        if os.path.exists(checkpoint_dir):
+            # Look for the most recent checkpoint directory
+            checkpoint_dirs = [d for d in os.listdir(checkpoint_dir) 
+                             if os.path.isdir(os.path.join(checkpoint_dir, d)) and 'temp' not in d]
+            if checkpoint_dirs:
+                # Sort by modification time and get the latest
+                checkpoint_dirs.sort(key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)), reverse=True)
+                latest_checkpoint = os.path.join(checkpoint_dir, checkpoint_dirs[0])
+                main_print(f"Found potential checkpoint to resume from: {latest_checkpoint}")
+        
+        if latest_checkpoint and trainer.load_checkpoint(latest_checkpoint):
+            main_print(f"Successfully resumed from checkpoint: {latest_checkpoint}")
+        else:
+            main_print("Starting training from scratch")
+        
         trainer.prepare_train()
 
         # ----------------------------------
@@ -446,36 +445,19 @@ def main(args):
                 batch = next(train_dl_iterator)
                 trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
                 
-                # Periodic checkpointing for SLURM interruption safety
-                checkpoint_every_n_steps = getattr(config, 'checkpoint_every_n_steps', 500)
-                if checkpoint_every_n_steps > 0 and trainer.tr_step % checkpoint_every_n_steps == 0:
+                # Simple periodic checkpointing for SLURM interruption safety
+                if (trainer.save_steps and trainer.save_steps > 0 and 
+                    trainer.tr_step % trainer.save_steps == 0):
                     torch.distributed.barrier()
                     
-                    # Create temporary checkpoint name
+                    # Create checkpoint directory name
                     if rank == 0:
-                        temp_checkpoint_name = (
+                        checkpoint_name = (
                             f"{round_num}_{epoch_num}_{trainer.tr_step}_"
                             f"{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}_temp"
                         )
-                    else:
-                        temp_checkpoint_name = None
-                    
-                    # Broadcast checkpoint name
-                    name_holder = [temp_checkpoint_name]
-                    torch.distributed.broadcast_object_list(name_holder, src=0)
-                    temp_checkpoint_name = name_holder[0]
-                    
-                    # Save periodic checkpoint with training state
-                    temp_path = os.path.join(checkpoint_dir, temp_checkpoint_name)
-                    training_state = create_training_state(
-                        round_num, epoch_num, trainer.tr_step,
-                        trainer.current_eval_loss, trainer.min_eval_loss,
-                        lr_scheduler_state=lr_scheduler.state_dict(),
-                        rng_states=save_rng_states()
-                    )
-                    checkpointer.save(trainer.model, optim, temp_path, training_state)
-                    
-                    if rank == 0:
+                        checkpoint_path = os.path.join(checkpoint_dir, checkpoint_name)
+                        trainer.save_checkpoint(checkpoint_path)
                         main_print(f"Saved periodic checkpoint at step {trainer.tr_step}")
                 
                 if trainer.should_stop:
@@ -500,15 +482,9 @@ def main(args):
             torch.distributed.broadcast_object_list(name_holder, src=0)
             checkpoint_name = name_holder[0]
             
-            # All ranks call save (but only rank 0 will write) with training state
+            # Save end-of-epoch checkpoint using trainer's simple method
             path = os.path.join(checkpoint_dir, checkpoint_name)
-            training_state = create_training_state(
-                round_num, epoch_num, trainer.tr_step,
-                trainer.current_eval_loss, trainer.min_eval_loss,
-                lr_scheduler_state=lr_scheduler.state_dict(),
-                rng_states=save_rng_states()
-            )
-            checkpointer.save(trainer.model, optim, path, training_state)
+            trainer.save_checkpoint(path)
 
             # ----------------------------------
             # Update wandb run name and log metrics
@@ -522,8 +498,6 @@ def main(args):
         # Cleanup
         # ----------------------------------
         torch.distributed.barrier()
-        
-        checkpointer.save(trainer.model, optim)
         
         if is_main_process() and wandb_run is not None:
             wandb_run.finish()
