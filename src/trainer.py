@@ -444,7 +444,7 @@ class DistillTrainer(Trainer):
         # Save FSDP model and optimizer using the standardized Checkpointer
         try:
             from checkpoint import Checkpointer
-            checkpointer = Checkpointer(checkpoint_base_dir, dcp_api=False)
+            checkpointer = Checkpointer(checkpoint_base_dir)
             checkpointer.save(
                 model=self.model, 
                 optim=self.optim, 
@@ -468,7 +468,7 @@ class DistillTrainer(Trainer):
         # Use Checkpointer to find and load the latest checkpoint
         try:
             from checkpoint import Checkpointer
-            checkpointer = Checkpointer(checkpoint_base_dir, dcp_api=False)
+            checkpointer = Checkpointer(checkpoint_base_dir)
             
             if checkpointer.is_empty():
                 if dist.get_rank() == 0:

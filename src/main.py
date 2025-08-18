@@ -172,10 +172,7 @@ def main(args):
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
-    
-    # Initialize standardized checkpointer for round-based structure
-    from checkpoint import Checkpointer
-    checkpointer = Checkpointer(checkpoint_dir, dcp_api=args.dcp_api)
+    checkpointer = Checkpointer(checkpoint_dir)
     
     # Load checkpoint index for ensemble building and resumption
     ckpt_index = index_checkpoints(checkpoint_dir)
@@ -246,7 +243,7 @@ def main(args):
         # ----------------------------------
         # Load Model Weights and Set up Optimizer
         # ----------------------------------
-        # checkpointer = Checkpointer(checkpoint_dir, dcp_api=args.dcp_api)
+        # checkpointer = Checkpointer(checkpoint_dir)
         # student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
         
         # TODO: also checkpoint the dataloader sampler
@@ -488,6 +485,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")
     parser.add_argument("--explicit-prefetching", action="store_true", default=False)
     parser.add_argument("--mixed-precision", action="store_true", default=False)
-    parser.add_argument("--dcp-api", action="store_true", default=False)
     args = parser.parse_args()
     main(args)

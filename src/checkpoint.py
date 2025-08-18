@@ -25,25 +25,6 @@ MODEL_CHECKPOINT = "model_state_dict.pt"
 OPTIM_CHECKPOINT = "optim_state_dict.pt"
 PARAMS = "params"
 
-def _manifest_pointers(run_dir: str):
-    """Return latest and per-round best checkpoint paths saved in the manifest file."""
-    run_dir_path = Path(run_dir)
-    latest = None
-    best_per_round = {}
-
-    mf = os.path.join(run_dir_path, "manifest.txt")
-    if os.path.exists(mf):
-        try:
-            txt = open(mf, "r").read()
-            m_latest = re.search(r"^latest:\s*(.+)$", txt, flags=re.MULTILINE)
-            if m_latest:
-                latest = Path(m_latest.group(1).strip())
-            for m in re.finditer(r"^best\[(\d+)\]:\s*(.+)$", txt, flags=re.MULTILINE):
-                best_per_round[int(m.group(1))] = Path(m.group(2).strip())
-        except Exception:
-            pass
-
-    return latest, best_per_round
 
 def get_latest_checkpoint_folder(path):
     """Return the largest numbered folder in the given path."""
@@ -63,25 +44,62 @@ def get_latest_checkpoint_folder(path):
 
 
 class Checkpointer:
-    """Handles checkpoint saving and loading for distributed FSDP training."""
+    """Handles checkpoint saving and loading for distributed FSDP training.
 
-    def __init__(self, folder: str, dcp_api: bool = False, max_checkpoints_per_round: int = 3):
+    The checkpoint directory structure is as follows:
+    output_path/checkpoints/
+    ├── 0/
+    │   ├── step_5000_loss_1.2345/
+    │   │   ├── model_state_dict.pt
+    │   │   ├── optim_state_dict.pt
+    │   │   └── training_state.pt
+    │   └── step_3000_loss_1.5678/
+    │       ├── model_state_dict.pt
+    │       ├── optim_state_dict.pt
+    │       └── training_state.pt
+    └── 1/
+        └── step_2000_loss_0.9876/
+            ├── model_state_dict.pt
+            ├── optim_state_dict.pt
+            └── training_state.pt
+    """
+
+    def __init__(self, checkpoint_dir: str, max_checkpoints_per_round: int = 3):
         """Initialize checkpointer with standardized round-based directory structure."""
-        self.folder = folder  # Base checkpoint directory (outputdir/checkpoints)
-        self.dcp_api = dcp_api
+        self.checkpoint_dir = checkpoint_dir
         self.max_checkpoints_per_round = max_checkpoints_per_round
         self.last_training_time = None
         self.last_checkpoint_path = None
         
         # Create base checkpoint directory
-        os.makedirs(self.folder, exist_ok=True)
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
         
         # Find the latest checkpoint for resumption
         self._find_latest_checkpoint()
 
+    def _manifest_pointers(self, run_dir: str):
+        """Return latest and per-round best checkpoint paths saved in the manifest file."""
+        run_dir_path = Path(run_dir)
+        latest = None
+        best_per_round = {}
+
+        mf = os.path.join(run_dir_path, "manifest.txt")
+        if os.path.exists(mf):
+            try:
+                txt = open(mf, "r").read()
+                m_latest = re.search(r"^latest:\s*(.+)$", txt, flags=re.MULTILINE)
+                if m_latest:
+                    latest = Path(m_latest.group(1).strip())
+                for m in re.finditer(r"^best\[(\d+)\]:\s*(.+)$", txt, flags=re.MULTILINE):
+                    best_per_round[int(m.group(1))] = Path(m.group(2).strip())
+            except Exception:
+                pass
+
+        return latest, best_per_round
+
     def _find_latest_checkpoint(self):
         """Find the latest checkpoint in round-based directory structure."""
-        if not os.path.exists(self.folder):
+        if not os.path.exists(self.checkpoint_dir):
             self.last_checkpoint_path = None
             return
         
@@ -91,8 +109,8 @@ class Checkpointer:
             latest_checkpoint = None
             latest_step = -1
             
-            for item in os.listdir(self.folder):
-                round_path = os.path.join(self.folder, item)
+            for item in os.listdir(self.checkpoint_dir):
+                round_path = os.path.join(self.checkpoint_dir, item)
                 if not os.path.isdir(round_path):
                     continue
                 
@@ -126,143 +144,59 @@ class Checkpointer:
 
     def load_model(self, model: FSDPModule):
         """Load the model weights from the latest checkpoint into the given FSDP model."""
-        if self.use_flat_structure:
-            if self.last_checkpoint_path is None:
-                raise ValueError("No checkpoint found to load from")
-            last_model_checkpoint = os.path.join(self.last_checkpoint_path, MODEL_CHECKPOINT)
-        else:
-            last_model_checkpoint = (
-                f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
-                f"/{self.last_training_time}/{MODEL_CHECKPOINT}"
-            )
-        
+        if self.last_checkpoint_path is None:
+            raise ValueError("No checkpoint found to load from")
+        last_model_checkpoint = os.path.join(self.last_checkpoint_path, MODEL_CHECKPOINT)
+
         full_sd = torch.load(
             last_model_checkpoint, mmap=True, weights_only=True, map_location="cpu"
         )
-        if self.dcp_api:
-            set_model_state_dict(
-                model=model,
-                model_state_dict=full_sd,
-                options=StateDictOptions(
-                    full_state_dict=True,
-                    broadcast_from_rank0=True,
-                ),
-            )
-            return
-        meta_sharded_sd = model.state_dict()
-        sharded_sd = {}
-        for param_name, full_tensor in full_sd.items():
-            sharded_meta_param = meta_sharded_sd.get(param_name)
-            sharded_tensor = distribute_tensor(
-                full_tensor,
-                sharded_meta_param.device_mesh,
-                sharded_meta_param.placements,
-            )
-            sharded_sd[param_name] = nn.Parameter(sharded_tensor)
-        # choose `assign=True` since we cannot call `copy_` on meta tensor
-        model.load_state_dict(sharded_sd, strict=False, assign=True)
-    
+        set_model_state_dict(
+            model=model,
+            model_state_dict=full_sd,
+            options=StateDictOptions(
+                full_state_dict=True,
+                broadcast_from_rank0=True,
+            ),
+        )
+
     def load_org_model(self, model: FSDPModule, org_sd):
         """Load the provided full (CPU) state_dict into the sharded FSDP model."""
-        # full_sd = torch.load(
-        #     last_model_checkpoint, mmap=True, weights_only=True, map_location="cpu"
-        # )
-        full_sd = org_sd
-        meta_sharded_sd = model.state_dict()
-        sharded_sd = {}
-        for param_name, full_tensor in full_sd.items():
-            sharded_meta_param = meta_sharded_sd.get(param_name)
-            sharded_tensor = distribute_tensor(
-                full_tensor,
-                sharded_meta_param.device_mesh,
-                sharded_meta_param.placements,
-            )
-            sharded_sd[param_name] = nn.Parameter(sharded_tensor)
-        # choose `assign=True` since we cannot call `copy_` on meta tensor
-        model.load_state_dict(sharded_sd, strict=False, assign=True)
+        set_model_state_dict(
+            model=model,
+            model_state_dict=org_sd,
+            options=StateDictOptions(
+                full_state_dict=True,
+                broadcast_from_rank0=True,
+            ),
+        )
 
     def load_optim(self, model: FSDPModule, opt: torch.optim.Optimizer):
         """Load the optimizer state from the latest checkpoint into the given optimizer."""
-        if self.use_flat_structure:
-            if self.last_checkpoint_path is None:
-                raise ValueError("No checkpoint found to load from")
-            last_optim_checkpoint = os.path.join(self.last_checkpoint_path, OPTIM_CHECKPOINT)
-        else:
-            last_optim_checkpoint = (
-                f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
-                f"/{self.last_training_time}/{OPTIM_CHECKPOINT}"
-            )
-        
-        full_sd = torch.load(
-            last_optim_checkpoint, mmap=True, weights_only=True, map_location="cpu"
-        )
-        if self.dcp_api:
-            set_optimizer_state_dict(
-                model=model,
-                optimizers=opt,
-                optim_state_dict=full_sd,
-                options=StateDictOptions(
-                    full_state_dict=True,
-                    broadcast_from_rank0=True,
-                ),
-            )
-            return
-        _init_optim_state(opt)
-        param_groups = opt.state_dict()["param_groups"]
-        state = opt.state_dict()["state"]
+        if self.last_checkpoint_path is None:
+            raise ValueError("No checkpoint found to load from")
+        last_optim_checkpoint = os.path.join(self.last_checkpoint_path, OPTIM_CHECKPOINT)
 
-        full_param_groups = full_sd["param_groups"]
-        full_state = full_sd["state"]
-
-        for param_group, full_param_group in zip(param_groups, full_param_groups):
-            for key, value in full_param_group.items():
-                if key == PARAMS:
-                    continue
-                param_group[key] = value
-            for pid, full_pid in zip(param_group[PARAMS], full_param_group[PARAMS]):
-                if pid not in state:
-                    continue
-                param_state = state[pid]
-                full_param_state = full_state[full_pid]
-                for attr, full_tensor in full_param_state.items():
-                    sharded_tensor = param_state[attr]
-                    if isinstance(sharded_tensor, DTensor):
-                        # exp_avg is DTensor
-                        param_state[attr] = distribute_tensor(
-                            full_tensor,
-                            sharded_tensor.device_mesh,
-                            sharded_tensor.placements,
-                        )
-                    else:
-                        # step is plain tensor
-                        param_state[attr] = full_tensor
-        opt.load_state_dict(
-            {
-                "param_groups": param_groups,
-                "state": state,
-            }
+        full_sd = torch.load(last_optim_checkpoint, map_location="cpu", weights_only=True)
+        set_optimizer_state_dict(
+            model=model,
+            optimizer=opt,
+            optim_state_dict=full_sd,
+            options=StateDictOptions(
+                full_state_dict=True,
+                broadcast_from_rank0=True,
+            ),
         )
 
     def _get_full_model_state_dict(self, model: FSDPModule):
         """Assemble and return a full (CPU) state_dict for the given FSDP model."""
-        if self.dcp_api:
-            return get_model_state_dict(
-                model=model,
-                options=StateDictOptions(
-                    full_state_dict=True,
-                    cpu_offload=True,
-                ),
-            )
-
-        sharded_sd = model.state_dict()
-        cpu_state_dict = {}
-        for param_name, sharded_param in sharded_sd.items():
-            full_param = sharded_param.full_tensor()
-            if torch.distributed.get_rank() == 0:
-                cpu_state_dict[param_name] = full_param.cpu()
-            else:
-                del full_param
-        return cpu_state_dict
+        return get_model_state_dict(
+            model=model,
+            options=StateDictOptions(
+                full_state_dict=True,
+                cpu_offload=True,
+            ),
+        )
 
     def _get_full_optimizer_state_dict(
         self,
@@ -270,43 +204,14 @@ class Checkpointer:
         opt: torch.optim.Optimizer,
     ):
         """Assemble and return a full (CPU) optimizer state_dict for the given optimizer."""
-        if self.dcp_api:
-            return get_optimizer_state_dict(
-                model=model,
-                optimizers=opt,
-                options=StateDictOptions(
-                    full_state_dict=True,
-                    cpu_offload=True,
-                ),
-            )
-        is_rank_zero = torch.distributed.get_rank() == 0
-        sharded_sd = opt.state_dict()
-        sharded_state = sharded_sd["state"]
-        full_state = {}
-        for group_id, sharded_group in sharded_state.items():
-            group_state = {}
-            for attr, sharded_tensor in sharded_group.items():
-                if isinstance(sharded_tensor, DTensor):
-                    # "exp_avg" in AdamW is `DTensor`
-                    full_tensor = sharded_tensor.full_tensor()
-                else:
-                    # "step" in AdamW is plain tensor
-                    full_tensor = sharded_tensor
-                if is_rank_zero:
-                    group_state[attr] = full_tensor.cpu()
-                else:
-                    del full_tensor
-            if is_rank_zero:
-                full_state[group_id] = group_state
-            else:
-                del group_state
-        if is_rank_zero:
-            return {
-                "param_groups": sharded_sd["param_groups"],
-                "state": full_state,
-            }
-        else:
-            return {}
+        return get_optimizer_state_dict(
+            model=model,
+            optimizers=opt,
+            options=StateDictOptions(
+                full_state_dict=True,
+                cpu_offload=True,
+            ),
+        )
 
     def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None):
         """Save checkpoint with standardized round-based directory structure and rotation."""
@@ -315,7 +220,7 @@ class Checkpointer:
         
         if torch.distributed.get_rank() == 0:
             # Create round directory
-            round_dir = os.path.join(self.folder, str(round_num))
+            round_dir = os.path.join(self.checkpoint_dir, str(round_num))
             os.makedirs(round_dir, exist_ok=True)
             
             # Create checkpoint directory with step and loss in name
@@ -375,18 +280,10 @@ class Checkpointer:
     
     def load_training_state(self):
         """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
-        if self.use_flat_structure:
-            if self.last_checkpoint_path is None:
-                return None
-            training_state_path = os.path.join(self.last_checkpoint_path, "training_state.pt")
-        else:
-            if self.last_training_time is None:
-                return None
-            training_state_path = (
-                f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
-                f"/{self.last_training_time}/training_state.pt"
-            )
-        
+        if self.last_checkpoint_path is None:
+            return None
+        training_state_path = os.path.join(self.last_checkpoint_path, "training_state.pt")
+
         if not os.path.exists(training_state_path):
             return None
         
@@ -397,18 +294,15 @@ class Checkpointer:
     
     def get_checkpoint_info(self):
         """Get information about the latest checkpoint for resumption."""
-        if self.use_flat_structure and self.last_checkpoint_path:
-            # Parse checkpoint name: round_epoch_step_current_loss_min_loss
+        if self.last_checkpoint_path:
+            # Parse checkpoint name: step_{step}_loss_{loss:.4f}
             try:
                 name = os.path.basename(self.last_checkpoint_path)
                 parts = name.split('_')
-                if len(parts) >= 3:
+                if len(parts) >= 4:
                     return {
-                        'round': int(parts[0]),
-                        'epoch': int(parts[1]), 
-                        'step': int(parts[2]),
-                        'current_loss': float(parts[3]) if len(parts) > 3 else None,
-                        'min_loss': float(parts[4]) if len(parts) > 4 else None,
+                        'step': int(parts[1]),
+                        'loss': float(parts[3]),
                         'path': self.last_checkpoint_path
                     }
             except (ValueError, IndexError):
@@ -419,6 +313,7 @@ class Checkpointer:
 
 @dataclass(frozen=True)
 class Checkpoint:
+    """Record of a checkpoint's path, round/epoch/step, and loss metrics."""
     path: Path
     round: int
     epoch: int
