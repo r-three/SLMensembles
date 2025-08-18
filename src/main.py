@@ -173,7 +173,7 @@ def main(args):
     # ----------------------------------
     # Load Checkpoint Index
     # ----------------------------------
-    ckpt_index = index_checkpoints(config.checkpoint_dir)
+    ckpt_index = index_checkpoints(checkpoint_dir)
     if len(ckpt_index) != 0:
         completed_rounds = ckpt_index.keys()
         completed_rounds = list(completed_rounds)

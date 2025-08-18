@@ -29,6 +29,11 @@ def create_response_labels(input_ids):
 
     return labels
 
+# TODO: subset the IDs 
+# 1. take tulu 3
+# 2. only keep the examples that match the ids in the clustered dataset (from Malikeh's dataset - filter the ids)
+
+# TODO: add the ids column to this script
 
 def format_chat_data(sample):
     return {"chat_text": tokenizer.apply_chat_template(sample["messages"], tokenize=False)}

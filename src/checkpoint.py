@@ -1,5 +1,6 @@
 import os
 import time
+import re
 
 import torch
 import torch.nn as nn
@@ -23,6 +24,7 @@ OPTIM_CHECKPOINT = "optim_state_dict.pt"
 PARAMS = "params"
 
 def _manifest_pointers(run_dir: str):
+    """Return latest and per-round best checkpoint paths saved in the manifest file."""
     run_dir_path = Path(run_dir)
     latest = None
     best_per_round = {}
@@ -45,8 +47,8 @@ def _manifest_pointers(run_dir: str):
 
     return latest, best_per_round
 
-
 def get_latest_checkpoint_folder(path):
+    """Return the largest numbered folder in the given path."""
     max_num = None
     if not os.path.exists(path):
         return max_num
@@ -64,44 +66,19 @@ def get_latest_checkpoint_folder(path):
 
 class Checkpointer:
     def __init__(self, folder: str, dcp_api: bool):
+        """Initialize the checkpointer with a base folder and API mode (DCP/DTensor)."""
         self.folder = folder
         self.dcp_api = dcp_api
         self.last_training_time = get_latest_checkpoint_folder(
             f"{folder}/{'dcp_api' if dcp_api else 'dtensor_api'}"
         )
 
-    def resolve_resume_checkpoint(parent_ckpt_dir: str, run_dir: str) -> Path | None:
-        """
-        Choose a checkpoint to resume from.
-        Preference order:
-        1) manifest pointers (latest)
-        2) newest by (round, epoch, step) among <parent_ckpt_dir> entries
-        3) None if nothing found
-        """
-        latest, _ = _manifest_pointers(run_dir)
-        if latest and latest.exists():
-            return latest
-
-        # Fallback to directory scan (you already have name parsing/indexing)
-        try:
-            index = index_checkpoints(parent_ckpt_dir)
-            if not index:
-                return None
-            # pick max by (round, epoch, step)
-            newest = None
-            for r, items in index.items():
-                for ck in items:
-                    key = (ck.round, ck.epoch, ck.step)
-                    if newest is None or key > newest[0]:
-                        newest = (key, ck.path)
-            return newest[1] if newest else None
-        except Exception:
-            return None
-
     def is_empty(self):
+        """Return True if no previous checkpoint exists in the target folder."""
         return self.last_training_time is None
 
     def load_model(self, model: FSDPModule):
+        """Load the model weights from the latest checkpoint into the given FSDP model."""
         last_model_checkpoint = (
             f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
             f"/{self.last_training_time}/{MODEL_CHECKPOINT}"
@@ -133,6 +110,7 @@ class Checkpointer:
         model.load_state_dict(sharded_sd, strict=False, assign=True)
     
     def load_org_model(self, model: FSDPModule, org_sd):
+        """Load the provided full (CPU) state_dict into the sharded FSDP model."""
         # full_sd = torch.load(
         #     last_model_checkpoint, mmap=True, weights_only=True, map_location="cpu"
         # )
@@ -151,6 +129,7 @@ class Checkpointer:
         model.load_state_dict(sharded_sd, strict=False, assign=True)
 
     def load_optim(self, model: FSDPModule, opt: torch.optim.Optimizer):
+        """Load the optimizer state from the latest checkpoint into the given optimizer."""
         last_optim_checkpoint = (
             f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
             f"/{self.last_training_time}/{OPTIM_CHECKPOINT}"
@@ -206,6 +185,7 @@ class Checkpointer:
         )
 
     def _get_full_model_state_dict(self, model: FSDPModule):
+        """Assemble and return a full (CPU) state_dict for the given FSDP model."""
         if self.dcp_api:
             return get_model_state_dict(
                 model=model,
@@ -230,6 +210,7 @@ class Checkpointer:
         model: FSDPModule,
         opt: torch.optim.Optimizer,
     ):
+        """Assemble and return a full (CPU) optimizer state_dict for the given optimizer."""
         if self.dcp_api:
             return get_optimizer_state_dict(
                 model=model,
@@ -269,6 +250,7 @@ class Checkpointer:
             return {}
 
     def save(self, model: FSDPModule, optim: torch.optim.Optimizer, checkpoint_folder=None):
+        """Save full model and optimizer state_dicts to a new or provided checkpoint folder."""
         model_state_dict = self._get_full_model_state_dict(model)
         optim_state_dict = self._get_full_optimizer_state_dict(model, optim)
         if torch.distributed.get_rank() == 0:
@@ -293,15 +275,35 @@ class Checkpoint:
     current_loss: float
     min_loss: float
 
+    def resolve_resume_checkpoint(parent_ckpt_dir: str, run_dir: str) -> Path | None:
+        """Choose resume checkpoint: manifest 'latest' else newest by (round, epoch, step)."""
+        latest, _ = _manifest_pointers(run_dir)
+        if latest and latest.exists():
+            return latest
+
+        # Fallback to directory scan (you already have name parsing/indexing)
+        try:
+            index = index_checkpoints(parent_ckpt_dir)
+            if not index:
+                return None
+            # pick max by (round, epoch, step)
+            newest = None
+            for r, items in index.items():
+                for ck in items:
+                    key = (ck.round, ck.epoch, ck.step)
+                    if newest is None or key > newest[0]:
+                        newest = (key, ck.path)
+            return newest[1] if newest else None
+        except Exception:
+            return None
+
 def _parse_dirname(name: str) -> Tuple[int, int, float, float]:
+    """Parse a checkpoint folder name into (round, epoch, step, current_loss, min_loss)."""
     r, e, s, cur, minl = name.split("_", 4)
     return int(r), int(e), int(s), float(cur), float(minl)
 
 def index_checkpoints(parent: str) -> Dict[int, List[Checkpoint]]:
-    """
-    Walk `parent` and build an index {round -> [Checkpoint, …]}.
-    Non-matching folders are silently skipped.
-    """
+    """Build an index {round -> [Checkpoint, …]} under parent, skipping non-matching folders."""
     parent = Path(parent)
     index: Dict[int, List[Checkpoint]] = {}
 
@@ -320,11 +322,7 @@ def index_checkpoints(parent: str) -> Dict[int, List[Checkpoint]]:
     return index
 
 def best_checkpoint(index: dict, round_num: int) -> Path:
-    """
-    Return the sub-directory Path with the *lowest* current_eval_loss
-    for the specified `round_num`.
-    Raises KeyError if that round doesn’t exist.
-    """
+    """Return path of lowest-current_eval_loss checkpoint for round_num, else raise KeyError."""
     if round_num not in index:
         raise KeyError(f"No checkpoints found for round {round_num}")
 
