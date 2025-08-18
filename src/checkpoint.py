@@ -143,67 +143,6 @@ class Checkpointer:
             self.last_checkpoint_path = latest_checkpoint
         except Exception:
             self.last_checkpoint_path = None
-    
-    def is_empty(self):
-        """Return True if no previous checkpoint exists in the target folder."""
-        return self.last_checkpoint_path is None
-
-    def load_org_model(self, model: FSDPModule, org_sd):
-        """Load the provided full (CPU) state_dict into the sharded FSDP model."""
-        set_model_state_dict(
-            model=model,
-            model_state_dict=org_sd,
-            options=StateDictOptions(
-                full_state_dict=True,
-                broadcast_from_rank0=True,
-            ),
-        )
-
-
-    def _get_full_model_state_dict(self, model: FSDPModule):
-        """Assemble and return a full (CPU) state_dict for the given FSDP model."""
-        return get_model_state_dict(
-            model=model,
-            options=StateDictOptions(
-                full_state_dict=True,
-                cpu_offload=True,
-            ),
-        )
-
-    def _get_full_optimizer_state_dict(
-        self,
-        model: FSDPModule,
-        opt: torch.optim.Optimizer,
-    ):
-        """Assemble and return a full (CPU) optimizer state_dict for the given optimizer."""
-        return get_optimizer_state_dict(
-            model=model,
-            optimizers=opt,
-            options=StateDictOptions(
-                full_state_dict=True,
-                cpu_offload=True,
-            ),
-        )
-
-    def load_optim(self, model: FSDPModule, opt: torch.optim.Optimizer):
-        """Load the optimizer state from the latest checkpoint into the given optimizer."""
-        if self.last_checkpoint_path is None:
-            raise ValueError("No checkpoint found to load from")
-        last_optim_checkpoint = os.path.join(self.last_checkpoint_path, OPTIM_CHECKPOINT)
-
-        full_sd = torch.load(last_optim_checkpoint, map_location="cpu", weights_only=True)
-        set_optimizer_state_dict(
-            model=model,
-            optimizer=opt,
-            optim_state_dict=full_sd,
-            options=StateDictOptions(
-                full_state_dict=True,
-                broadcast_from_rank0=True,
-            ),
-        )
-
-
-
 
     def load_optim(self, model, opt):
         """Load the optimizer state from the latest checkpoint into the given optimizer."""
