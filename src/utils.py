@@ -13,6 +13,8 @@ from datasets import load_from_disk, DatasetDict, concatenate_datasets, Dataset
 from trl import DataCollatorForCompletionOnlyLM
 import random
 import numpy as np
+import subprocess, json, re
+from hashlib import blake2s
 
 # ---------------------- Training and FSDP2-specific functions ----------------------
 try:
@@ -120,6 +122,53 @@ def format_time_elapsed(seconds):
 def get_round_path(output_path, round_num):
     """Get the path for a specific training round."""
     return os.path.join(output_path, f"round_{round_num}")
+
+# ---------------------- Run Id Generation Functions ----------------------
+
+def _git_short():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return "nogit"
+
+def _hp_fingerprint(cfg) -> str:
+    keys = [
+        "student_model_name","teacher_model_name","learning_rate","alpha",
+        "kl_temperature","per_device_train_batch_size","gradient_accumulation_steps",
+        "num_train_epochs","total_rounds","dataset_name","dataset_type","seed"
+    ]
+    blob = json.dumps({k: getattr(cfg, k) for k in keys}, sort_keys=True).encode()
+    return blake2s(blob, digest_size=4).hexdigest()  # 8 hex chars
+
+def _abbr_model(name: str) -> str:
+    base = name.split("/")[-1].lower()
+    m = re.search(r"(\d+(?:\.\d+)?)\s*b", base)
+    size = (m.group(1) + "b") if m else ""
+    family = "qwen" if "qwen" in base else base.split("-")[0]
+    return f"{family}{size.replace('.','p')}"
+
+def build_run_identity(cfg):
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    git = _git_short()
+    fp  = _hp_fingerprint(cfg)         # 8-hex
+    run_id = f"{ts}-{git}-{fp}"
+
+    slug = "-".join([
+        _abbr_model(cfg.student_model_name),
+        f"a{cfg.alpha}",
+        f"t{cfg.kl_temperature}",
+        f"lr{cfg.learning_rate}"
+    ])
+    alias = os.environ.get("RUN_ALIAS")
+    if alias:
+        slug = f"{alias}-{slug}"
+    wandb_name = f"{slug} | {run_id}"
+    wandb_id   = f"{fp}-{ts}"
+
+    return run_id, slug, wandb_name, wandb_id
 
 # ---------------------- CSV Logger ----------------------
 
@@ -270,36 +319,6 @@ def prepare_dataset(train_ds, eval_ds, config, max_length, seed):
     )
 
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    
-    # Use the TRL collator to build labels, but first remove any extra keys (e.g.
-    # teacher-logit metadata) that `tokenizer.pad` cannot handle.  We then add
-    # those keys back to the final batch so downstream loss functions can still
-    # access them.
-#     _base_collate = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-# 
-#     def collate_fn(features):
-#         """Wrapper around `DataCollatorForCompletionOnlyLM` that preserves
-#         variable-length teacher-logit metadata while ensuring the underlying
-#         tokenizer only sees fields it knows how to pad."""
-# 
-#         extra_keys = [
-#             "logprob_indices",
-#             "logprob_values",
-#             "start_idx",
-#             "end_idx",
-#             "labels",  
-#         ]
-# 
-#         extras = {}
-#         for k in extra_keys:
-#             if k in features[0]:
-#                 extras[k] = [f.pop(k) for f in features]
-# 
-#         batch = _base_collate(features)
-#         if extras:
-#             batch.update(extras)  # restore metadata (except labels)
-# 
-#         return batch
 
     train_dataloader = DataLoader(
         train_ds,
