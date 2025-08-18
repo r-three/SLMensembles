@@ -144,6 +144,20 @@ class Checkpointer:
         except Exception:
             self.last_checkpoint_path = None
 
+    def load_training_state(self):
+        """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
+        if self.last_checkpoint_path is None:
+            return None
+        training_state_path = os.path.join(self.last_checkpoint_path, "training_state.pt")
+
+        if not os.path.exists(training_state_path):
+            return None
+        
+        try:
+            return torch.load(training_state_path, map_location="cpu", weights_only=True)
+        except Exception:
+            return None
+
     def load_optim(self, model, opt):
         """Load the optimizer state from the latest checkpoint into the given optimizer."""
         if self.last_checkpoint_path is None:
@@ -250,19 +264,6 @@ class Checkpointer:
                 except Exception as e:
                     print(f"Warning: Failed to remove old checkpoint {old_checkpoint_path}: {e}")
     
-    def load_training_state(self):
-        """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
-        if self.last_checkpoint_path is None:
-            return None
-        training_state_path = os.path.join(self.last_checkpoint_path, "training_state.pt")
-
-        if not os.path.exists(training_state_path):
-            return None
-        
-        try:
-            return torch.load(training_state_path, map_location="cpu", weights_only=True)
-        except Exception:
-            return None
     
     def get_checkpoint_info(self):
         """Get information about the latest checkpoint for resumption."""

@@ -172,6 +172,41 @@ def main(args):
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
+
+    checkpointer = Checkpointer(checkpoint_dir)
+
+    if resume_info and not checkpointer.is_empty():
+        main_print("Loading model from checkpoint via DCP.")
+        checkpointer.load_model(student_model)
+    else:
+        main_print("Loading original pretrained weights for the initial run.")
+
+    # ----------------------------------
+    # Set Up Optimizer and LR Scheduler
+    # ----------------------------------
+    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
+
+    if resume_info and not checkpointer.is_empty():
+        main_print("Loading optimizer from checkpoint via DCP.")
+        checkpointer.load_optim(student_model, optim)
+
+    training_state = checkpointer.load_training_state()
+    if training_state and 'lr_scheduler_state' in training_state:
+        lr_scheduler.load_state_dict(training_state['lr_scheduler_state'])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     checkpointer = Checkpointer(checkpoint_dir)
     
     # Load checkpoint index for ensemble building and resumption
@@ -276,18 +311,6 @@ def main(args):
         
         if args.mixed_precision:
             inspect_mixed_precision(student_model)
-
-        # Set up optimizer
-        optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-
-        # Load optimizer state if resuming
-        if resume_info and not checkpointer.is_empty():
-            try:
-                checkpointer.load_optim(student_model, optim)
-                main_print("Successfully loaded optimizer from checkpoint")
-            except Exception as e:
-                main_print(f"Failed to load optimizer from checkpoint: {e}")
-                main_print("Using fresh optimizer state")
 
         # ----------------------------------
         # Load Checkpointed Models
@@ -440,17 +463,29 @@ def main(args):
                 trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
                 
                 # Simple periodic checkpointing for SLURM interruption safety
-                if (trainer.save_steps and trainer.save_steps > 0 and 
-                    trainer.tr_step % trainer.save_steps == 0):
+                if (trainer.save_steps and trainer.save_steps > 0 and trainer.tr_step % trainer.save_steps == 0):
                     torch.distributed.barrier()
-                    
-                    # Save periodic checkpoint using standardized structure
-                    trainer.save_checkpoint(checkpoint_dir)
+                    # Build your small metadata dict if you want (epoch/step/scheduler/RNG)
+                    training_state = create_training_state(
+                        round_num=trainer.round_num,
+                        epoch_num=current_epoch,
+                        step=trainer.tr_step,
+                        current_loss=trainer.current_loss,
+                        min_loss=trainer.min_eval_loss,
+                        lr_scheduler_state=lr_scheduler.state_dict() if lr_scheduler else None,
+                        rng_states=capture_rng_states(),  # if you have this
+                    )
+                    checkpointer.save(student_model, optim, trainer.round_num, trainer.tr_step, trainer.current_loss, training_state)
                     if rank == 0:
                         main_print(f"Saved periodic checkpoint at step {trainer.tr_step}")
-                
-                if trainer.should_stop:
-                    break
+
+
+
+
+
+
+
+
 
             # ----------------------------------
             # Save checkpoint
