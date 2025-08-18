@@ -212,6 +212,8 @@ class Checkpointer:
             self.last_checkpoint_path = checkpoint_dir
             print(f"Saved DCP checkpoint: {checkpoint_dir}")
 
+    def is_empty(self):
+        return self.last_checkpoint_path is None
 
 
 
