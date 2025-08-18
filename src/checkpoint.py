@@ -22,6 +22,29 @@ MODEL_CHECKPOINT = "model_state_dict.pt"
 OPTIM_CHECKPOINT = "optim_state_dict.pt"
 PARAMS = "params"
 
+def _manifest_pointers(run_dir: str):
+    run_dir_path = Path(run_dir)
+    latest = None
+    best_per_round = {}
+
+    if latest is None or not best_per_round:
+        mt = run_dir_path / "manifest.txt"
+        if mt.exists():
+            try:
+                txt = mt.read_text()
+                # Expect lines like:
+                #   latest: /abs/path/to/checkpoint_dir
+                #   best[0]: /abs/path/to/checkpoint_dir_for_round0
+                m_latest = re.search(r"^latest:\s*(.+)$", txt, flags=re.MULTILINE)
+                if m_latest:
+                    latest = Path(m_latest.group(1).strip())
+                for m in re.finditer(r"^best\[(\d+)\]:\s*(.+)$", txt, flags=re.MULTILINE):
+                    best_per_round[int(m.group(1))] = Path(m.group(2).strip())
+            except Exception:
+                pass
+
+    return latest, best_per_round
+
 
 def get_latest_checkpoint_folder(path):
     max_num = None
@@ -46,6 +69,34 @@ class Checkpointer:
         self.last_training_time = get_latest_checkpoint_folder(
             f"{folder}/{'dcp_api' if dcp_api else 'dtensor_api'}"
         )
+
+    def resolve_resume_checkpoint(parent_ckpt_dir: str, run_dir: str) -> Path | None:
+        """
+        Choose a checkpoint to resume from.
+        Preference order:
+        1) manifest pointers (latest)
+        2) newest by (round, epoch, step) among <parent_ckpt_dir> entries
+        3) None if nothing found
+        """
+        latest, _ = _manifest_pointers(run_dir)
+        if latest and latest.exists():
+            return latest
+
+        # Fallback to directory scan (you already have name parsing/indexing)
+        try:
+            index = index_checkpoints(parent_ckpt_dir)
+            if not index:
+                return None
+            # pick max by (round, epoch, step)
+            newest = None
+            for r, items in index.items():
+                for ck in items:
+                    key = (ck.round, ck.epoch, ck.step)
+                    if newest is None or key > newest[0]:
+                        newest = (key, ck.path)
+            return newest[1] if newest else None
+        except Exception:
+            return None
 
     def is_empty(self):
         return self.last_training_time is None
