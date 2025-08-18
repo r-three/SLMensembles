@@ -166,7 +166,8 @@ def main(args):
             wandb_id=wandb_id,
         )
 
-    
+    default_excepthook = sys.excepthook
+    sys.excepthook = _on_exception
 
 
     # ----------------------------------

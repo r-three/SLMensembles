@@ -100,6 +100,15 @@ def main_print(*args, **kwargs):
     if is_main_process():
         print(*args, **kwargs)
 
+def _git_short():
+    """Retrieve the short Git commit hash of the current HEAD."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return "nogit"
 
 def _get_rank():
     """Get current process rank in distributed training."""
@@ -124,16 +133,6 @@ def get_round_path(output_path, round_num):
     return os.path.join(output_path, f"round_{round_num}")
 
 # ---------------------- Run ID and Directory Config Functions ----------------------
-
-def _git_short():
-    """Retrieve the short Git commit hash of the current HEAD."""
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return "nogit"
 
 def _hp_fingerprint() -> str:
     """Generate a short hash fingerprint from config parameters."""
@@ -239,16 +238,6 @@ class CSVLogger:
 
 # ---------------------- Manifest File Handling ----------------------
 
-
-def _git_short():
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return "nogit"
-
 def _write_txt(path, manifest_dict):
     lines = []
     for section, content in manifest_dict.items():
@@ -266,6 +255,9 @@ def _write_txt(path, manifest_dict):
     os.replace(tmp, path)
 
 def _touch(path):
+    if os.path.exists(status_failed): os.remove(status_failed)
+    if os.path.exists(status_running): os.remove(status_running)
+    if os.path.exists(status_done): os.remove(status_done)
     open(path, "a").close()
 
 
@@ -299,65 +291,42 @@ def create_manifest(output_path, start_time_str=None, wandb_run=None, wandb_id=N
         manifest = {
             "run_id": run_id,
             "start_time": start_time_str,
-            "paths": {
-                "run_dir": run_dir,
-                "checkpoint_dir": checkpoint_dir,
-                "metrics_csv": metrics_csv,
-            },
+            "run_dir": run_dir,
             "wandb": {
-                "id": (wandb_id if wandb_id is not None else (getattr(wandb_run, "id", None) if wandb_run is not None else None)),
-                "name": (getattr(wandb_run, "name", None) if wandb_run is not None else None),
+                "id": wandb_id,
+                "name": wandb_name,
                 "project": "slm-ensembles",
             },
-            "code": {
-                "git_commit": _git_short(),
-                "entrypoint": "main.py",
-            },
+            "git_commit": _git_short(),
             "hardware": {
                 "ddp": getattr(config, "ddp", False),
                 "world_size": world_size,
                 "devices": devices,
             },
             "data": {
-                "dataset_name": getattr(config, "dataset_name", None),
-                "dataset_type": getattr(config, "dataset_type", None),
-                "dataset_path": getattr(config, "dataset_path", None),
-                "synthetic_data": getattr(config, "synthetic_data", False),
+                "dataset_name": config.dataset_name,
+                "dataset_path": config.dataset_path,
+                "synthetic_data": config.synthetic_data,
             },
             "models": {
-                "teacher": getattr(config, "teacher_model_name", None),
-                "student": getattr(config, "student_model_name", None),
-                "tokenizer": getattr(config, "tokenizer_name", None),
-                "student_vocab_size": getattr(config, "student_vocab_size", None),
+                "teacher": config.teacher_model_name,
+                "student": config.student_model_name,
+                "tokenizer": config.tokenizer_name,
             },
             "train": {
-                "alpha": getattr(config, "alpha", None),
-                "kl_temperature": getattr(config, "kl_temperature", None),
-                "learning_rate": getattr(config, "learning_rate", None),
-                "weight_decay": getattr(config, "weight_decay", None),
-                "warmup_ratio": getattr(config, "warmup_ratio", None),
-                "warmup_steps": getattr(config, "warmup_steps", None),
-                "num_train_epochs": getattr(config, "num_train_epochs", None),
-                "total_rounds": getattr(config, "total_rounds", None),
-                "steps_per_round": getattr(config, "steps_per_round", None),
-                "per_device_train_batch_size": getattr(config, "per_device_train_batch_size", None),
-                "eval_batch_size": getattr(config, "eval_batch_size", None),
-                "gradient_accumulation_steps": getattr(config, "gradient_accumulation_steps", None),
-                "max_grad_norm": getattr(config, "max_grad_norm", None),
-                "eval_steps": getattr(config, "eval_steps", None),
-                "logging_steps": getattr(config, "logging_steps", None),
-                "save_steps": getattr(config, "save_steps", None),
-                "save_total_limit": getattr(config, "save_total_limit", None),
-                "seed": getattr(config, "seed", None),
-                "description": getattr(config, "description", None),
-                "id_string": getattr(config, "id_string", None),
+                "alpha": config.alpha,
+                "kl_temperature": config.kl_temperature,
+                "learning_rate": config.learning_rate,
+                "weight_decay": config.weight_decay,
+                "warmup_ratio": config.warmup_ratio,
+                "warmup_steps": config.warmup_steps,
+                "num_train_epochs": config.num_train_epochs,
+                "ensemble_models": config.total_rounds,
+                "seed": config.seed,
             },
-            # Filled in at the end:
             "outcomes": {
                 "end_time": None,
                 "wall_time_sec": None,
-                "best_checkpoints": None,
-                "min_eval_loss": None,
             },
             "status": "RUNNING",
         }
@@ -365,41 +334,36 @@ def create_manifest(output_path, start_time_str=None, wandb_run=None, wandb_id=N
         _write_txt(manifest_path, manifest)
         _touch(status_running)
 
-        # Ensure we flip RUNNING → DONE/FAILED at exit
-        def _finalize_manifest(status_ok: bool, end_time: str, wall_time_sec: float, best_ckpts=None, min_eval=None):
-            try:
-                manifest["outcomes"]["end_time"] = end_time
-                manifest["outcomes"]["wall_time_sec"] = wall_time_sec
-                manifest["outcomes"]["best_checkpoints"] = best_ckpts
-                manifest["outcomes"]["min_eval_loss"] = float(min_eval) if min_eval is not None else None
-                manifest["status"] = "DONE" if status_ok else "FAILED"
-                _write_txt(manifest_path, manifest)
-                # flip sentinel
-                if status_ok:
-                    if os.path.exists(status_failed): os.remove(status_failed)
-                    if os.path.exists(status_running): os.remove(status_running)
-                    _touch(status_done)
-                else:
-                    if os.path.exists(status_done): os.remove(status_done)
-                    if os.path.exists(status_running): os.remove(status_running)
-                    _touch(status_failed)
-            except Exception:
-                # Last resort: at least flip a file
-                if status_ok:
-                    _touch(status_done)
-                else:
-                    _touch(status_failed)
+def _finalize_manifest(status_ok: bool, end_time: str, wall_time_sec: float):
+    manifest["outcomes"]["end_time"] = end_time
+    manifest["outcomes"]["wall_time_sec"] = wall_time_sec
+    manifest["status"] = "DONE" if status_ok else "FAILED"
+    _write_txt(manifest_path, manifest)
+    # flip sentinel
+    _touch(status_done) if status_ok else _touch(status_failed)
 
-        # Register atexit success path; we’ll override to FAILED on exceptions
-        def _on_exit_success():
-            _finalize_manifest(
-                status_ok=True,
-                end_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                wall_time_sec=time.time() - base_start_time,
-                best_ckpts=None,   # filled later if available
-                min_eval=None,     # filled later if available
-            )
-        atexit.register(_on_exit_success)
+
+def _on_exit_success():
+    if os.path.exists(status_failed):
+        return
+    _finalize_manifest(
+        status_ok=True,
+        end_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        wall_time_sec=time.time() - base_start_time,
+        best_ckpts=None,
+        min_eval=None,
+    )
+    atexit.register(_on_exit_success)
+
+def _on_exception(exc_type, exc_value, exc_traceback):
+    _finalize_manifest(
+        status_ok=False,
+        end_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        wall_time_sec=time.time() - base_start_time,
+        best_ckpts=None,
+        min_eval=None,
+    )
+    default_excepthook(exc_type, exc_value, exc_traceback)
 
 
 
