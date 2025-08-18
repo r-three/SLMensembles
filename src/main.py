@@ -246,7 +246,7 @@ def main(args):
         # Set up Checkpointer and optimizer
         # ----------------------------------
             
-        checkpointer = Checkpointer("checkpoints", dcp_api=args.dcp_api)
+        checkpointer = Checkpointer(checkpoint_dir, dcp_api=args.dcp_api)
         student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
         
         # TODO: also checkpoint the dataloader sampler

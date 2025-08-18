@@ -279,8 +279,7 @@ def create_manifest(output_path, start_time_str=None, wandb_run=None, wandb_id=N
 
         # Resolve checkpoint and metrics paths
         run_dir = output_path
-        ckpt_dir_default = os.path.join(output_path, "checkpoints")
-        checkpoint_dir = ckpt_dir_default if os.path.isdir(ckpt_dir_default) else getattr(config, "checkpoint_dir", None)
+        checkpoint_dir = os.path.join(output_path, "checkpoints")
         metrics_csv = os.path.join(output_path, "CSV_metrics.csv")
 
         # Timestamps
