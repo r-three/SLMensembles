@@ -57,19 +57,15 @@ def main(args):
     # ----------------------------------
 
     run_id, slug, wandb_name, wandb_id = build_run_identity()
-    
-    log_dir = None
+
     logger = None
     output_path = config.get_directory(run_id)
 
     if is_main_process():
-        log_dir = output_path
-        logger = CSVLogger(log_dir, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
+        logger = CSVLogger(output_path, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
 
-    run_name = f"{os.path.basename(output_path)}"
     os.makedirs(config.logprob_cache_path, exist_ok=True)
-    
     os.makedirs(config.checkpoint_dir, exist_ok=True)
     main_print(f"Checkpoints will be saved to: {config.checkpoint_dir}")
 
@@ -123,7 +119,6 @@ def main(args):
         metadata_dict = {
             "Run id": config.id_string,
             "Wandb run id": wandb_run.id if wandb_run else None,
-            "Run name": config.run_name,
             "Description": config.description,
             "Teacher Model": config.teacher_model_name,
             "Student Model": config.student_model_name,
@@ -139,8 +134,8 @@ def main(args):
         }
     main_print("\n==== RUN CONFIGURATION ====")
 
-    main_print(f"Run: {run_name}")
-    main_print(f"Created logging directory: {log_dir}")
+    main_print(f"Run: {run_id}")
+    main_print(f"Created logging directory: {output_path}")
     main_print(f"Models stored in: {output_path}")
 
     main_print(f"{config.id_string}")

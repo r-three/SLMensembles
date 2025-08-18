@@ -189,31 +189,14 @@ class CSVLogger:
         log_dir,
         fieldnames: list,
         overall_start_time,
-        filename: str = "metrics.csv",
+        filename: str = "CSV_metrics.csv",
         flush_every: int = 10,
     ):
-        os.makedirs(log_dir, exist_ok=True)
-
         self.fieldnames = fieldnames
         self.overall_start_time = overall_start_time
         self.buffer = []
         self.flush_every = flush_every
         self.counter = 0
-
-        run_dirs = glob.glob(os.path.join(log_dir, "run_*"))
-        next_run = max([int(os.path.basename(d).split("_")[1]) for d in run_dirs if "_" in d] + [0]) + 1
-
-        run_name = config.run_name if config.run_name else f"run_{next_run}"
-
-        hyper_str = (
-            f"ens{config.total_rounds}_"
-            f"alpha{config.alpha}_"
-            f"temp{config.kl_temperature}_"
-            f"lr{config.learning_rate}"
-        )
-
-        filename_base = f"{run_name}_{hyper_str}_metrics"
-        filename = f"{filename_base}.csv"
 
         if config.checkpoint_log_path:
             self.filepath = config.checkpoint_log_path
