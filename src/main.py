@@ -39,7 +39,7 @@ def main(args):
     # (JSON)      (Text)             (Tensors)       (-100/IDs)         (Tensors)           (Disk)               (GPU)              (GPU)          (GPU)         (GPU)
 
     # ----------------------------------
-    # FSDP Setup
+    # DDP Setup
     # ----------------------------------
 
     rank = int(os.environ["LOCAL_RANK"])
@@ -56,9 +56,11 @@ def main(args):
     # Logging and Run Configuration 
     # ----------------------------------
 
+    run_id, slug, wandb_name, wandb_id = build_run_identity()
+    
     log_dir = None
     logger = None
-    output_path = config.get_directory(config.base_output_dir)
+    output_path = config.get_directory(run_id)
 
     if is_main_process():
         log_dir = output_path

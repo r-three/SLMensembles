@@ -123,9 +123,10 @@ def get_round_path(output_path, round_num):
     """Get the path for a specific training round."""
     return os.path.join(output_path, f"round_{round_num}")
 
-# ---------------------- Run Id Generation Functions ----------------------
+# ---------------------- Run ID and Directory Config Functions ----------------------
 
 def _git_short():
+    """Retrieve the short Git commit hash of the current HEAD."""
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -134,41 +135,51 @@ def _git_short():
     except Exception:
         return "nogit"
 
-def _hp_fingerprint(cfg) -> str:
+def _hp_fingerprint() -> str:
+    """Generate a short hash fingerprint from config parameters."""
     keys = [
-        "student_model_name","teacher_model_name","learning_rate","alpha",
-        "kl_temperature","per_device_train_batch_size","gradient_accumulation_steps",
-        "num_train_epochs","total_rounds","dataset_name","dataset_type","seed"
+        "student_model_name", "teacher_model_name", "learning_rate", "alpha",
+        "kl_temperature", "per_device_train_batch_size", "gradient_accumulation_steps",
+        "num_train_epochs", "total_rounds", "dataset_name", "dataset_type", "seed"
     ]
-    blob = json.dumps({k: getattr(cfg, k) for k in keys}, sort_keys=True).encode()
-    return blake2s(blob, digest_size=4).hexdigest()  # 8 hex chars
+    blob = json.dumps({k: getattr(config, k) for k in keys}, sort_keys=True).encode()
+    return blake2s(blob, digest_size=4).hexdigest()
 
 def _abbr_model(name: str) -> str:
+    """Abbreviate model name for concise identification."""
     base = name.split("/")[-1].lower()
     m = re.search(r"(\d+(?:\.\d+)?)\s*b", base)
     size = (m.group(1) + "b") if m else ""
     family = "qwen" if "qwen" in base else base.split("-")[0]
     return f"{family}{size.replace('.','p')}"
 
-def build_run_identity(cfg):
+def build_run_identity():
+    """Construct run identity components for logging and tracking."""
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     git = _git_short()
-    fp  = _hp_fingerprint(cfg)         # 8-hex
-    run_id = f"{ts}-{git}-{fp}"
+    fp = _hp_fingerprint()
 
+    run_id = f"{ts}-{git}-{fp}"
     slug = "-".join([
-        _abbr_model(cfg.student_model_name),
-        f"a{cfg.alpha}",
-        f"t{cfg.kl_temperature}",
-        f"lr{cfg.learning_rate}"
+        _abbr_model(config.student_model_name),
+        f"a{config.alpha}",
+        f"t{config.kl_temperature}",
+        f"lr{config.learning_rate}"
     ])
     alias = os.environ.get("RUN_ALIAS")
     if alias:
         slug = f"{alias}-{slug}"
+
     wandb_name = f"{slug} | {run_id}"
-    wandb_id   = f"{fp}-{ts}"
+    wandb_id = f"{fp}-{ts}"
 
     return run_id, slug, wandb_name, wandb_id
+
+def get_directory(run_id):
+    output_dir = config.base_output_dir
+    run_dir = os.path.join(output_dir, run_id)
+    os.makedirs(run_dir)
+    return run_dir
 
 # ---------------------- CSV Logger ----------------------
 

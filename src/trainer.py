@@ -112,7 +112,7 @@ class Trainer(ABC):
                 role="student",
                 step=self.tr_step,
                 learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
-                alpha=getattr(self.config, "alpha", None),
+                alpha=config.alpha,
             )
 
     def compute_loss(self, batch):
@@ -253,7 +253,7 @@ class Trainer(ABC):
                 train_kl_loss=mean_kl_loss,
                 grad_norm=grad_norm,
                 learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
-                alpha=getattr(self.config, "alpha", None),
+                alpha=config.alpha,
             )
 
         return mean_train_loss
@@ -312,7 +312,7 @@ class Trainer(ABC):
                     eval_kl_loss=mean_kl_loss,
                     perplexity=math.exp(mean_eval_loss) if mean_eval_loss is not None else None,
                     learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
-                    alpha=getattr(self.config, "alpha", None),
+                    alpha=config.alpha,
                 )
                 # Ensure flush happens periodically at eval
                 try:
@@ -405,6 +405,22 @@ class DistillTrainer(Trainer):
         if not self.config.synthetic_data:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
+
+        if self.logger is not None:
+            self.logger.log(
+                function="train_step",
+                round_num=self.round_num,
+                epoch_num=getattr(self.state, "epoch", None),
+                phase="train",
+                role="student",
+                step=self.tr_step,
+                train_loss=hybrid_loss,
+                train_next_token_loss=next_token_loss,
+                train_kl_loss=kl_loss,
+                perplexity=math.exp(hybrid_loss) if hybrid_loss is not None else None,
+                learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
+                alpha=config.alpha,
+            )
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
 
