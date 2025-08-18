@@ -82,8 +82,8 @@ def main(args):
         try:
             wandb_run = wandb.init(
                 project="slm-ensembles",
-                id=RUN_ID,   
-                name=RUN_ID,
+                id=run_id,   
+                name=run_id,
                 config={
                     "model_name": config.student_model_name,
                     "teacher_model": config.teacher_model_name,
@@ -116,7 +116,7 @@ def main(args):
     # ----------------------------------
     if is_main_process():   
         metadata_dict = {
-            "Run id": config.id_string,
+            "Run id": run_id,
             "Wandb run id": wandb_run.id if wandb_run else None,
             "Description": config.description,
             "Teacher Model": config.teacher_model_name,
@@ -137,7 +137,7 @@ def main(args):
     main_print(f"Created logging directory: {output_path}")
     main_print(f"Models stored in: {output_path}")
 
-    main_print(f"{config.id_string}")
+    main_print(f"{run_id}")
     main_print(f"{config.description}\n")
 
     if is_main_process():
@@ -160,7 +160,7 @@ def main(args):
     
     if is_main_process():
         with open(os.path.join(output_path, "manifest.json"), "w") as f:
-            json.dump(metadata_dict | {"RUN_ID": RUN_ID}, f, indent=2)
+            json.dump(metadata_dict | {"RUN_ID": run_id}, f, indent=2)
 
         open(os.path.join(output_path, "STATUS.RUNNING"), "w").close() # TODO add STATUS.DONE when finished and STATUS.FAILED on exception
 

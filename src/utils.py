@@ -237,6 +237,153 @@ class CSVLogger:
         self.buffer.clear()
         self.counter = 0
 
+# ---------------------- Manifest File Handling ----------------------
+
+
+def _git_short():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return "nogit"
+
+def _write_json(path, obj):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(obj, f, indent=2)
+    os.replace(tmp, path)  # atomic-ish on POSIX
+
+def _touch(path):
+    open(path, "a").close()
+
+
+def create_manifest(output_path):
+        run_id = os.path.basename(output_path)
+        manifest_path = os.path.join(output_path, "manifest.json")
+
+        # Build a concise, structured manifest
+        manifest = {
+            "run_id": run_id,
+            "start_time": overall_start_datetime,
+            "paths": {
+                "run_dir": run_dir,
+                "checkpoint_dir": config.checkpoint_dir,
+                # If you moved CSV into run_dir in Step 2, keep this:
+                "metrics_csv": os.path.join(run_dir, "metrics.csv"),
+            },
+            "wandb": {
+                "id": WANDB_ID if 'WANDB_ID' in globals() else None,
+                "name": wandb_run.name if (wandb_run is not None) else None,
+                "project": "slm-ensembles",
+            },
+            "code": {
+                "git_commit": _git_short(),
+                "entrypoint": "main.py",
+            },
+            "hardware": {
+                "ddp": config.ddp,
+                "world_size": int(os.environ.get("WORLD_SIZE", 1)),
+                "devices": [f"cuda:{i}" for i in range(int(os.environ.get("WORLD_SIZE", 1)))],
+            },
+            "data": {
+                "dataset_name": config.dataset_name,
+                "dataset_type": config.dataset_type,
+                "dataset_path": getattr(config, "dataset_path", None),
+                "synthetic_data": getattr(config, "synthetic_data", False),
+            },
+            "models": {
+                "teacher": config.teacher_model_name,
+                "student": config.student_model_name,
+                "tokenizer": config.tokenizer_name,
+                "student_vocab_size": getattr(config, "student_vocab_size", None),
+            },
+            "train": {
+                "alpha": config.alpha,
+                "kl_temperature": config.kl_temperature,
+                "learning_rate": config.learning_rate,
+                "weight_decay": config.weight_decay,
+                "warmup_ratio": config.warmup_ratio,
+                "warmup_steps": config.warmup_steps,
+                "num_train_epochs": config.num_train_epochs,
+                "total_rounds": config.total_rounds,
+                "steps_per_round": config.steps_per_round,
+                "per_device_train_batch_size": config.per_device_train_batch_size,
+                "eval_batch_size": config.eval_batch_size,
+                "gradient_accumulation_steps": config.gradient_accumulation_steps,
+                "max_grad_norm": getattr(config, "max_grad_norm", 1.0),
+                "eval_steps": config.eval_steps,
+                "logging_steps": config.logging_steps,
+                "save_steps": config.save_steps,
+                "save_total_limit": config.save_total_limit,
+                "seed": config.seed,
+                "description": config.description,
+                "id_string": config.id_string,
+            },
+            # Filled in at the end:
+            "outcomes": {
+                "end_time": None,
+                "wall_time_sec": None,
+                "best_checkpoints": None,
+                "min_eval_loss": None,
+            },
+            "status": "RUNNING",
+        }
+
+        _write_json(manifest_path, manifest)
+        # Touch the sentinel
+        _touch(status_running)
+
+        # Ensure we flip RUNNING → DONE/FAILED at exit
+        def _finalize_manifest(status_ok: bool, end_time: str, wall_time_sec: float, best_ckpts=None, min_eval=None):
+            try:
+                with open(manifest_path) as f:
+                    m = json.load(f)
+                m["outcomes"]["end_time"] = end_time
+                m["outcomes"]["wall_time_sec"] = wall_time_sec
+                m["outcomes"]["best_checkpoints"] = best_ckpts
+                m["outcomes"]["min_eval_loss"] = float(min_eval) if min_eval is not None else None
+                m["status"] = "DONE" if status_ok else "FAILED"
+                _write_json(manifest_path, m)
+                # flip sentinel
+                if status_ok:
+                    if os.path.exists(status_failed): os.remove(status_failed)
+                    if os.path.exists(status_running): os.remove(status_running)
+                    _touch(status_done)
+                else:
+                    if os.path.exists(status_done): os.remove(status_done)
+                    if os.path.exists(status_running): os.remove(status_running)
+                    _touch(status_failed)
+            except Exception as _e:
+                # Last resort: at least flip a file
+                if status_ok:
+                    _touch(status_done)
+                else:
+                    _touch(status_failed)
+
+        # Register atexit success path; we’ll override to FAILED on exceptions
+        def _on_exit_success():
+            _finalize_manifest(
+                status_ok=True,
+                end_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                wall_time_sec=time.time() - overall_start_time,
+                best_ckpts=None,   # filled later if available
+                min_eval=None,     # filled later if available
+            )
+        atexit.register(_on_exit_success)
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ---------------------- Dataset handling ----------------------
 
