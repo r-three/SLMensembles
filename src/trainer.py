@@ -13,8 +13,9 @@ from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from utils import main_print
 from tqdm.auto import tqdm
 from datetime import datetime
+import math
 
-# ---------------------- High-Level Implementation ----------------------
+# ---------------------- Callbacks ----------------------
 
 class LoggingCallback(TrainerCallback):
     def __init__(self, logger, round_num, overall_start_time):
@@ -33,8 +34,6 @@ class LoggingCallback(TrainerCallback):
             role="student",
             step=state.global_step,
             eval_loss=loss.mean().item(),
-            learning_rate=logs.get("learning_rate"),
-            grad_norm=logs.get("grad_norm"),
             alpha=config.alpha,
             )
 
@@ -56,7 +55,7 @@ class LoggingCallback(TrainerCallback):
 
         return control
 
-# ---------------------- Manual Implementation ----------------------
+# ---------------------- Trainer ----------------------
 
 def _gather(x: torch.Tensor) -> torch.Tensor:
     output_tensors = [x.clone() for _ in range(dist.get_world_size())]
@@ -103,6 +102,18 @@ class Trainer(ABC):
                 writer.writerow(["Train step (local)", "Mean eval loss", "Next token loss", "KL loss", "Valid count"]) 
         self.model.train()
         self.model.config.use_cache = False  # avoid cache warnings in training
+        # Lightweight init log
+        if self.logger is not None and self.rank == 0:
+            self.logger.log(
+                function="prepare_train",
+                round_num=self.round_num,
+                epoch_num=getattr(self.state, "epoch", None),
+                phase="init",
+                role="student",
+                step=self.tr_step,
+                learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
+                alpha=getattr(self.config, "alpha", None),
+            )
 
     def compute_loss(self, batch):
         '''
@@ -175,42 +186,77 @@ class Trainer(ABC):
         self.processed_id += 1
         # TODO: change to proper dataset ckpt
 
+        grad_norm = None
+        # Compute loss and backpropagate (supporting grad accumulation)
         if (self.tr_step + 1) % self.gas != self.gas - 1:
             # no need to sync while accumulating gradients
-            self.model.set_requires_gradient_sync(False) # with (grad = False):
-            tr_step_loss, _, _, _ = self.compute_loss(batch)
+            self.model.set_requires_gradient_sync(False)  # with (grad = False):
+            tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
+            try:
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
+                grad_norm = float(grad_norm)
+            except Exception:
+                grad_norm = None
             self.model.set_requires_gradient_sync(True)
         else:
             # next forward / backward pass will be synced
             self.model.set_requires_gradient_sync(True)
             dist.barrier()
-            tr_step_loss, _, _, _ = self.compute_loss(batch)
+            tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
+            try:
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
+                grad_norm = float(grad_norm)
+            except Exception:
+                grad_norm = None
             self.optim.step()
             if isinstance(self.lr_scheduler, ReduceLROnPlateau):
                 self.lr_scheduler.step(self.metric)
             else:
                 self.lr_scheduler.step()
             self.optim.zero_grad()
-        gathered_tr_step_loss = _gather(tr_step_loss.reshape(1)).mean().item()
-        # gather with sum
 
-        # Log training steps if logger is available
-        if self.logger is not None and self.rank == 0:
+        # Gather sums across ranks
+#         loss_sum = _gather(tr_step_loss.reshape(1)).sum().item()
+#         nt_sum = _gather((next_token_loss if next_token_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).sum().item()
+#         kl_sum = _gather((kl_loss if kl_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).sum().item()
+#         valid_sum = _gather(valid_count.reshape(1)).sum().item()
+# 
+#         # Compute per-token mean losses (avoid div by zero)
+#         denom = max(valid_sum, 1.0)
+#         mean_train_loss = loss_sum / denom
+#         mean_nt_loss = nt_sum / denom if nt_sum is not None else None
+#         mean_kl_loss = kl_sum / denom if kl_sum is not None else None
+
+
+        loss_sum = _gather(tr_step_loss.reshape(1)).mean().item()
+        nt_sum = _gather((next_token_loss if next_token_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).mean().item()
+        kl_sum = _gather((kl_loss if kl_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).mean().item()
+        valid_sum = _gather(valid_count.reshape(1)).mean().item()
+
+        # Periodic CSV logging
+        if (
+            self.logger is not None
+            and self.rank == 0
+            and (self.tr_step % getattr(self.config, "logging_steps", 1) == 0)
+        ):
             self.logger.log(
                 function="train_step",
                 round_num=self.round_num,
+                epoch_num=getattr(self.state, "epoch", None),
                 phase="train",
                 role="student",
                 step=self.tr_step,
-                train_loss=gathered_tr_step_loss,
+                train_loss=mean_train_loss,
+                train_next_token_loss=mean_nt_loss,
+                train_kl_loss=mean_kl_loss,
+                grad_norm=grad_norm,
                 learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
+                alpha=getattr(self.config, "alpha", None),
             )
 
-        return gathered_tr_step_loss
+        return mean_train_loss
     
     def eval_step(self, eval_dl, epoch: int) -> float:
         main_print("Evaluating")
@@ -227,8 +273,10 @@ class Trainer(ABC):
                 batch["labels"] = batch["labels"].type(torch.LongTensor)
                 loss_sum, next_token_sum, kl_sum, valid_cnt = self.compute_loss(batch)
                 eval_loss += loss_sum
-                nxt_token_loss += next_token_sum
-                kl_loss += kl_sum
+                if next_token_sum is not None:
+                    nxt_token_loss += next_token_sum
+                if kl_sum is not None:
+                    kl_loss += kl_sum
                 valid_total += valid_cnt
         
         # So you don't see eval loss of a few million
@@ -238,10 +286,10 @@ class Trainer(ABC):
         gathered_valid_total = _gather(valid_total.reshape(1)).sum().item()
         # Take the average of eval_loss on both cards, 
         mean_eval_loss = gathered_eval_loss / gathered_valid_total
-        mean_nk_loss = gathered_nxt_token_loss / gathered_valid_total
-        mean_kl_loss = gathered_kl_loss / gathered_valid_total
+        mean_nk_loss = gathered_nxt_token_loss / gathered_valid_total if gathered_valid_total > 0 else None
+        mean_kl_loss = gathered_kl_loss / gathered_valid_total if gathered_valid_total > 0 else None
 
-        self.metric = gathered_eval_loss
+        self.metric = mean_eval_loss
 
         main_print(f"Step: {self.tr_step}, eval loss: {mean_eval_loss}")
 
@@ -255,19 +303,28 @@ class Trainer(ABC):
                 self.logger.log(
                     function="eval_step",
                     round_num=self.round_num,
+                    epoch_num=epoch,
                     phase="eval",
                     role="student",
                     step=self.tr_step,
                     eval_loss=mean_eval_loss,
                     eval_next_token_loss=mean_nk_loss,
                     eval_kl_loss=mean_kl_loss,
+                    perplexity=math.exp(mean_eval_loss) if mean_eval_loss is not None else None,
+                    learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
+                    alpha=getattr(self.config, "alpha", None),
                 )
+                # Ensure flush happens periodically at eval
+                try:
+                    self.logger.flush()
+                except Exception:
+                    pass
 
         self.min_eval_loss = min(mean_eval_loss, self.min_eval_loss)
         self.current_eval_loss = mean_eval_loss
 
         # -------- Early stopping --------
-        if self.best_loss - self.mean_eval_loss < config.early_stop_min_delta:
+        if self.best_loss - mean_eval_loss < config.early_stop_min_delta:
             self.best_loss = mean_eval_loss
             self.wait = 0
         else:
@@ -277,8 +334,9 @@ class Trainer(ABC):
             self.should_stop = True
         
         self.model.train()
-        return gathered_eval_loss
-    
+        return mean_eval_loss
+
+# ---------------------- DistillTrainer ----------------------
     
 class DistillTrainer(Trainer):
     def __init__(
@@ -347,21 +405,6 @@ class DistillTrainer(Trainer):
         if not self.config.synthetic_data:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
-        
-        # Log training loss details if logger is available
-        if self.logger is not None and self.rank == 0 and self.tr_step % self.config.logging_steps == 0:
-            self.logger.log(
-                function="compute_loss",
-                round_num=self.round_num,
-                phase="train",
-                role="student",
-                step=self.tr_step,
-                train_loss=hybrid_loss.item(),
-                train_next_token_loss=next_token_loss.item(),
-                train_kl_loss=kl_loss.item() if isinstance(kl_loss, torch.Tensor) else kl_loss,
-                alpha=alpha,
-                learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
-            )
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
 
