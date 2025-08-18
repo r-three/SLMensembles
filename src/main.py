@@ -14,7 +14,8 @@ from trainer import Trainer, DistillTrainer
 from utils import (CSVLogger, prepare_dataset, format_time_elapsed, 
                   is_main_process, main_print, check_batch_shape, fix_seed,
                   inspect_mixed_precision, inspect_model,
-                  set_modules_to_forward_prefetch, set_modules_to_backward_prefetch)
+                  set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
+                  create_manifest, build_run_identity, get_directory)
 from ensemble import ModelEnsemble
 from checkpoint import Checkpointer, index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -57,7 +58,7 @@ def main(args):
     # ----------------------------------
 
     run_id, slug, wandb_name, wandb_id = build_run_identity()
-    output_path = config.get_directory(run_id)
+    output_path = get_directory(run_id)
 
     logger = None
     if is_main_process():
@@ -157,12 +158,15 @@ def main(args):
     # ----------------------------------
     # Manifest File Creation
     # ----------------------------------
-    
     if is_main_process():
-        with open(os.path.join(output_path, "manifest.json"), "w") as f:
-            json.dump(metadata_dict | {"RUN_ID": run_id}, f, indent=2)
+        create_manifest(
+            output_path,
+            start_time_str=overall_start_datetime,
+            wandb_run=wandb_run,
+            wandb_id=wandb_id,
+        )
 
-        open(os.path.join(output_path, "STATUS.RUNNING"), "w").close() # TODO add STATUS.DONE when finished and STATUS.FAILED on exception
+    
 
 
     # ----------------------------------
