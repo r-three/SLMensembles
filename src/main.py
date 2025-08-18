@@ -17,7 +17,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory)
 from ensemble import ModelEnsemble
-from checkpoint import Checkpointer, index_checkpoints, best_checkpoint
+from checkpoint import Checkpointer, index_checkpoints, best_checkpoint, create_training_state, save_rng_states, restore_rng_states
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from tqdm.auto import tqdm
 from shard_weight import *
@@ -171,30 +171,49 @@ def main(args):
 
 
     # ----------------------------------
-    # Load Checkpoint Index
+    # Initialize Checkpointer and Resume Logic
     # ----------------------------------
+    checkpointer = Checkpointer(checkpoint_dir, args.dcp_api, use_flat_structure=True)
+    
+    # Check for existing checkpoints and resumption
+    resume_info = None
+    start_round = 0
+    start_epoch = 0
+    start_step = 0
+    ensemble_model = None
+    
+    if not checkpointer.is_empty():
+        main_print("Found existing checkpoints, attempting to resume...")
+        resume_info = checkpointer.get_checkpoint_info()
+        if resume_info:
+            start_round = resume_info['round']
+            start_epoch = resume_info['epoch'] + 1  # Start from next epoch
+            start_step = resume_info['step']
+            main_print(f"Resuming from round {start_round}, epoch {start_epoch}, step {start_step}")
+            
+            # Load training state for additional context
+            training_state = checkpointer.load_training_state()
+            if training_state:
+                main_print(f"Loaded training state: loss={training_state.get('current_loss', 'N/A')}")
+        else:
+            main_print("Could not parse checkpoint info, starting fresh")
+    
+    # Load checkpoint index for ensemble building (if needed)
     ckpt_index = index_checkpoints(checkpoint_dir)
     if len(ckpt_index) != 0:
-        completed_rounds = ckpt_index.keys()
-        completed_rounds = list(completed_rounds)
-        completed_rounds = sorted(completed_rounds)
+        completed_rounds = list(sorted(ckpt_index.keys()))
         is_continuous = completed_rounds == list(range(len(completed_rounds)))
         max_rounds = max(completed_rounds)
         if not is_continuous:
             raise Exception("The rounds obtained is not continuous.")
         best_ckpts = [best_checkpoint(ckpt_index, r) for r in range(max_rounds + 1)]
-    else:
-        best_ckpts = []
-    
-    print("Best ckpts: ", best_ckpts)
-
-    if best_ckpts:
+        main_print(f"Found {len(best_ckpts)} completed rounds: {best_ckpts}")
         start_round = max_rounds + 1
         start_epoch = 0
     else:
+        best_ckpts = []
         start_round = 0
         start_epoch = 0
-        ensemble_model = None
 
     # ----------------------------------
     # Outer Training Loop
@@ -243,11 +262,10 @@ def main(args):
             set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
         
         # ----------------------------------
-        # Set up Checkpointer and optimizer
+        # Load Model Weights and Set up Optimizer
         # ----------------------------------
-            
-        checkpointer = Checkpointer(checkpoint_dir, dcp_api=args.dcp_api)
-        student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
+        # checkpointer = Checkpointer(checkpoint_dir, dcp_api=args.dcp_api)
+        # student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
         
         # TODO: also checkpoint the dataloader sampler
         # TODO: fix to device issue (can't initialize). If use to_empty(device="cuda"), cannot reload the state_dict. If load state_dict, will get: NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.
@@ -257,13 +275,40 @@ def main(args):
             # load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=False)
         # else:
             # checkpointer.load_model(student_model)
+        # Load model weights - either from checkpoint or original pretrained
+        if resume_info and not checkpointer.is_empty():
+            main_print("Loading model from checkpoint...")
+            try:
+                checkpointer.load_model(student_model)
+                main_print("Successfully loaded model from checkpoint")
+            except Exception as e:
+                main_print(f"Failed to load model from checkpoint: {e}")
+                main_print("Loading original pretrained weights instead...")
+                student_state_dict = AutoModelForCausalLM.from_pretrained(
+                    config.student_model_name, torch_dtype=torch.bfloat16
+                ).state_dict()
+                load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=args.dcp_api)
+        else:
+            main_print("Loading original pretrained weights...")
+            student_state_dict = AutoModelForCausalLM.from_pretrained(
+                config.student_model_name, torch_dtype=torch.bfloat16
+            ).state_dict()
+            load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=args.dcp_api)
         
         if args.mixed_precision:
             inspect_mixed_precision(student_model)
 
+        # Set up optimizer
         optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-        if checkpointer.last_training_time is not None:
-            checkpointer.load_optim(student_model, optim)
+        
+        # Load optimizer state if resuming
+        if resume_info and not checkpointer.is_empty():
+            try:
+                checkpointer.load_optim(student_model, optim)
+                main_print("Successfully loaded optimizer from checkpoint")
+            except Exception as e:
+                main_print(f"Failed to load optimizer from checkpoint: {e}")
+                main_print("Using fresh optimizer state")
 
         # ----------------------------------
         # Load Checkpointed Models
@@ -328,6 +373,24 @@ def main(args):
             num_warmup_steps=num_warmup_steps,
             num_training_steps=num_training_steps
         )
+        
+        # Restore learning rate scheduler state if resuming
+        if resume_info and not checkpointer.is_empty():
+            training_state = checkpointer.load_training_state()
+            if training_state and 'lr_scheduler_state' in training_state:
+                try:
+                    lr_scheduler.load_state_dict(training_state['lr_scheduler_state'])
+                    main_print("Successfully restored learning rate scheduler state")
+                except Exception as e:
+                    main_print(f"Failed to restore LR scheduler state: {e}")
+            
+            # Restore RNG states for reproducibility
+            if training_state and 'rng_states' in training_state:
+                try:
+                    restore_rng_states(training_state['rng_states'])
+                    main_print("Successfully restored RNG states")
+                except Exception as e:
+                    main_print(f"Failed to restore RNG states: {e}")
         # Initialize trainer with logger and round information
         trainer = DistillTrainer(
             student_model, 
@@ -373,7 +436,7 @@ def main(args):
             # Inner Training Loop
             # ----------------------------------
 
-            for _ in tqdm(
+            for step_idx in tqdm(
                 range(len(train_dataloader)),
                 disable=rank != 0,
                 file=sys.__stdout__,
@@ -382,6 +445,39 @@ def main(args):
                     trainer.model.unshard()
                 batch = next(train_dl_iterator)
                 trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
+                
+                # Periodic checkpointing for SLURM interruption safety
+                checkpoint_every_n_steps = getattr(config, 'checkpoint_every_n_steps', 500)
+                if checkpoint_every_n_steps > 0 and trainer.tr_step % checkpoint_every_n_steps == 0:
+                    torch.distributed.barrier()
+                    
+                    # Create temporary checkpoint name
+                    if rank == 0:
+                        temp_checkpoint_name = (
+                            f"{round_num}_{epoch_num}_{trainer.tr_step}_"
+                            f"{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}_temp"
+                        )
+                    else:
+                        temp_checkpoint_name = None
+                    
+                    # Broadcast checkpoint name
+                    name_holder = [temp_checkpoint_name]
+                    torch.distributed.broadcast_object_list(name_holder, src=0)
+                    temp_checkpoint_name = name_holder[0]
+                    
+                    # Save periodic checkpoint with training state
+                    temp_path = os.path.join(checkpoint_dir, temp_checkpoint_name)
+                    training_state = create_training_state(
+                        round_num, epoch_num, trainer.tr_step,
+                        trainer.current_eval_loss, trainer.min_eval_loss,
+                        lr_scheduler_state=lr_scheduler.state_dict(),
+                        rng_states=save_rng_states()
+                    )
+                    checkpointer.save(trainer.model, optim, temp_path, training_state)
+                    
+                    if rank == 0:
+                        main_print(f"Saved periodic checkpoint at step {trainer.tr_step}")
+                
                 if trainer.should_stop:
                     break
 
@@ -404,9 +500,15 @@ def main(args):
             torch.distributed.broadcast_object_list(name_holder, src=0)
             checkpoint_name = name_holder[0]
             
-            # All ranks call save (but only rank 0 will write)
-            path = os.path.join(config.checkpoint_dir, checkpoint_name)
-            checkpointer.save(trainer.model, optim, path)
+            # All ranks call save (but only rank 0 will write) with training state
+            path = os.path.join(checkpoint_dir, checkpoint_name)
+            training_state = create_training_state(
+                round_num, epoch_num, trainer.tr_step,
+                trainer.current_eval_loss, trainer.min_eval_loss,
+                lr_scheduler_state=lr_scheduler.state_dict(),
+                rng_states=save_rng_states()
+            )
+            checkpointer.save(trainer.model, optim, path, training_state)
 
             # ----------------------------------
             # Update wandb run name and log metrics

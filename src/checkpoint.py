@@ -1,8 +1,10 @@
 import os
 import time
 import re
+import random
 
 import torch
+import numpy as np
 import torch.nn as nn
 from torch.distributed.checkpoint.state_dict import (
     _init_optim_state,
@@ -29,21 +31,17 @@ def _manifest_pointers(run_dir: str):
     latest = None
     best_per_round = {}
 
-    if latest is None or not best_per_round:
-        mt = run_dir_path / "manifest.txt"
-        if mt.exists():
-            try:
-                txt = mt.read_text()
-                # Expect lines like:
-                #   latest: /abs/path/to/checkpoint_dir
-                #   best[0]: /abs/path/to/checkpoint_dir_for_round0
-                m_latest = re.search(r"^latest:\s*(.+)$", txt, flags=re.MULTILINE)
-                if m_latest:
-                    latest = Path(m_latest.group(1).strip())
-                for m in re.finditer(r"^best\[(\d+)\]:\s*(.+)$", txt, flags=re.MULTILINE):
-                    best_per_round[int(m.group(1))] = Path(m.group(2).strip())
-            except Exception:
-                pass
+    mf = os.path.join(run_dir_path, "manifest.txt")
+    if os.path.exists(mf):
+        try:
+            txt = open(mf, "r").read()
+            m_latest = re.search(r"^latest:\s*(.+)$", txt, flags=re.MULTILINE)
+            if m_latest:
+                latest = Path(m_latest.group(1).strip())
+            for m in re.finditer(r"^best\[(\d+)\]:\s*(.+)$", txt, flags=re.MULTILINE):
+                best_per_round[int(m.group(1))] = Path(m.group(2).strip())
+        except Exception:
+            pass
 
     return latest, best_per_round
 
@@ -69,20 +67,52 @@ class Checkpointer:
         """Initialize the checkpointer with a base folder and API mode (DCP/DTensor)."""
         self.folder = folder
         self.dcp_api = dcp_api
-        self.last_training_time = get_latest_checkpoint_folder(
-            f"{folder}/{'dcp_api' if dcp_api else 'dtensor_api'}"
-        )
+        
+        self.last_training_time = None
+        self.last_checkpoint_path = self._find_latest_flat_checkpoint()
 
+    def _find_latest_flat_checkpoint(self):
+        """Find the latest checkpoint in flat directory structure."""
+        if not os.path.exists(self.folder):
+            return None
+        
+        try:
+            index = index_checkpoints(self.folder)
+            if not index:
+                return None
+            
+            # Find the checkpoint with highest (round, epoch, step)
+            latest = None
+            latest_key = None
+            for round_num, checkpoints in index.items():
+                for ckpt in checkpoints:
+                    key = (ckpt.round, ckpt.epoch, ckpt.step)
+                    if latest_key is None or key > latest_key:
+                        latest = ckpt.path
+                        latest_key = key
+            return latest
+        except Exception:
+            return None
+    
     def is_empty(self):
         """Return True if no previous checkpoint exists in the target folder."""
-        return self.last_training_time is None
+        if self.use_flat_structure:
+            return self.last_checkpoint_path is None
+        else:
+            return self.last_training_time is None
 
     def load_model(self, model: FSDPModule):
         """Load the model weights from the latest checkpoint into the given FSDP model."""
-        last_model_checkpoint = (
-            f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
-            f"/{self.last_training_time}/{MODEL_CHECKPOINT}"
-        )
+        if self.use_flat_structure:
+            if self.last_checkpoint_path is None:
+                raise ValueError("No checkpoint found to load from")
+            last_model_checkpoint = os.path.join(self.last_checkpoint_path, MODEL_CHECKPOINT)
+        else:
+            last_model_checkpoint = (
+                f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
+                f"/{self.last_training_time}/{MODEL_CHECKPOINT}"
+            )
+        
         full_sd = torch.load(
             last_model_checkpoint, mmap=True, weights_only=True, map_location="cpu"
         )
@@ -130,10 +160,16 @@ class Checkpointer:
 
     def load_optim(self, model: FSDPModule, opt: torch.optim.Optimizer):
         """Load the optimizer state from the latest checkpoint into the given optimizer."""
-        last_optim_checkpoint = (
-            f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
-            f"/{self.last_training_time}/{OPTIM_CHECKPOINT}"
-        )
+        if self.use_flat_structure:
+            if self.last_checkpoint_path is None:
+                raise ValueError("No checkpoint found to load from")
+            last_optim_checkpoint = os.path.join(self.last_checkpoint_path, OPTIM_CHECKPOINT)
+        else:
+            last_optim_checkpoint = (
+                f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
+                f"/{self.last_training_time}/{OPTIM_CHECKPOINT}"
+            )
+        
         full_sd = torch.load(
             last_optim_checkpoint, mmap=True, weights_only=True, map_location="cpu"
         )
@@ -249,21 +285,75 @@ class Checkpointer:
         else:
             return {}
 
-    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, checkpoint_folder=None):
+    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, checkpoint_folder=None, training_state=None):
         """Save full model and optimizer state_dicts to a new or provided checkpoint folder."""
         model_state_dict = self._get_full_model_state_dict(model)
         optim_state_dict = self._get_full_optimizer_state_dict(model, optim)
+        
         if torch.distributed.get_rank() == 0:
             if checkpoint_folder:
                 new_checkpoint_folder = checkpoint_folder
             else:
-                new_training_time = int(time.time() * 1000)
-                new_checkpoint_folder = f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}/{new_training_time}"
+                if self.use_flat_structure:
+                    # This should not happen in flat structure - folder should always be provided
+                    raise ValueError("checkpoint_folder must be provided for flat structure")
+                else:
+                    new_training_time = int(time.time() * 1000)
+                    new_checkpoint_folder = f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}/{new_training_time}"
+            
             new_model_checkpoint = f"{new_checkpoint_folder}/{MODEL_CHECKPOINT}"
             new_optim_checkpoint = f"{new_checkpoint_folder}/{OPTIM_CHECKPOINT}"
             os.makedirs(new_checkpoint_folder, exist_ok=True)
             torch.save(model_state_dict, new_model_checkpoint)
             torch.save(optim_state_dict, new_optim_checkpoint)
+            
+            # Save training state if provided
+            if training_state is not None:
+                training_state_path = f"{new_checkpoint_folder}/training_state.pt"
+                torch.save(training_state, training_state_path)
+    
+    def load_training_state(self):
+        """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
+        if self.use_flat_structure:
+            if self.last_checkpoint_path is None:
+                return None
+            training_state_path = os.path.join(self.last_checkpoint_path, "training_state.pt")
+        else:
+            if self.last_training_time is None:
+                return None
+            training_state_path = (
+                f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}"
+                f"/{self.last_training_time}/training_state.pt"
+            )
+        
+        if not os.path.exists(training_state_path):
+            return None
+        
+        try:
+            return torch.load(training_state_path, map_location="cpu", weights_only=True)
+        except Exception:
+            return None
+    
+    def get_checkpoint_info(self):
+        """Get information about the latest checkpoint for resumption."""
+        if self.use_flat_structure and self.last_checkpoint_path:
+            # Parse checkpoint name: round_epoch_step_current_loss_min_loss
+            try:
+                name = os.path.basename(self.last_checkpoint_path)
+                parts = name.split('_')
+                if len(parts) >= 3:
+                    return {
+                        'round': int(parts[0]),
+                        'epoch': int(parts[1]), 
+                        'step': int(parts[2]),
+                        'current_loss': float(parts[3]) if len(parts) > 3 else None,
+                        'min_loss': float(parts[4]) if len(parts) > 4 else None,
+                        'path': self.last_checkpoint_path
+                    }
+            except (ValueError, IndexError):
+                pass
+        
+        return None
 
 
 @dataclass(frozen=True)
@@ -275,18 +365,15 @@ class Checkpoint:
     current_loss: float
     min_loss: float
 
-    def resolve_resume_checkpoint(parent_ckpt_dir: str, run_dir: str) -> Path | None:
-        """Choose resume checkpoint: manifest 'latest' else newest by (round, epoch, step)."""
-        latest, _ = _manifest_pointers(run_dir)
-        if latest and latest.exists():
-            return latest
+    def resolve_resume_checkpoint(run_dir: str) -> Path | None:
+        """Resume from checkpoint"""
+        latest, best = _manifest_pointers(run_dir)
 
         # Fallback to directory scan (you already have name parsing/indexing)
         try:
-            index = index_checkpoints(parent_ckpt_dir)
+            index = index_checkpoints(run_dir)
             if not index:
                 return None
-            # pick max by (round, epoch, step)
             newest = None
             for r, items in index.items():
                 for ck in items:
@@ -328,3 +415,55 @@ def best_checkpoint(index: dict, round_num: int) -> Path:
 
     best = min(index[round_num], key=lambda c: c.current_loss)
     return best.path
+
+
+def create_training_state(round_num: int, epoch_num: int, step: int, 
+                         current_loss: float, min_loss: float,
+                         lr_scheduler_state=None, rng_states=None):
+    """Create a training state dictionary for checkpointing."""
+    state = {
+        'round': round_num,
+        'epoch': epoch_num,
+        'step': step,
+        'current_loss': current_loss,
+        'min_loss': min_loss,
+        'timestamp': time.time()
+    }
+    
+    if lr_scheduler_state is not None:
+        state['lr_scheduler_state'] = lr_scheduler_state
+    
+    if rng_states is not None:
+        state['rng_states'] = rng_states
+    
+    return state
+
+
+def save_rng_states():
+    """Save random number generator states for reproducible resumption."""
+    return {
+        'python': random.getstate() if 'random' in globals() else None,
+        'numpy': np.random.get_state() if 'np' in globals() else None,
+        'torch': torch.get_rng_state(),
+        'torch_cuda': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    }
+
+
+def restore_rng_states(rng_states):
+    """Restore random number generator states from checkpoint."""
+    if rng_states is None:
+        return
+    
+    if 'python' in rng_states and rng_states['python'] is not None:
+        import random
+        random.setstate(rng_states['python'])
+    
+    if 'numpy' in rng_states and rng_states['numpy'] is not None:
+        import numpy as np
+        np.random.set_state(rng_states['numpy'])
+    
+    if 'torch' in rng_states:
+        torch.set_rng_state(rng_states['torch'])
+    
+    if 'torch_cuda' in rng_states and rng_states['torch_cuda'] is not None:
+        torch.cuda.set_rng_state_all(rng_states['torch_cuda'])
