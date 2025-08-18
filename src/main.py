@@ -57,17 +57,16 @@ def main(args):
     # ----------------------------------
 
     run_id, slug, wandb_name, wandb_id = build_run_identity()
-
-    logger = None
     output_path = config.get_directory(run_id)
 
+    logger = None
     if is_main_process():
         logger = CSVLogger(output_path, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
 
-    os.makedirs(config.logprob_cache_path, exist_ok=True)
-    os.makedirs(config.checkpoint_dir, exist_ok=True)
-    main_print(f"Checkpoints will be saved to: {config.checkpoint_dir}")
+    checkpoint_dir = os.path.join(output_path, "checkpoints")
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    main_print(f"Checkpoints will be saved to: {checkpoint_dir}")
 
     # ----------------------------------
     # Dataset Loading
