@@ -20,11 +20,17 @@ from torch.distributed.tensor import distribute_tensor, DTensor
 from typing import Dict, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
+from torch.distributed.checkpoint import save as dcp_save, load as dcp_load
+from torch.distributed.checkpoint import FileSystemWriter, FileSystemReader
 
 MODEL_CHECKPOINT = "model_state_dict.pt"
 OPTIM_CHECKPOINT = "optim_state_dict.pt"
 PARAMS = "params"
 
+DCP_SD_OPTS = StateDictOptions(
+    full_state_dict=False,   # save/load sharded (no rank-0 gather)
+    cpu_offload=False,       # parameters stay on their device while DCP stages I/O
+)
 
 def get_latest_checkpoint_folder(path):
     """Return the largest numbered folder in the given path."""
@@ -215,37 +221,47 @@ class Checkpointer:
 
     def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None):
         """Save checkpoint with standardized round-based directory structure and rotation."""
-        model_state_dict = self._get_full_model_state_dict(model)
-        optim_state_dict = self._get_full_optimizer_state_dict(model, optim)
-        
-        if torch.distributed.get_rank() == 0:
-            # Create round directory
-            round_dir = os.path.join(self.checkpoint_dir, str(round_num))
+        # ------------------------
+        # build target folder name 
+        # ------------------------
+        round_dir = os.path.join(self.checkpoint_dir, str(round_num))
+        if dist.get_rank() == 0:
             os.makedirs(round_dir, exist_ok=True)
-            
-            # Create checkpoint directory with step and loss in name
-            checkpoint_name = f"step_{step}_loss_{current_loss:.4f}"
-            checkpoint_dir = os.path.join(round_dir, checkpoint_name)
-            os.makedirs(checkpoint_dir, exist_ok=True)
-            
-            # Save model and optimizer state
-            model_path = os.path.join(checkpoint_dir, MODEL_CHECKPOINT)
-            optim_path = os.path.join(checkpoint_dir, OPTIM_CHECKPOINT)
-            torch.save(model_state_dict, model_path)
-            torch.save(optim_state_dict, optim_path)
-            
-            # Save training state if provided
+        dist.barrier()
+
+        checkpoint_name = f"step_{step}_loss_{current_loss:.4f}"
+        checkpoint_dir = os.path.join(round_dir, checkpoint_name)
+
+        # ------------------------------------------
+        # construct DCP-aware state dicts (sharded) 
+        # ------------------------------------------
+        model_sd = get_model_state_dict(model=model, options=DCP_SD_OPTS)
+        optim_sd = get_optimizer_state_dict(model=model, optimizers=optim, options=DCP_SD_OPTS)
+        state = {"model": model_sd, "optim": optim_sd}
+
+        # ------------------------------------------
+        # collective save across all ranks 
+        # ------------------------------------------
+        writer = FileSystemWriter(checkpoint_dir)
+        dcp_save(state_dict=state, storage_writer=writer)
+
+        dist.barrier() 
+
+        # ------------------------------------------
+        # store non-tensor training metadata 
+        # ------------------------------------------
+        if dist.get_rank() == 0:
+            # Optionally store non-tensor training metadata alongside the DCP folder
             if training_state is not None:
-                training_state_path = os.path.join(checkpoint_dir, "training_state.pt")
-                torch.save(training_state, training_state_path)
+                torch.save(training_state, os.path.join(checkpoint_dir, "training_state.pt"))
             
-            # Implement checkpoint rotation (keep only max_checkpoints_per_round)
+            # ------------------------
+            # rotation-by-step logic
+            # ------------------------
             self._rotate_checkpoints(round_dir)
-            
-            # Update latest checkpoint path
             self.last_checkpoint_path = checkpoint_dir
-            
-            print(f"Saved checkpoint: {checkpoint_dir}")
+            print(f"Saved DCP checkpoint: {checkpoint_dir}")
+
     
     def _rotate_checkpoints(self, round_dir: str):
         """Keep only the latest max_checkpoints_per_round checkpoints in the round directory."""
