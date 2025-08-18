@@ -159,22 +159,6 @@ class Checkpointer:
             ),
         )
 
-    def load_optim(self, model: FSDPModule, opt: torch.optim.Optimizer):
-        """Load the optimizer state from the latest checkpoint into the given optimizer."""
-        if self.last_checkpoint_path is None:
-            raise ValueError("No checkpoint found to load from")
-        last_optim_checkpoint = os.path.join(self.last_checkpoint_path, OPTIM_CHECKPOINT)
-
-        full_sd = torch.load(last_optim_checkpoint, map_location="cpu", weights_only=True)
-        set_optimizer_state_dict(
-            model=model,
-            optimizer=opt,
-            optim_state_dict=full_sd,
-            options=StateDictOptions(
-                full_state_dict=True,
-                broadcast_from_rank0=True,
-            ),
-        )
 
     def _get_full_model_state_dict(self, model: FSDPModule):
         """Assemble and return a full (CPU) state_dict for the given FSDP model."""
@@ -201,6 +185,38 @@ class Checkpointer:
             ),
         )
 
+    def load_optim(self, model: FSDPModule, opt: torch.optim.Optimizer):
+        """Load the optimizer state from the latest checkpoint into the given optimizer."""
+        if self.last_checkpoint_path is None:
+            raise ValueError("No checkpoint found to load from")
+        last_optim_checkpoint = os.path.join(self.last_checkpoint_path, OPTIM_CHECKPOINT)
+
+        full_sd = torch.load(last_optim_checkpoint, map_location="cpu", weights_only=True)
+        set_optimizer_state_dict(
+            model=model,
+            optimizer=opt,
+            optim_state_dict=full_sd,
+            options=StateDictOptions(
+                full_state_dict=True,
+                broadcast_from_rank0=True,
+            ),
+        )
+
+
+
+
+    def load_optim(self, model, opt):
+        """Load the optimizer state from the latest checkpoint into the given optimizer."""
+        if self.last_checkpoint_path is None:
+            raise ValueError("No checkpoint found to load from")
+
+        reader = FileSystemReader(self.last_checkpoint_path)
+        optim_sd = get_optimizer_state_dict(model=model, optimizers=opt, options=DCP_SD_OPTS)
+        dcp_load(state_dict={"optim": optim_sd}, storage_reader=reader)
+
+        # NOTE: must call this before .backward() or after .step()
+        set_optimizer_state_dict(model=model, optimizer=opt, optim_state_dict=optim_sd, options=DCP_SD_OPTS)
+
 
     def load_model(self, model):
         """Load the model weights from the latest checkpoint into the given FSDP model."""
@@ -212,8 +228,8 @@ class Checkpointer:
         model_sd = get_model_state_dict(model=model, options=DCP_SD_OPTS)
         dcp_load(state_dict={"model": model_sd}, storage_reader=reader)
         set_model_state_dict(model=model, model_state_dict=model_sd, options=DCP_SD_OPTS)
-
         
+
     def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None):
         """Save checkpoint with standardized round-based directory structure and rotation."""
         # ------------------------
