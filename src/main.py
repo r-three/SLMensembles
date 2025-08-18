@@ -169,10 +169,13 @@ def main(args):
     default_excepthook = sys.excepthook
     sys.excepthook = _on_exception
 
-
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
+    
+    # Initialize standardized checkpointer for round-based structure
+    from checkpoint import Checkpointer
+    checkpointer = Checkpointer(checkpoint_dir, dcp_api=args.dcp_api)
     
     # Load checkpoint index for ensemble building and resumption
     ckpt_index = index_checkpoints(checkpoint_dir)
@@ -186,11 +189,13 @@ def main(args):
         main_print(f"Found {len(best_ckpts)} completed rounds: {best_ckpts}")
         start_round = max_rounds + 1
         start_epoch = 0
+        resume_info = True
     else:
         best_ckpts = []
         start_round = 0
         start_epoch = 0
         ensemble_model = None
+        resume_info = False
 
     # ----------------------------------
     # Outer Training Loop
@@ -382,24 +387,16 @@ def main(args):
             report_to="wandb" if is_main_process() else "none",
         )
         
-        # Configure simple checkpointing
+        # Configure simple checkpointing with standardized structure
         trainer.checkpoint_dir = checkpoint_dir
         trainer.save_steps = getattr(config, 'checkpoint_every_n_steps', 500)
         
         # Try to resume from latest checkpoint if it exists
-        latest_checkpoint = None
-        if os.path.exists(checkpoint_dir):
-            # Look for the most recent checkpoint directory
-            checkpoint_dirs = [d for d in os.listdir(checkpoint_dir) 
-                             if os.path.isdir(os.path.join(checkpoint_dir, d)) and 'temp' not in d]
-            if checkpoint_dirs:
-                # Sort by modification time and get the latest
-                checkpoint_dirs.sort(key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)), reverse=True)
-                latest_checkpoint = os.path.join(checkpoint_dir, checkpoint_dirs[0])
-                main_print(f"Found potential checkpoint to resume from: {latest_checkpoint}")
-        
-        if latest_checkpoint and trainer.load_checkpoint(latest_checkpoint):
-            main_print(f"Successfully resumed from checkpoint: {latest_checkpoint}")
+        if resume_info and not checkpointer.is_empty():
+            if trainer.load_checkpoint(checkpoint_dir):
+                main_print(f"Successfully resumed from checkpoint in round {trainer.round_num}")
+            else:
+                main_print("Failed to resume from checkpoint, starting training from scratch")
         else:
             main_print("Starting training from scratch")
         
@@ -450,14 +447,9 @@ def main(args):
                     trainer.tr_step % trainer.save_steps == 0):
                     torch.distributed.barrier()
                     
-                    # Create checkpoint directory name
+                    # Save periodic checkpoint using standardized structure
+                    trainer.save_checkpoint(checkpoint_dir)
                     if rank == 0:
-                        checkpoint_name = (
-                            f"{round_num}_{epoch_num}_{trainer.tr_step}_"
-                            f"{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}_temp"
-                        )
-                        checkpoint_path = os.path.join(checkpoint_dir, checkpoint_name)
-                        trainer.save_checkpoint(checkpoint_path)
                         main_print(f"Saved periodic checkpoint at step {trainer.tr_step}")
                 
                 if trainer.should_stop:
@@ -468,23 +460,10 @@ def main(args):
             # ----------------------------------
             torch.distributed.barrier()  # Wait for all ranks to finish the epoch
             
-            # Rank 0 picks the checkpoint name, broadcasts to others
+            # Save end-of-epoch checkpoint using standardized structure
+            trainer.save_checkpoint(checkpoint_dir)
             if rank == 0:
-                checkpoint_name = (
-                    f"{round_num}_{epoch_num}_{trainer.tr_step}_"
-                    f"{trainer.current_eval_loss:.4f}_{trainer.min_eval_loss:.4f}"
-                )
-            else:
-                checkpoint_name = None
-                
-            # Broadcast the checkpoint name to all ranks
-            name_holder = [checkpoint_name]
-            torch.distributed.broadcast_object_list(name_holder, src=0)
-            checkpoint_name = name_holder[0]
-            
-            # Save end-of-epoch checkpoint using trainer's simple method
-            path = os.path.join(checkpoint_dir, checkpoint_name)
-            trainer.save_checkpoint(path)
+                main_print(f"Saved end-of-epoch checkpoint: round {round_num}, epoch {epoch_num}, step {trainer.tr_step}")
 
             # ----------------------------------
             # Update wandb run name and log metrics

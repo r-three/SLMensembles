@@ -63,43 +63,66 @@ def get_latest_checkpoint_folder(path):
 
 
 class Checkpointer:
-    def __init__(self, folder: str, dcp_api: bool):
-        """Initialize the checkpointer with a base folder and API mode (DCP/DTensor)."""
-        self.folder = folder
-        self.dcp_api = dcp_api
-        
-        self.last_training_time = None
-        self.last_checkpoint_path = self._find_latest_flat_checkpoint()
+    """Handles checkpoint saving and loading for distributed FSDP training."""
 
-    def _find_latest_flat_checkpoint(self):
-        """Find the latest checkpoint in flat directory structure."""
+    def __init__(self, folder: str, dcp_api: bool = False, max_checkpoints_per_round: int = 3):
+        """Initialize checkpointer with standardized round-based directory structure."""
+        self.folder = folder  # Base checkpoint directory (outputdir/checkpoints)
+        self.dcp_api = dcp_api
+        self.max_checkpoints_per_round = max_checkpoints_per_round
+        self.last_training_time = None
+        self.last_checkpoint_path = None
+        
+        # Create base checkpoint directory
+        os.makedirs(self.folder, exist_ok=True)
+        
+        # Find the latest checkpoint for resumption
+        self._find_latest_checkpoint()
+
+    def _find_latest_checkpoint(self):
+        """Find the latest checkpoint in round-based directory structure."""
         if not os.path.exists(self.folder):
-            return None
+            self.last_checkpoint_path = None
+            return
         
         try:
-            index = index_checkpoints(self.folder)
-            if not index:
-                return None
+            # Look for round directories (0, 1, 2, ...)
+            latest_round = -1
+            latest_checkpoint = None
+            latest_step = -1
             
-            # Find the checkpoint with highest (round, epoch, step)
-            latest = None
-            latest_key = None
-            for round_num, checkpoints in index.items():
-                for ckpt in checkpoints:
-                    key = (ckpt.round, ckpt.epoch, ckpt.step)
-                    if latest_key is None or key > latest_key:
-                        latest = ckpt.path
-                        latest_key = key
-            return latest
+            for item in os.listdir(self.folder):
+                round_path = os.path.join(self.folder, item)
+                if not os.path.isdir(round_path):
+                    continue
+                
+                try:
+                    round_num = int(item)
+                    if round_num > latest_round:
+                        # Look for checkpoint directories in this round
+                        for ckpt_dir in os.listdir(round_path):
+                            ckpt_path = os.path.join(round_path, ckpt_dir)
+                            if os.path.isdir(ckpt_path) and 'step_' in ckpt_dir:
+                                try:
+                                    # Parse step number from directory name
+                                    step_part = ckpt_dir.split('_')[1]
+                                    step = int(step_part)
+                                    if round_num > latest_round or (round_num == latest_round and step > latest_step):
+                                        latest_round = round_num
+                                        latest_step = step
+                                        latest_checkpoint = ckpt_path
+                                except (ValueError, IndexError):
+                                    continue
+                except ValueError:
+                    continue
+            
+            self.last_checkpoint_path = latest_checkpoint
         except Exception:
-            return None
+            self.last_checkpoint_path = None
     
     def is_empty(self):
         """Return True if no previous checkpoint exists in the target folder."""
-        if self.use_flat_structure:
-            return self.last_checkpoint_path is None
-        else:
-            return self.last_training_time is None
+        return self.last_checkpoint_path is None
 
     def load_model(self, model: FSDPModule):
         """Load the model weights from the latest checkpoint into the given FSDP model."""
@@ -285,32 +308,70 @@ class Checkpointer:
         else:
             return {}
 
-    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, checkpoint_folder=None, training_state=None):
-        """Save full model and optimizer state_dicts to a new or provided checkpoint folder."""
+    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None):
+        """Save checkpoint with standardized round-based directory structure and rotation."""
         model_state_dict = self._get_full_model_state_dict(model)
         optim_state_dict = self._get_full_optimizer_state_dict(model, optim)
         
         if torch.distributed.get_rank() == 0:
-            if checkpoint_folder:
-                new_checkpoint_folder = checkpoint_folder
-            else:
-                if self.use_flat_structure:
-                    # This should not happen in flat structure - folder should always be provided
-                    raise ValueError("checkpoint_folder must be provided for flat structure")
-                else:
-                    new_training_time = int(time.time() * 1000)
-                    new_checkpoint_folder = f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}/{new_training_time}"
+            # Create round directory
+            round_dir = os.path.join(self.folder, str(round_num))
+            os.makedirs(round_dir, exist_ok=True)
             
-            new_model_checkpoint = f"{new_checkpoint_folder}/{MODEL_CHECKPOINT}"
-            new_optim_checkpoint = f"{new_checkpoint_folder}/{OPTIM_CHECKPOINT}"
-            os.makedirs(new_checkpoint_folder, exist_ok=True)
-            torch.save(model_state_dict, new_model_checkpoint)
-            torch.save(optim_state_dict, new_optim_checkpoint)
+            # Create checkpoint directory with step and loss in name
+            checkpoint_name = f"step_{step}_loss_{current_loss:.4f}"
+            checkpoint_dir = os.path.join(round_dir, checkpoint_name)
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            
+            # Save model and optimizer state
+            model_path = os.path.join(checkpoint_dir, MODEL_CHECKPOINT)
+            optim_path = os.path.join(checkpoint_dir, OPTIM_CHECKPOINT)
+            torch.save(model_state_dict, model_path)
+            torch.save(optim_state_dict, optim_path)
             
             # Save training state if provided
             if training_state is not None:
-                training_state_path = f"{new_checkpoint_folder}/training_state.pt"
+                training_state_path = os.path.join(checkpoint_dir, "training_state.pt")
                 torch.save(training_state, training_state_path)
+            
+            # Implement checkpoint rotation (keep only max_checkpoints_per_round)
+            self._rotate_checkpoints(round_dir)
+            
+            # Update latest checkpoint path
+            self.last_checkpoint_path = checkpoint_dir
+            
+            print(f"Saved checkpoint: {checkpoint_dir}")
+    
+    def _rotate_checkpoints(self, round_dir: str):
+        """Keep only the latest max_checkpoints_per_round checkpoints in the round directory."""
+        if not os.path.exists(round_dir):
+            return
+        
+        # Get all checkpoint directories in this round
+        checkpoints = []
+        for item in os.listdir(round_dir):
+            item_path = os.path.join(round_dir, item)
+            if os.path.isdir(item_path) and item.startswith('step_'):
+                try:
+                    # Extract step number for sorting
+                    step_part = item.split('_')[1]
+                    step = int(step_part)
+                    checkpoints.append((step, item_path))
+                except (ValueError, IndexError):
+                    continue
+        
+        # Sort by step number (newest first)
+        checkpoints.sort(key=lambda x: x[0], reverse=True)
+        
+        # Remove oldest checkpoints if we exceed the limit
+        if len(checkpoints) > self.max_checkpoints_per_round:
+            for _, old_checkpoint_path in checkpoints[self.max_checkpoints_per_round:]:
+                try:
+                    import shutil
+                    shutil.rmtree(old_checkpoint_path)
+                    print(f"Removed old checkpoint: {old_checkpoint_path}")
+                except Exception as e:
+                    print(f"Warning: Failed to remove old checkpoint {old_checkpoint_path}: {e}")
     
     def load_training_state(self):
         """Load training state (step counters, epoch, etc.) from the latest checkpoint."""

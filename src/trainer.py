@@ -428,70 +428,76 @@ class DistillTrainer(Trainer):
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
     
-    def save_checkpoint(self, checkpoint_path):
+    def save_checkpoint(self, checkpoint_base_dir: str):
         """Save a checkpoint with FSDP-compatible model, optimizer, scheduler, and training state."""
-        import os
-        os.makedirs(checkpoint_path, exist_ok=True)
+        # Create training state for checkpointing
+        training_state = {
+            'tr_step': self.tr_step,
+            'round_num': self.round_num,
+            'current_eval_loss': self.current_eval_loss,
+            'min_eval_loss': self.min_eval_loss,
+            'best_loss': self.best_loss,
+            'wait': self.wait,
+            'lr_scheduler_state': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
+        }
         
-        # Save training state (only rank 0)
-        if dist.get_rank() == 0:
-            state = {
-                'tr_step': self.tr_step,
-                'round_num': self.round_num,
-                'current_eval_loss': self.current_eval_loss,
-                'min_eval_loss': self.min_eval_loss,
-                'best_loss': self.best_loss,
-                'wait': self.wait,
-                'lr_scheduler_state': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
-            }
-            torch.save(state, os.path.join(checkpoint_path, 'trainer_state.pt'))
-        
-        # Save FSDP model and optimizer using the sophisticated Checkpointer
+        # Save FSDP model and optimizer using the standardized Checkpointer
         try:
             from checkpoint import Checkpointer
-            temp_checkpointer = Checkpointer(checkpoint_path, dcp_api=False, use_flat_structure=False)
-            temp_checkpointer.save(self.model, self.optim, checkpoint_path)
+            checkpointer = Checkpointer(checkpoint_base_dir, dcp_api=False)
+            checkpointer.save(
+                model=self.model, 
+                optim=self.optim, 
+                round_num=self.round_num,
+                step=self.tr_step,
+                current_loss=self.current_eval_loss,
+                training_state=training_state
+            )
             if dist.get_rank() == 0:
-                print(f"Successfully saved FSDP checkpoint to {checkpoint_path}")
+                print(f"Successfully saved FSDP checkpoint: round {self.round_num}, step {self.tr_step}")
         except Exception as e:
             if dist.get_rank() == 0:
                 print(f"ERROR: Failed to save FSDP checkpoint: {e}")
                 print("FSDP checkpointing requires the Checkpointer class to handle sharded states properly.")
-                print("Simple state_dict() calls won't work with FSDP - skipping fallback.")
             raise e  # Don't use fallback for FSDP - it won't work correctly
     
-    def load_checkpoint(self, checkpoint_path):
+    def load_checkpoint(self, checkpoint_base_dir: str):
         """Load a checkpoint and restore FSDP-compatible training state."""
         import os
         
-        # Load training state
-        trainer_state_path = os.path.join(checkpoint_path, 'trainer_state.pt')
-        if not os.path.exists(trainer_state_path):
-            if dist.get_rank() == 0:
-                print(f"No trainer state found at {trainer_state_path}")
-            return False
-        
-        state = torch.load(trainer_state_path, map_location='cpu')
-        self.tr_step = state.get('tr_step', 0)
-        self.round_num = state.get('round_num', 0)
-        self.current_eval_loss = state.get('current_eval_loss', 1e12)
-        self.min_eval_loss = state.get('min_eval_loss', 1e12)
-        self.best_loss = state.get('best_loss', float('inf'))
-        self.wait = state.get('wait', 0)
-        
-        if self.lr_scheduler and state.get('lr_scheduler_state'):
-            self.lr_scheduler.load_state_dict(state['lr_scheduler_state'])
-        
-        # Load FSDP model and optimizer using the sophisticated Checkpointer
+        # Use Checkpointer to find and load the latest checkpoint
         try:
             from checkpoint import Checkpointer
-            temp_checkpointer = Checkpointer(checkpoint_path, dcp_api=False, use_flat_structure=False)
-            temp_checkpointer.load_model(self.model)
-            temp_checkpointer.load_optim(self.model, self.optim)
+            checkpointer = Checkpointer(checkpoint_base_dir, dcp_api=False)
+            
+            if checkpointer.is_empty():
+                if dist.get_rank() == 0:
+                    print(f"No checkpoints found in {checkpoint_base_dir}")
+                return False
+            
+            # Load training state from the latest checkpoint
+            training_state_path = os.path.join(checkpointer.last_checkpoint_path, 'training_state.pt')
+            if os.path.exists(training_state_path):
+                state = torch.load(training_state_path, map_location='cpu')
+                self.tr_step = state.get('tr_step', 0)
+                self.round_num = state.get('round_num', 0)
+                self.current_eval_loss = state.get('current_eval_loss', 1e12)
+                self.min_eval_loss = state.get('min_eval_loss', 1e12)
+                self.best_loss = state.get('best_loss', float('inf'))
+                self.wait = state.get('wait', 0)
+                
+                if self.lr_scheduler and state.get('lr_scheduler_state'):
+                    self.lr_scheduler.load_state_dict(state['lr_scheduler_state'])
+            
+            # Load FSDP model and optimizer
+            checkpointer.load_model(self.model)
+            checkpointer.load_optim(self.model, self.optim)
             
             if dist.get_rank() == 0:
-                print(f"Successfully loaded FSDP checkpoint: step={self.tr_step}, round={self.round_num}")
+                print(f"Successfully loaded FSDP checkpoint: round={self.round_num}, step={self.tr_step}")
+                print(f"Loaded from: {checkpointer.last_checkpoint_path}")
             return True
+            
         except Exception as e:
             if dist.get_rank() == 0:
                 print(f"ERROR: Failed to load FSDP checkpoint: {e}")
