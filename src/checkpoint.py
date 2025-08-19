@@ -32,9 +32,6 @@ DCP_SD_OPTS = StateDictOptions(full_state_dict=False, cpu_offload=False)
 FULL_SD_OPTS = StateDictOptions(full_state_dict=True, cpu_offload=True)
 
 
-
-
-
 def _fmt_step_dir(step: int, loss: float) -> str:
     """Format a step directory name."""
     return f"step_{step:08d}_loss_{loss:.4f}"
@@ -80,7 +77,7 @@ class Checkpointer:
         self.last_checkpoint_path = None
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-    def _find_latest_checkpoint(self):
+    def find_latest_checkpoint(self):
         """Find the latest checkpoint in round-based directory structure."""
         try:
             latest_round = -1
@@ -148,13 +145,24 @@ class Checkpointer:
         }
         dcp_save(state, storage_writer=writer)
 
-        if training_state and dist.get_rank() == 0:
-            torch.save(training_state, os.path.join(ckpt_dir, "training_state.pt"))
+        meta = {
+            "round_num": int(round_num),
+            "step": int(step),
+            "loss": float(current_loss),
+            "rng": _rng_capture(),  # <- capture RNG every time
+        }
+
+        if training_state:
+            meta.update(training_state)
+
+        if dist.get_rank() == 0:
+            torch.save(meta, os.path.join(ckpt_dir, TRAIN_STATE))
+
         self.last_checkpoint_path = ckpt_dir
         print(f"Saved DCP checkpoint: {ckpt_dir}")
 
         dist.barrier()
-        self.rotate_checkpoints(round_num)
+        self.rotate_checkpoints(os.path.join(self.checkpoint_dir, str(round_num)))
 
     
     def rotate_checkpoints(self, round_dir: str):
@@ -357,6 +365,8 @@ class Checkpoint:
             return newest[1] if newest else None
         except Exception:
             return None
+
+        # trainer.load_checkpoint(checkpoint_dir)
 
 def save_rng_states():
     """Save random number generator states for reproducible resumption."""

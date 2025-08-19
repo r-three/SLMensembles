@@ -363,10 +363,6 @@ def main(args):
         signal.signal(signal.SIGTERM, handler)
         signal.signal(signal.SIGINT, handler)
         
-        # Configure simple checkpointing with standardized structure
-        trainer.checkpoint_dir = checkpoint_dir
-        trainer.save_steps = getattr(config, 'checkpoint_every_n_steps', 500)
-        
         # Try to resume from latest checkpoint if it exists
         if resume_info and not checkpointer.is_empty():
             if trainer.load_checkpoint(checkpoint_dir):
