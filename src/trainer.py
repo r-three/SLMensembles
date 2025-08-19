@@ -333,6 +333,7 @@ class Trainer(ABC):
         loss = float(getattr(self, "eval_loss", getattr(self, "train_loss", float("inf"))))
 
         training_state = {
+            "epoch": getattr(self, "epoch", 0),
             "round_num": round_num,
             "global_step": step,
             "loss": loss,

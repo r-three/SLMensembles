@@ -7,6 +7,7 @@ import signal
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
+from torch.distributed.fsdp import FSDPModule
 
 import torch
 import torch.distributed as dist
@@ -77,6 +78,41 @@ class Checkpointer:
         self.last_checkpoint_path = None
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
+    @staticmethod
+    def index_checkpoints(parent_dir: str) -> dict[int, list[tuple[str,int,float]]]:
+        """
+        Robustly index checkpoints for each round, supporting the nested layout:
+            <parent>/<round>/<step_{N}_loss_{X}>
+        Returns: { round: [(path, step, loss), ... sorted by step] }
+        """
+        index: dict[int, list[tuple[str,int,float]]] = {}
+        if not os.path.isdir(parent_dir):
+            return index
+        for item in os.listdir(parent_dir):
+            round_path = os.path.join(parent_dir, item)
+            try:
+                r = int(item)
+            except ValueError:
+                continue
+            if not os.path.isdir(round_path):
+                continue
+            rows = []
+            for sub in os.listdir(round_path):
+                if not sub.startswith("step_"):
+                    continue
+                try:
+                    # step_12345_loss_0.9876
+                    parts = sub.split("_")
+                    step = int(parts[1])
+                    loss = float(parts[3])
+                    rows.append((os.path.join(round_path, sub), step, loss))
+                except Exception:
+                    pass
+            rows.sort(key=lambda t: t[1])
+            if rows:
+                index[r] = rows
+        return index
+
     def find_latest_checkpoint(self):
         """Find the latest checkpoint in round-based directory structure."""
         try:
@@ -119,6 +155,19 @@ class Checkpointer:
         model_sd = get_model_state_dict(model=model, options=DCP_SD_OPTS)
         dcp_load({"model": model_sd}, storage_reader=reader)
         set_model_state_dict(model=model, model_state_dict=model_sd, options=DCP_SD_OPTS)
+
+    def load_training_state(self):
+        """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
+        if self.last_checkpoint_path is None:
+            return None
+        training_state_path = os.path.join(self.last_checkpoint_path, TRAIN_STATE)
+
+        if not os.path.exists(training_state_path):
+            return None
+        state = torch.load(training_state_path, map_location="cpu", weights_only=True)
+        if state and "rng" in state and state["rng"] is not None:
+            _rng_restore(state["rng"])
+        return state
 
     def load_optim(self, model: FSDPModule, optim: torch.optim.Optimizer):
         """Load (DCP) optimizer state from the latest checkpoint."""
@@ -205,39 +254,6 @@ class Checkpointer:
         dist.barrier()
         return save_dir
 
-    def index_checkpoints(parent_dir: str) -> dict[int, list[tuple[str,int,float]]]:
-        """
-        Robustly index checkpoints for each round, supporting the nested layout:
-            <parent>/<round>/<step_{N}_loss_{X}>
-        Returns: { round: [(path, step, loss), ... sorted by step] }
-        """
-        index: dict[int, list[tuple[str,int,float]]] = {}
-        if not os.path.isdir(parent_dir):
-            return index
-        for item in os.listdir(parent_dir):
-            round_path = os.path.join(parent_dir, item)
-            try:
-                r = int(item)
-            except ValueError:
-                continue
-            if not os.path.isdir(round_path):
-                continue
-            rows = []
-            for sub in os.listdir(round_path):
-                if not sub.startswith("step_"):
-                    continue
-                try:
-                    # step_12345_loss_0.9876
-                    parts = sub.split("_")
-                    step = int(parts[1])
-                    loss = float(parts[3])
-                    rows.append((os.path.join(round_path, sub), step, loss))
-                except Exception:
-                    pass
-            rows.sort(key=lambda t: t[1])
-            if rows:
-                index[r] = rows
-        return index
 
 
 
@@ -306,20 +322,6 @@ class Checkpointer:
         
         # Find the latest checkpoint for resumption
         self._find_latest_checkpoint()
-
-    def load_training_state(self):
-        """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
-        if self.last_checkpoint_path is None:
-            return None
-        training_state_path = os.path.join(self.last_checkpoint_path, "training_state.pt")
-
-        if not os.path.exists(training_state_path):
-            return None
-        
-        try:
-            return torch.load(training_state_path, map_location="cpu", weights_only=True)
-        except Exception:
-            return None
 
     def load_optim(self, model, opt):
         """Load the optimizer state from the latest checkpoint into the given optimizer."""
