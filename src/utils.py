@@ -86,6 +86,17 @@ def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
 
 # ---------------------- Utility functions ----------------------
 
+def slurm_term_handler(signum, frame, trainer):
+    if _exit_once.is_set():
+        return
+    _exit_once.set()
+    try:
+        main_print(f"[signal {signum}] Preemption received; saving checkpoint...")
+        trainer.save_checkpoint(None)
+        main_print("Checkpoint saved. Exiting...")
+    finally:
+        os._exit(0)
+
 def init_wandb_run():
     try:
         wandb_run = wandb.init(

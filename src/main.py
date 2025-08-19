@@ -15,7 +15,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   is_main_process, main_print, check_batch_shape, fix_seed,
                   inspect_mixed_precision, inspect_model,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
-                  create_manifest, build_run_identity, get_directory, init_wandb_run)
+                  create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler)
 from ensemble import ModelEnsemble
 from checkpoint import index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -28,7 +28,7 @@ from datasets import Dataset, DatasetDict
 from utils import DistillDataset, get_round_path
 from checkpoint import Checkpoint
 import wandb
-import signal, threading
+import signal, threading, functools
 
 def main(args):
 
@@ -103,38 +103,27 @@ def main(args):
             "Model Save Dir": output_path,
         }
     main_print("\n==== RUN CONFIGURATION ====")
-
     main_print(f"Run: {run_id}")
     main_print(f"Created logging directory: {output_path}")
     main_print(f"Models stored in: {output_path}")
-
     main_print(f"{run_id}")
     main_print(f"{config.description}\n")
-
     if is_main_process():
         for k, v in metadata_dict.items():
             main_print(f"{k}: {v}")
-
     main_print("===========================")
 
-    if is_main_process():
-        logger.log(
-            function="main",
-            phase="none",
-            round_num=0,
-            metadata=metadata_dict,
-        )
+    if is_main_process(): logger.log(function="main", phase="none", round_num=0, metadata=metadata_dict)
 
     # ----------------------------------
     # Manifest File Creation
     # ----------------------------------
-    if is_main_process():
-        create_manifest(
-            output_path,
-            start_time_str=overall_start_datetime,
-            wandb_run=wandb_run,
-            wandb_id=wandb_id,
-        )
+    if is_main_process(): create_manifest(output_path, start_time_str=overall_start_datetime, wandb_run=wandb_run, wandb_id=wandb_id)
+
+    # ----------------------------------
+    # Exception Handling
+    # ----------------------------------
+    _exit_once = threading.Event()
 
     default_excepthook = sys.excepthook
     sys.excepthook = _on_exception
@@ -366,6 +355,13 @@ def main(args):
             wandb_run=wandb_run if is_main_process() else None,
             report_to="wandb" if is_main_process() else "none",
         )
+
+        # ----------------------------------
+        # SLURM Signal Handling
+        # ----------------------------------
+        handler = functools.partial(slurm_term_handler, trainer=trainer)
+        signal.signal(signal.SIGTERM, handler)
+        signal.signal(signal.SIGINT, handler)
         
         # Configure simple checkpointing with standardized structure
         trainer.checkpoint_dir = checkpoint_dir
