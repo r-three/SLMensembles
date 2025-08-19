@@ -132,16 +132,14 @@ def main(args):
     # Set Up Optimizer and LR Scheduler
     # ----------------------------------
     optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, mode="min", factor=0.5, patience=2, verbose=True)
-    lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
-            num_training_steps = len(train_dataloader) * config.num_train_epochs
-        num_warmup_steps = config.warm_up_steps  # e.g., 10% warmup
-        lr_scheduler = get_cosine_schedule_with_warmup(
-            optim,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=num_training_steps
-        )
-    # TODO: stopped here - fix learning rate scheduler loading
+    num_training_steps = len(train_dataloader) * config.num_train_epochs
+    num_warmup_steps = config.warm_up_steps
+    lr_scheduler = get_cosine_schedule_with_warmup(
+        optim,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps
+    )
+    
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
@@ -367,6 +365,9 @@ def main(args):
             wandb_run=wandb_run if is_main_process() else None,
             report_to="wandb" if is_main_process() else "none",
         )
+
+
+# TODO: train model to repdict loss? 
 
         # ----------------------------------
         # SLURM Signal Handling
