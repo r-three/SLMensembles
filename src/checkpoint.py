@@ -22,14 +22,46 @@ from torch.distributed.checkpoint.state_dict import (
     set_optimizer_state_dict,
 )
 
+# --------------- Helper Functions ---------------
+
 MODEL_CHECKPOINT = "model_state_dict.pt"
-OPTIM_CHECKPOINT = "optim_state_dict.pt"
-PARAMS = "params"
+TRAIN_STATE = "training_state.pt"  
+STEP_DIR_RE = re.compile(r"^step_(\d+)_loss_([0-9.]+)$")
 
 DCP_SD_OPTS = StateDictOptions(
     full_state_dict=False,   # save/load sharded (no rank-0 gather)
     cpu_offload=False,       # parameters stay on their device while DCP stages I/O
 )
+
+def _fmt_step_dir(step: int, loss: float) -> str:
+    """Format a step directory name."""
+    return f"step_{step:08d}_loss_{loss:.4f}"
+
+def _rng_capture() -> Dict[str, Any]:
+    """Capture Random Number Generator states."""
+    # safe on CPU; CUDA state captured across devices
+    out = {"time": time.time()}
+    try:
+        out["python"] = None  # keep it simple (optional: random.getstate()) 
+        out["numpy"] = None
+        out["torch"] = torch.get_rng_state()
+        out["torch_cuda"] = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    except Exception:
+        pass
+    return out
+
+
+def _rng_restore(rng: Dict[str, Any]) -> None:
+    """Restore Random Number Generator states."""
+    if not rng:
+        return
+    if "torch" in rng and rng["torch"] is not None:
+        torch.set_rng_state(rng["torch"])
+    if "torch_cuda" in rng and rng["torch_cuda"] is not None and torch.cuda.is_available():
+        torch.cuda.set_rng_state_all(rng["torch_cuda"])
+
+
+
 
 def get_latest_checkpoint_folder(path):
     """Return the largest numbered folder in the given path."""
@@ -48,6 +80,7 @@ def get_latest_checkpoint_folder(path):
     return max_num
 
 
+# --------------- Checkpointer ---------------
 class Checkpointer:
     """Handles checkpoint saving and loading for distributed FSDP training.
 
