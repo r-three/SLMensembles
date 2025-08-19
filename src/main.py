@@ -129,30 +129,42 @@ def main(args):
     sys.excepthook = _on_exception
 
     # ----------------------------------
-    # Checkpoint Logic
-    # ----------------------------------
-
-    checkpointer = Checkpointer(checkpoint_dir)
-
-    if resume_info and not checkpointer.is_empty():
-        main_print("Loading model from checkpoint via DCP.")
-        checkpointer.load_model(student_model)
-    else:
-        main_print("Loading original pretrained weights for the initial run.")
-
-    # ----------------------------------
     # Set Up Optimizer and LR Scheduler
     # ----------------------------------
     optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, mode="min", factor=0.5, patience=2, verbose=True)
+    lr_scheduler = torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
+            num_training_steps = len(train_dataloader) * config.num_train_epochs
+        num_warmup_steps = config.warm_up_steps  # e.g., 10% warmup
+        lr_scheduler = get_cosine_schedule_with_warmup(
+            optim,
+            num_warmup_steps=num_warmup_steps,
+            num_training_steps=num_training_steps
+        )
+    # TODO: stopped here - fix learning rate scheduler loading
+    # ----------------------------------
+    # Checkpoint Logic
+    # ----------------------------------
 
-    if resume_info and not checkpointer.is_empty():
-        main_print("Loading optimizer from checkpoint via DCP.")
-        checkpointer.load_optim(student_model, optim)
+    if config.resume_from_checkpoint:
+        checkpoint_dir = config.checkpoint_dir
+    else:
+        checkpoint_dir = os.path.join(output_path, "checkpoints")
+    
+    checkpointer = Checkpointer(checkpoint_dir)
 
-    training_state = checkpointer.load_training_state()
-    if training_state and 'lr_scheduler_state' in training_state:
-        lr_scheduler.load_state_dict(training_state['lr_scheduler_state'])
-
+    if config.resume_from_checkpoint:
+        checkpointer.find_latest_checkpoint()
+        checkpointer.load_model(model)
+        checkpointer.load_optim(model, optimizer)
+        state = checkpointer.load_training_state()
+    if state:
+        global_step = int(state.get("global_step", state.get("step", 0)))
+        epoch = int(state.get("epoch", 0))
+        if state.get("lr_scheduler_state") and lr_scheduler:
+            lr_scheduler.load_state_dict(state["lr_scheduler_state"])
+        if state.get("scaler_state") and use_amp:
+            scaler.load_state_dict(state["scaler_state"])
 
 
 

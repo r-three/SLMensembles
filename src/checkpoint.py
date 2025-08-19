@@ -198,7 +198,7 @@ class Checkpointer:
             "round_num": int(round_num),
             "step": int(step),
             "loss": float(current_loss),
-            "rng": _rng_capture(),  # <- capture RNG every time
+            "rng": _rng_capture(),
         }
 
         if training_state:
