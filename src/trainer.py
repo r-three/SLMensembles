@@ -14,6 +14,7 @@ from utils import main_print
 from tqdm.auto import tqdm
 from datetime import datetime
 import math
+from checkpoint import Checkpointer
 
 # ---------------------- Callbacks ----------------------
 
@@ -357,6 +358,39 @@ class DistillTrainer(Trainer):
     ) -> None:
         self.ensemble_model = ensemble_model
         super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time)
+
+    def register_checkpointer(self, checkpointer: Checkpointer, save_steps: int):
+        self.checkpointer = checkpointer
+        self.save_steps = int(save_steps)
+        # optional: the dir is already embedded in checkpointer; we keep it around if you pass a path
+        self.checkpoint_dir = getattr(self, "checkpoint_dir", None)
+
+    def save_checkpoint(self, checkpoint_dir: str | None = None):
+        """Save model+optim via DCP and rotate per-round."""
+
+        round_num = int(getattr(self, "round_num", 0))
+        step = int(getattr(self, "global_step", getattr(self, "tr_step", 0)))
+        loss = float(getattr(self, "eval_loss", getattr(self, "train_loss", float("inf"))))
+
+        training_state = {
+            "round_num": round_num,
+            "global_step": step,
+            "loss": loss,
+            "rng": torch.random.get_rng_state().tolist() if torch.random else None,
+        }
+
+        self.checkpointer.save(self.model, self.optimizer, round_num, step, loss, training_state)
+    
+    def maybe_save_checkpoint(self):
+        """Call this inside your training loop after optimizer.step() or gradient_accumulation."""
+        if hasattr(self, "save_steps") and self.save_steps > 0:
+            step = int(getattr(self, "global_step", getattr(self, "tr_step", 0)))
+            if step > 0 and (step % self.save_steps == 0):
+                self.save_checkpoint(None)
+
+
+
+
 
     def compute_loss(self, batch):
         '''

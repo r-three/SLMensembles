@@ -154,7 +154,6 @@ class Checkpointer:
         print(f"Saved DCP checkpoint: {ckpt_dir}")
 
         dist.barrier()
-
         self.rotate_checkpoints(round_num)
 
     
