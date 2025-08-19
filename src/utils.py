@@ -86,6 +86,38 @@ def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
 
 # ---------------------- Utility functions ----------------------
 
+def init_wandb_run():
+    try:
+        wandb_run = wandb.init(
+            project="slm-ensembles",
+            id=run_id,   
+            name=run_id,
+            config={
+                "model_name": config.student_model_name,
+                "teacher_model": config.teacher_model_name,
+                "learning_rate": config.learning_rate,
+                "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
+                "max_length": 1024,
+                "alpha": config.alpha,
+                "seed": config.seed,
+                "description": config.description,
+                "dataset_name": config.dataset_name,
+                "dataset_type": config.dataset_type,
+                "total_rounds": config.total_rounds,
+                "num_train_epochs": config.num_train_epochs,
+                "gradient_accumulation_steps": config.gradient_accumulation_steps,
+                "max_grad_norm": getattr(config, 'max_grad_norm', 1.0),
+            },
+            tags=["knowledge-distillation", "fsdp2", "ensemble"],
+            resume="allow",
+        )
+        main_print(f"--> Initialized wandb run: {wandb_run.name}")
+    except Exception as e:
+        main_print(f"--> Warning: Failed to initialize wandb: {e}")
+        main_print("--> Continuing without wandb logging")
+        wandb_run = None
+    return wandb_run
+
 def fix_seed(seed):
     # random
     random.seed(seed)
