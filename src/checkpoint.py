@@ -155,11 +155,35 @@ class Checkpointer:
 
         dist.barrier()
 
-        self._rotate_checkpoints(round_num)
+        self.rotate_checkpoints(round_num)
 
+    
+    def rotate_checkpoints(self, round_dir: str):
+        """Keep only the latest max_checkpoints_per_round checkpoints in the round directory."""
+        if not os.path.exists(round_dir):
+            return
+        
+        checkpoints = []
+        for item in os.listdir(round_dir):
+            item_path = os.path.join(round_dir, item)
+            if os.path.isdir(item_path) and item.startswith('step_'):
+                try:
+                    step_part = item.split('_')[1]
+                    step = int(step_part)
+                    checkpoints.append((step, item_path))
+                except (ValueError, IndexError):
+                    continue
 
-
-
+        checkpoints.sort(key=lambda x: x[0], reverse=True)
+        
+        if len(checkpoints) > self.max_checkpoints_per_round:
+            for _, old_checkpoint_path in checkpoints[self.max_checkpoints_per_round:]:
+                try:
+                    import shutil
+                    shutil.rmtree(old_checkpoint_path)
+                    print(f"Removed old checkpoint: {old_checkpoint_path}")
+                except Exception as e:
+                    print(f"Warning: Failed to remove old checkpoint {old_checkpoint_path}: {e}")
 
 
 
