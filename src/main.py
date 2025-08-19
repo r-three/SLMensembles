@@ -173,7 +173,7 @@ def main(args):
     # Checkpoint Logic
     # ----------------------------------
 
-    checkpointer = Checkpointer(checkpoint_dir))
+    checkpointer = Checkpointer(checkpoint_dir)
 
     if resume_info and not checkpointer.is_empty():
         main_print("Loading model from checkpoint via DCP.")
@@ -197,17 +197,6 @@ def main(args):
 
 
 
-
-
-
-
-
-
-
-
-
-
-    checkpointer = Checkpointer(checkpoint_dir)
     
     # Load checkpoint index for ensemble building and resumption
     ckpt_index = index_checkpoints(checkpoint_dir)

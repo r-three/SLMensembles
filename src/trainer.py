@@ -189,7 +189,6 @@ class Trainer(ABC):
 
         self.gad += 1
         self.processed_id += 1
-        # TODO: change to proper dataset ckpt
 
         grad_norm = None
         # Compute loss and backpropagate (supporting grad accumulation)
@@ -222,19 +221,6 @@ class Trainer(ABC):
                 self.lr_scheduler.step()
             self.optim.zero_grad()
 
-        # Gather sums across ranks
-#         loss_sum = _gather(tr_step_loss.reshape(1)).sum().item()
-#         nt_sum = _gather((next_token_loss if next_token_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).sum().item()
-#         kl_sum = _gather((kl_loss if kl_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).sum().item()
-#         valid_sum = _gather(valid_count.reshape(1)).sum().item()
-# 
-#         # Compute per-token mean losses (avoid div by zero)
-#         denom = max(valid_sum, 1.0)
-#         mean_train_loss = loss_sum / denom
-#         mean_nt_loss = nt_sum / denom if nt_sum is not None else None
-#         mean_kl_loss = kl_sum / denom if kl_sum is not None else None
-
-
         loss_sum = _gather(tr_step_loss.reshape(1)).mean().item()
         nt_sum = _gather((next_token_loss if next_token_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).mean().item()
         kl_sum = _gather((kl_loss if kl_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).mean().item()
@@ -253,15 +239,15 @@ class Trainer(ABC):
                 phase="train",
                 role="student",
                 step=self.tr_step,
-                train_loss=mean_train_loss,
-                train_next_token_loss=mean_nt_loss,
-                train_kl_loss=mean_kl_loss,
+                train_loss=loss_sum,
+                train_next_token_loss=nt_sum,
+                train_kl_loss=kl_sum,
                 grad_norm=grad_norm,
                 learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
                 alpha=config.alpha,
             )
 
-        return mean_train_loss
+        return loss_sum
     
     def eval_step(self, eval_dl, epoch: int) -> float:
         main_print("Evaluating")
@@ -303,7 +289,6 @@ class Trainer(ABC):
                 writer = csv.writer(f)
                 writer.writerow([self.tr_step, mean_eval_loss, mean_nk_loss, mean_kl_loss, gathered_valid_total])
             
-            # Log evaluation results if logger is available
             if self.logger is not None:
                 self.logger.log(
                     function="eval_step",
@@ -319,7 +304,6 @@ class Trainer(ABC):
                     learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
                     alpha=config.alpha,
                 )
-                # Ensure flush happens periodically at eval
                 try:
                     self.logger.flush()
                 except Exception:
@@ -415,7 +399,7 @@ class DistillTrainer(Trainer):
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
         # Flatten the tokens
-        loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')       # Ignore_index=-100
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
         shift_logits = shift_logits.view(-1, embedding_size)
         shift_labels = shift_labels.view(-1)
         # Enable model parallelism
@@ -473,9 +457,4 @@ class DistillTrainer(Trainer):
         kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum()
         
         return kl_loss
-
-
-
-
-
 
