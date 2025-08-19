@@ -80,61 +80,82 @@ class Checkpointer:
         self.last_checkpoint_path = None
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-    # ---------- training-resume save ----------
-    @torch.no_grad()
-    def save(
-        self,
-        model: torch.nn.Module,
-        optim: torch.optim.Optimizer,
-        *,
-        step: int,
-        loss: float,
-        round_num: int,
-        extra_train_state: Optional[Dict[str, Any]] = None,
-    ) -> CheckpointInfo:
-        """
-        Save a DCP checkpoint (model + optimizer shards) + training_state.pt.
-        Call this only on steps where gradients were synchronized and optimizer.step() just ran.
-        """
-        round_dir = self.ckpt_root / str(int(round_num))
-        step_dir = round_dir / _fmt_step_dir(step, float(loss))
-        step_dir.mkdir(parents=True, exist_ok=True)
+    def _find_latest_checkpoint(self):
+        """Find the latest checkpoint in round-based directory structure."""
+        try:
+            latest_round = -1
+            latest_checkpoint = None
+            latest_step = -1
+            
+            for item in os.listdir(self.checkpoint_dir):
+                round_path = os.path.join(self.checkpoint_dir, item)
+                if not os.path.isdir(round_path):
+                    continue
+                try:
+                    round_num = int(item)
+                    if round_num > latest_round:
+                        for ckpt_dir in os.listdir(round_path):
+                            ckpt_path = os.path.join(round_path, ckpt_dir)
+                            if os.path.isdir(ckpt_path) and 'step_' in ckpt_dir:
+                                try:
+                                    step_part = ckpt_dir.split('_')[1]
+                                    step = int(step_part)
+                                    if round_num > latest_round or (round_num == latest_round and step > latest_step):
+                                        latest_round = round_num
+                                        latest_step = step
+                                        latest_checkpoint = ckpt_path
+                                except (ValueError, IndexError):
+                                    continue
+                except ValueError:
+                    continue
+            self.last_checkpoint_path = latest_checkpoint
+        except Exception:
+            self.last_checkpoint_path = None
 
-        # DCP expects all ranks to call save, coordinated by collectives. :contentReference[oaicite:6]{index=6}
-        writer = FileSystemWriter(str(step_dir))
+    def load_model(self, model: FSDPModule):
+        """Load (DCP) model weights from the latest checkpoint into the given FSDP model."""
+        if self.last_checkpoint_path is None:
+            raise ValueError("No checkpoint found to load from")
 
-        # Sharded (distributed) state_dicts for model & optimizer
-        # DCP state-dict helpers return rank-consistent keys (canonical FQNs). :contentReference[oaicite:7]{index=7}
-        m_opts = StateDictOptions(full_state_dict=False, cpu_offload=True)
-        model_sd = get_model_state_dict(model, options=m_opts)
-        optim_sd = get_optimizer_state_dict(model, optim)
+        reader = FileSystemReader(self.last_checkpoint_path)
 
-        state = {"model": model_sd, "optim": optim_sd}
-        dcp_save(state_dict=state, storage_writer=writer)  # writes per-rank shards
+        model_sd = get_model_state_dict(model=model, options=DCP_SD_OPTS)
+        dcp_load({"model": model_sd}, storage_reader=reader)
+        set_model_state_dict(model=model, model_state_dict=model_sd, options=DCP_SD_OPTS)
 
-        # Write small training state (metadata + RNG) (rank 0 is enough)
-        if _rank0():
-            train_state = {
-                "step": int(step),
-                "loss": float(loss),
-                "round_num": int(round_num),
-                "rng": _rng_capture(),
-            }
-            if extra_train_state:
-                train_state.update(extra_train_state)
-            torch.save(train_state, step_dir / TRAIN_STATE)
+    def load_optim(self, model: FSDPModule, optim: torch.optim.Optimizer):
+        """Load (DCP) optimizer state from the latest checkpoint."""
+        if self.last_checkpoint_path is None:
+            raise ValueError("No checkpoint found to load from")
 
-        # rotate (rank 0 cleans)
-        if _rank0():
-            self._rotate(round_dir)
-        ci = CheckpointInfo(round_dir=round_dir, step_dir=step_dir, step=step, loss=loss)
-        self._last = ci
-        return ci
+        reader = FileSystemReader(self.last_checkpoint_path)
+        optim_sd = get_optimizer_state_dict(model=model, optimizer=optim, options=DCP_SD_OPTS)
+        dcp_load({"optim": optim_sd}, storage_reader=reader)
 
+        set_optimizer_state_dict(
+            model=model, optimizer=optim, optimizer_state_dict=optim_sd, options=DCP_SD_OPTS
+        )
 
+    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None):
+        """Save checkpoint with standardized round-based directory structure and rotation."""
+        ckpt_dir = os.path.join(self.checkpoint_dir, str(round_num), f"step_{step}_loss_{current_loss:.4f}")
+        os.makedirs(ckpt_dir, exist_ok=True)
 
+        writer = FileSystemWriter(ckpt_dir)
+        state = {
+            "model": get_model_state_dict(model=model, options=DCP_SD_OPTS),
+            "optim": get_optimizer_state_dict(model=model, optimizer=optim, options=DCP_SD_OPTS),
+        }
+        dcp_save(state, storage_writer=writer)
 
+        if training_state and dist.get_rank() == 0:
+            torch.save(training_state, os.path.join(ckpt_dir, "training_state.pt"))
+        self.last_checkpoint_path = ckpt_dir
+        print(f"Saved DCP checkpoint: {ckpt_dir}")
 
+        dist.barrier()
+
+        self._rotate_checkpoints(round_num)
 
 
 
