@@ -11,38 +11,40 @@ from typing import Any, Dict, Optional
 import torch
 import torch.distributed as dist
 
-# --- DCP: writers/readers + state-dict helpers
+from torch.distributed.checkpoint.state_dict import (
+    get_model_state_dict,
+    get_optimizer_state_dict,
+    set_model_state_dict,
+    set_optimizer_state_dict,
+    StateDictOptions,
+)
 from torch.distributed.checkpoint import save as dcp_save, load as dcp_load
 from torch.distributed.checkpoint import FileSystemWriter, FileSystemReader
-from torch.distributed.checkpoint.state_dict import (
-    StateDictOptions,
-    get_model_state_dict,
-    set_model_state_dict,
-    get_optimizer_state_dict,
-    set_optimizer_state_dict,
-)
 
 # --------------- Helper Functions ---------------
 
 MODEL_CHECKPOINT = "model_state_dict.pt"
+OPTIM_CHECKPOINT = "optim_state_dict.pt"
 TRAIN_STATE = "training_state.pt"  
 STEP_DIR_RE = re.compile(r"^step_(\d+)_loss_([0-9.]+)$")
 
-DCP_SD_OPTS = StateDictOptions(
-    full_state_dict=False,   # save/load sharded (no rank-0 gather)
-    cpu_offload=False,       # parameters stay on their device while DCP stages I/O
-)
+DCP_SD_OPTS = StateDictOptions(full_state_dict=False, cpu_offload=False)
+FULL_SD_OPTS = StateDictOptions(full_state_dict=True, cpu_offload=True)
+
+
+
+
 
 def _fmt_step_dir(step: int, loss: float) -> str:
     """Format a step directory name."""
     return f"step_{step:08d}_loss_{loss:.4f}"
 
+
 def _rng_capture() -> Dict[str, Any]:
     """Capture Random Number Generator states."""
-    # safe on CPU; CUDA state captured across devices
     out = {"time": time.time()}
     try:
-        out["python"] = None  # keep it simple (optional: random.getstate()) 
+        out["python"] = None
         out["numpy"] = None
         out["torch"] = torch.get_rng_state()
         out["torch_cuda"] = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
@@ -59,6 +61,120 @@ def _rng_restore(rng: Dict[str, Any]) -> None:
         torch.set_rng_state(rng["torch"])
     if "torch_cuda" in rng and rng["torch_cuda"] is not None and torch.cuda.is_available():
         torch.cuda.set_rng_state_all(rng["torch_cuda"])
+
+
+
+class Checkpointer:
+    """
+    Handles checkpoint saving and loading for distributed FSDP training.
+
+    DCP-based training checkpoints in:
+        <output_path>/checkpoints/<round_num>/<step_dir>/
+    where <step_dir> == 'step_{step:08d}_loss_{loss:.4f}'.
+    """
+
+    def __init__(self, checkpoint_dir: str, max_checkpoints_per_round: int = 3):
+        self.checkpoint_dir = checkpoint_dir
+        self.max_checkpoints_per_round = max_checkpoints_per_round
+        self.last_training_time = None
+        self.last_checkpoint_path = None
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+    # ---------- training-resume save ----------
+    @torch.no_grad()
+    def save(
+        self,
+        model: torch.nn.Module,
+        optim: torch.optim.Optimizer,
+        *,
+        step: int,
+        loss: float,
+        round_num: int,
+        extra_train_state: Optional[Dict[str, Any]] = None,
+    ) -> CheckpointInfo:
+        """
+        Save a DCP checkpoint (model + optimizer shards) + training_state.pt.
+        Call this only on steps where gradients were synchronized and optimizer.step() just ran.
+        """
+        round_dir = self.ckpt_root / str(int(round_num))
+        step_dir = round_dir / _fmt_step_dir(step, float(loss))
+        step_dir.mkdir(parents=True, exist_ok=True)
+
+        # DCP expects all ranks to call save, coordinated by collectives. :contentReference[oaicite:6]{index=6}
+        writer = FileSystemWriter(str(step_dir))
+
+        # Sharded (distributed) state_dicts for model & optimizer
+        # DCP state-dict helpers return rank-consistent keys (canonical FQNs). :contentReference[oaicite:7]{index=7}
+        m_opts = StateDictOptions(full_state_dict=False, cpu_offload=True)
+        model_sd = get_model_state_dict(model, options=m_opts)
+        optim_sd = get_optimizer_state_dict(model, optim)
+
+        state = {"model": model_sd, "optim": optim_sd}
+        dcp_save(state_dict=state, storage_writer=writer)  # writes per-rank shards
+
+        # Write small training state (metadata + RNG) (rank 0 is enough)
+        if _rank0():
+            train_state = {
+                "step": int(step),
+                "loss": float(loss),
+                "round_num": int(round_num),
+                "rng": _rng_capture(),
+            }
+            if extra_train_state:
+                train_state.update(extra_train_state)
+            torch.save(train_state, step_dir / TRAIN_STATE)
+
+        # rotate (rank 0 cleans)
+        if _rank0():
+            self._rotate(round_dir)
+        ci = CheckpointInfo(round_dir=round_dir, step_dir=step_dir, step=step, loss=loss)
+        self._last = ci
+        return ci
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
