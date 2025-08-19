@@ -173,7 +173,7 @@ def main(args):
     # Checkpoint Logic
     # ----------------------------------
 
-    checkpointer = Checkpointer(checkpoint_dir)
+    checkpointer = Checkpointer(checkpoint_dir))
 
     if resume_info and not checkpointer.is_empty():
         main_print("Loading model from checkpoint via DCP.")
@@ -403,6 +403,7 @@ def main(args):
             logger=logger,
             round_num=round_num,
             overall_start_time=overall_start_time,  
+            checkpointer=checkpointer,
             wandb_run=wandb_run if is_main_process() else None,
             report_to="wandb" if is_main_process() else "none",
         )

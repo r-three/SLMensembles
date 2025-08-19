@@ -71,6 +71,7 @@ class Trainer(ABC):
         lr_scheduler,
         config,
         logger=None,
+        checkpointer=None,
         round_num=0,
         overall_start_time=None,
         wandb_run=None,
@@ -80,6 +81,7 @@ class Trainer(ABC):
         self.lr_scheduler = lr_scheduler
         self.config = config
         self.logger = logger
+        self.checkpointer = checkpointer
         self.round_num = round_num
         self.overall_start_time = overall_start_time
         self.wandb_run = wandb_run
@@ -94,10 +96,6 @@ class Trainer(ABC):
         self.best_loss = float('inf')
         self.wait = 0
         self.should_stop = False
-        
-        # Checkpointing
-        self.checkpoint_dir = None
-        self.save_steps = None
 
     def prepare_train(self):
         if dist.get_rank() == 0:
@@ -179,6 +177,8 @@ class Trainer(ABC):
             
             self.wandb_run.log(log_dict, step=self.tr_step)
         
+        if self.tr_step % config.ckpt_save_steps == 0: self.save_checkpoint(None)
+
         self.tr_step += 1
         return train_loss, test_loss
     
@@ -341,30 +341,6 @@ class Trainer(ABC):
         self.model.train()
         return mean_eval_loss
 
-# ---------------------- DistillTrainer ----------------------
-    
-class DistillTrainer(Trainer):
-    def __init__(
-        self,
-        model,
-        optim,
-        lr_scheduler,
-        config,
-        ensemble_model,
-        logger=None,
-        round_num=0,
-        overall_start_time=None,
-        wandb_run=None,
-    ) -> None:
-        self.ensemble_model = ensemble_model
-        super().__init__(model, optim, lr_scheduler, config, logger, round_num, overall_start_time)
-
-    def register_checkpointer(self, checkpointer: Checkpointer, save_steps: int):
-        self.checkpointer = checkpointer
-        self.save_steps = int(save_steps)
-        # optional: the dir is already embedded in checkpointer; we keep it around if you pass a path
-        self.checkpoint_dir = getattr(self, "checkpoint_dir", None)
-
     def save_checkpoint(self, checkpoint_dir: str | None = None):
         """Save model+optim via DCP and rotate per-round."""
 
@@ -379,18 +355,36 @@ class DistillTrainer(Trainer):
             "rng": torch.random.get_rng_state().tolist() if torch.random else None,
         }
 
-        self.checkpointer.save(self.model, self.optimizer, round_num, step, loss, training_state)
-    
-    def maybe_save_checkpoint(self):
-        """Call this inside your training loop after optimizer.step() or gradient_accumulation."""
-        if hasattr(self, "save_steps") and self.save_steps > 0:
-            step = int(getattr(self, "global_step", getattr(self, "tr_step", 0)))
-            if step > 0 and (step % self.save_steps == 0):
-                self.save_checkpoint(None)
+        self.checkpointer.save(self.model, self.optim, round_num, step, loss, training_state)
 
+# ---------------------- DistillTrainer ----------------------
 
-
-
+class DistillTrainer(Trainer):
+    def __init__(
+        self,
+        model,
+        optim,
+        lr_scheduler,
+        config,
+        ensemble_model,
+        logger=None,
+        checkpointer=None,
+        round_num=0,
+        overall_start_time=None,
+        wandb_run=None,
+    ):
+        super().__init__(
+            model,
+            optim,
+            lr_scheduler,
+            config,
+            logger,
+            checkpointer,
+            round_num,
+            overall_start_time,
+            wandb_run,
+        )
+        self.ensemble_model = ensemble_model
 
     def compute_loss(self, batch):
         '''
@@ -461,82 +455,6 @@ class DistillTrainer(Trainer):
             )
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
-    
-    def save_checkpoint(self, checkpoint_base_dir: str):
-        """Save a checkpoint with FSDP-compatible model, optimizer, scheduler, and training state."""
-        # Create training state for checkpointing
-        training_state = {
-            'tr_step': self.tr_step,
-            'round_num': self.round_num,
-            'current_eval_loss': self.current_eval_loss,
-            'min_eval_loss': self.min_eval_loss,
-            'best_loss': self.best_loss,
-            'wait': self.wait,
-            'lr_scheduler_state': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
-        }
-        
-        # Save FSDP model and optimizer using the standardized Checkpointer
-        try:
-            from checkpoint import Checkpointer
-            checkpointer = Checkpointer(checkpoint_base_dir)
-            checkpointer.save(
-                model=self.model, 
-                optim=self.optim, 
-                round_num=self.round_num,
-                step=self.tr_step,
-                current_loss=self.current_eval_loss,
-                training_state=training_state
-            )
-            if dist.get_rank() == 0:
-                print(f"Successfully saved FSDP checkpoint: round {self.round_num}, step {self.tr_step}")
-        except Exception as e:
-            if dist.get_rank() == 0:
-                print(f"ERROR: Failed to save FSDP checkpoint: {e}")
-                print("FSDP checkpointing requires the Checkpointer class to handle sharded states properly.")
-            raise e  # Don't use fallback for FSDP - it won't work correctly
-    
-    def load_checkpoint(self, checkpoint_base_dir: str):
-        """Load a checkpoint and restore FSDP-compatible training state."""
-        import os
-        
-        # Use Checkpointer to find and load the latest checkpoint
-        try:
-            from checkpoint import Checkpointer
-            checkpointer = Checkpointer(checkpoint_base_dir)
-            
-            if checkpointer.is_empty():
-                if dist.get_rank() == 0:
-                    print(f"No checkpoints found in {checkpoint_base_dir}")
-                return False
-            
-            # Load training state from the latest checkpoint
-            training_state_path = os.path.join(checkpointer.last_checkpoint_path, 'training_state.pt')
-            if os.path.exists(training_state_path):
-                state = torch.load(training_state_path, map_location='cpu')
-                self.tr_step = state.get('tr_step', 0)
-                self.round_num = state.get('round_num', 0)
-                self.current_eval_loss = state.get('current_eval_loss', 1e12)
-                self.min_eval_loss = state.get('min_eval_loss', 1e12)
-                self.best_loss = state.get('best_loss', float('inf'))
-                self.wait = state.get('wait', 0)
-                
-                if self.lr_scheduler and state.get('lr_scheduler_state'):
-                    self.lr_scheduler.load_state_dict(state['lr_scheduler_state'])
-            
-            # Load FSDP model and optimizer
-            checkpointer.load_model(self.model)
-            checkpointer.load_optim(self.model, self.optim)
-            
-            if dist.get_rank() == 0:
-                print(f"Successfully loaded FSDP checkpoint: round={self.round_num}, step={self.tr_step}")
-                print(f"Loaded from: {checkpointer.last_checkpoint_path}")
-            return True
-            
-        except Exception as e:
-            if dist.get_rank() == 0:
-                print(f"ERROR: Failed to load FSDP checkpoint: {e}")
-                print("FSDP checkpointing requires the Checkpointer class to handle sharded states properly.")
-            return False
 
     def compute_kl_loss(self, student_logits, mask, inputs):
         # -----------------------
