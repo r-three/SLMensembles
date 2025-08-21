@@ -402,7 +402,7 @@ def main(args):
     # ----------------------------------
 
     if config.resume_from_checkpoint:
-        checkpointer = Checkpointer(output_path) # output path is the prev checkpoint dir
+        checkpointer = Checkpointer(output_path) # output path is the path fror prev checkpoint
 
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
@@ -411,10 +411,10 @@ def main(args):
 
         state = checkpointer.load(student_model, optimizer)
 
+        if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
         global_step = int(state.get("global_step", state.get("step", 0)))
         epoch = int(state.get("epoch", 0))
 
-        if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
         start_round = round + 1
         start_epoch = epoch + 1
         resume_info = True
@@ -476,25 +476,7 @@ def main(args):
             main_print(f"{k}: {v}")
     main_print("===========================")
 
-    if is_main_process(): logger.log(function="main", phase="none", round_num=0, metadata=metadata_dict)
-
-
-    # ----------------------------------
-    # Determine Starting Round
-    # ----------------------------------
-    
-    # Check existing checkpoints to determine where to start
-    ckpt_index = index_checkpoints(os.path.join(output_path, "checkpoints"))
-    if len(ckpt_index) != 0:
-        completed_rounds = sorted(list(ckpt_index.keys()))
-        is_continuous = completed_rounds == list(range(len(completed_rounds)))
-        if not is_continuous:
-            raise Exception("The rounds obtained is not continuous.")
-        start_round = max(completed_rounds) + 1
-    else:
-        start_round = 0
-    
-    main_print(f"Starting training from round {start_round}")
+    if is_main_process() and not config.resume_from_checkpoint: logger.log(function="main", phase="none", round_num=0, metadata=metadata_dict)
 
     # ----------------------------------
     # Outer Training Loop
