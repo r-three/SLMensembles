@@ -82,7 +82,7 @@ class Checkpointer:
     def index_checkpoints(parent_dir: str) -> dict[int, list[tuple[str,int,float]]]:
         """
         Robustly index checkpoints for each round, supporting the nested layout:
-            <parent>/<round>_<step_{N}_loss_{X}>
+            <parent>/<round>/<step_{N}_loss_{X}>
         Returns: { round: [(path, step, loss), ... sorted by step] }
         """
         index: dict[int, list[tuple[str,int,float]]] = {}
@@ -255,146 +255,23 @@ class Checkpointer:
         return save_dir
 
 
+    def save_rng_states(self):
+        """Save random number generator states for reproducible resumption."""
+        return {
+            'python': None,  # We'll keep this simple for now
+            'numpy': None,   # Add if needed
+            'torch': torch.get_rng_state(),
+            'torch_cuda': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def get_latest_checkpoint_folder(path):
-    """Return the largest numbered folder in the given path."""
-    max_num = None
-    if not os.path.exists(path):
-        return max_num
-    for name in os.listdir(path):
-        folder_path = os.path.join(path, name)
-        if os.path.isdir(folder_path):
-            try:
-                num = int(name)
-                if max_num is None or num > max_num:
-                    max_num = num
-            except ValueError:
-                pass  # Skip non-numeric folder names
-    return max_num
-
-
-# --------------- Checkpointer ---------------
-class Checkpointer:
-    def __init__(self, checkpoint_dir: str, max_checkpoints_per_round: int = 3):
-        """Initialize checkpointer with standardized round-based directory structure."""
-        self.checkpoint_dir = checkpoint_dir
-        self.max_checkpoints_per_round = max_checkpoints_per_round
-        self.last_training_time = None
-        self.last_checkpoint_path = None
+    def restore_rng_states(self, rng_states):
+        """Restore random number generator states from checkpoint."""
+        if rng_states is None:
+            return
         
-        # Create base checkpoint directory
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        if 'torch' in rng_states and rng_states['torch'] is not None:
+            torch.set_rng_state(rng_states['torch'])
         
-        # Find the latest checkpoint for resumption
-        self._find_latest_checkpoint()
-
-    def load_optim(self, model, opt):
-        """Load the optimizer state from the latest checkpoint into the given optimizer."""
-        if self.last_checkpoint_path is None:
-            raise ValueError("No checkpoint found to load from")
-
-        reader = FileSystemReader(self.last_checkpoint_path)
-        optim_sd = get_optimizer_state_dict(model=model, optimizers=opt, options=DCP_SD_OPTS)
-        dcp_load(state_dict={"optim": optim_sd}, storage_reader=reader)
-
-        # NOTE: must call this before .backward() or after .step()
-        set_optimizer_state_dict(model=model, optimizer=opt, optim_state_dict=optim_sd, options=DCP_SD_OPTS)
-
-
-    
-
-
-@dataclass(frozen=True)
-class Checkpoint:
-    """Record of a checkpoint's path, round/epoch/step, and loss metrics."""
-    path: Path
-    round: int
-    epoch: int
-    step: int
-    current_loss: float
-    min_loss: float
-
-    def resolve_resume_checkpoint(run_dir: str) -> Path | None:
-        """Resume from checkpoint"""
-        latest, best = _manifest_pointers(run_dir)
-
-        # Fallback to directory scan (you already have name parsing/indexing)
-        try:
-            index = index_checkpoints(run_dir)
-            if not index:
-                return None
-            newest = None
-            for r, items in index.items():
-                for ck in items:
-                    key = (ck.round, ck.epoch, ck.step)
-                    if newest is None or key > newest[0]:
-                        newest = (key, ck.path)
-            return newest[1] if newest else None
-        except Exception:
-            return None
-
-        # trainer.load_checkpoint(checkpoint_dir)
-
-def save_rng_states():
-    """Save random number generator states for reproducible resumption."""
-    return {
-        'python': random.getstate() if 'random' in globals() else None,
-        'numpy': np.random.get_state() if 'np' in globals() else None,
-        'torch': torch.get_rng_state(),
-        'torch_cuda': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
-    }
-
-
-def restore_rng_states(rng_states):
-    """Restore random number generator states from checkpoint."""
-    if rng_states is None:
-        return
-    
-    if 'python' in rng_states and rng_states['python'] is not None:
-        import random
-        random.setstate(rng_states['python'])
-    
-    if 'numpy' in rng_states and rng_states['numpy'] is not None:
-        import numpy as np
-        np.random.set_state(rng_states['numpy'])
-    
-    if 'torch' in rng_states:
-        torch.set_rng_state(rng_states['torch'])
-    
-    if 'torch_cuda' in rng_states and rng_states['torch_cuda'] is not None:
-        torch.cuda.set_rng_state_all(rng_states['torch_cuda'])
+        if 'torch_cuda' in rng_states and rng_states['torch_cuda'] is not None:
+            torch.cuda.set_rng_state_all(rng_states['torch_cuda'])

@@ -67,10 +67,9 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
             torch.cuda.empty_cache()
 
 
-class EnsembleLoader:
-    """Simple class to load ensemble models from completed training rounds."""
-    
+class EnsembleLoader:    
     def __init__(self, output_dir: str, model_base: str):
+        """Class to load ensemble models from completed training rounds."""
         self.output_dir = output_dir
         self.model_base = model_base
         self.checkpoints_dir = os.path.join(output_dir, "checkpoints")
