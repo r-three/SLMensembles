@@ -365,6 +365,7 @@ def create_manifest(output_path, start_time_str=None, wandb_run=None, wandb_id=N
                 "num_train_epochs": config.num_train_epochs,
                 "ensemble_models": config.total_rounds,
                 "seed": config.seed,
+                "round": 0, # tracks number of rounds completed
             },
             "outcomes": {
                 "end_time": None,
