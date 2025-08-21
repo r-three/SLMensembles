@@ -44,7 +44,7 @@ def train_single_round(round_num, args, config, dataset, output_path, logger, wa
 
     # with torch.device("meta"):
     # TODO: not exactly following the example
-    if round_num == 0 or not config.ensemble_random_init:
+    if round_num   or not config.ensemble_random_init:
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
@@ -396,7 +396,7 @@ def main(args):
         num_warmup_steps=num_warmup_steps,
         num_training_steps=num_training_steps
     )
-
+    
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
@@ -414,13 +414,10 @@ def main(args):
         if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
         global_step = int(state.get("global_step", state.get("step", 0)))
         epoch = int(state.get("epoch", 0))
-
-        start_round = round + 1
         start_epoch = epoch + 1
         resume_info = True
     else:
         checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
-        start_round = 0
         start_epoch = 0
         resume_info = False
 
@@ -441,9 +438,10 @@ def main(args):
 
     if config.resume_from_checkpoint:
         # TODO: load round info and everything from the manifest file
-        round = load_from_manifest()
+        start_round = load_from_manifest() + 1
     else: 
         if is_main_process(): create_manifest(output_path, start_time_str=overall_start_datetime, wandb_run=wandb_run, wandb_id=wandb_id)
+        start_round = 0
 
     # ----------------------------------
     # Metrics
@@ -483,7 +481,7 @@ def main(args):
     # ----------------------------------
 
     for round_num in range(start_round, config.total_rounds):
-        # Train a single round using the extracted function
+        
         checkpoint_path, metrics = train_single_round(
             round_num=round_num,
             args=args,
@@ -508,6 +506,8 @@ def main(args):
                     round_num=round_num, 
                     metadata=metrics
                 ) 
+
+        # TODO: delete student model
 
         # ----------------------------------
         # Cleanup
