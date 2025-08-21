@@ -30,7 +30,7 @@ from checkpoint import Checkpoint
 import wandb
 import signal, threading, functools
 
-def train_single_round(round_num, args, config, dataset, output_path, logger, wandb_run, overall_start_time, rank, device):
+def train_single_round(start_round, round_num, args, config, dataset, output_path, logger, wandb_run, overall_start_time, rank, device):
     """ Train a single round of the ensemble distillation process. """
 
     main_print(f"\n{'='*50}")
@@ -42,69 +42,55 @@ def train_single_round(round_num, args, config, dataset, output_path, logger, wa
     # Load and Shard Student Model
     # ----------------------------------
 
-    # with torch.device("meta"):
-    # TODO: not exactly following the example
-    if round_num   or not config.ensemble_random_init:
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-        ).to('cuda')
-    else:
-        # Initialize from scratch for round > 1
-        cfg = AutoConfig.from_pretrained(config.student_model_name)
-        student_model = Qwen2ForCausalLM(cfg).to('cuda')
-    
-    fsdp_kwargs = {}
-    if args.mixed_precision:
-        fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
-            param_dtype=torch.bfloat16,
-            reduce_dtype=torch.float32,
-        )
-    
-    # TODO: not sure if mp will be properly triggered. Didn't verify
-    for layer in student_model.model.layers:
-        fully_shard(layer, **fsdp_kwargs)
-    fully_shard(student_model, **fsdp_kwargs)
+    if not (round_num == start_round and config.resume_from_checkpoint):
+        if not config.ensemble_random_init:
+            student_model = AutoModelForCausalLM.from_pretrained(
+                config.student_model_name,
+                torch_dtype=torch.bfloat16,
+            ).to('cuda')
+        else:
+            # Initialize from scratch
+            cfg = AutoConfig.from_pretrained(config.student_model_name)
+            student_model = Qwen2ForCausalLM(cfg).to('cuda')
+        
+        # ----------------------------------
+        # Mixed precision setup
+        # ----------------------------------
 
-    inspect_model(student_model)
+        fsdp_kwargs = {}
+        if args.mixed_precision:
+            fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
+                param_dtype=torch.bfloat16,  # 16-bit precision for model parameters
+                reduce_dtype=torch.float32,  # 32-bit precision for reduction operations
+            )
 
-    if args.explicit_prefetching:
-        set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
-        set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
+        # ----------------------------------
+        # Shard Model
+        # ----------------------------------
+        
+        for layer in student_model.model.layers:
+            fully_shard(layer, **fsdp_kwargs)
+        fully_shard(student_model, **fsdp_kwargs)
+
+        if args.explicit_prefetching:
+            set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
+            set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
+
+        inspect_model(student_model)
+    
+        if args.mixed_precision: inspect_mixed_precision(student_model)
     
     # ----------------------------------
     # Load Model Weights and Set up Optimizer
     # ----------------------------------
 
-    if resume_info and not checkpointer.is_empty():
-        main_print("Loading model from checkpoint...")
-        try:
-            checkpointer.load_model(student_model)
-            main_print("Successfully loaded model from checkpoint")
-        except Exception as e:
-            main_print(f"Failed to load model from checkpoint: {e}")
-            main_print("Loading original pretrained weights instead...")
-            student_state_dict = AutoModelForCausalLM.from_pretrained(
-                config.student_model_name, torch_dtype=torch.bfloat16
-            ).state_dict()
-            load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=args.dcp_api)
-    else:
-        main_print("Loading original pretrained weights...")
-        student_state_dict = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name, torch_dtype=torch.bfloat16
-        ).state_dict()
-        load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=args.dcp_api)
+    # TODO: ? load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=args.dcp_api)
     
-    if args.mixed_precision:
-        inspect_mixed_precision(student_model)
-
     # ----------------------------------
     # Load Checkpointed Models
     # ----------------------------------
 
-    # TODO: to be checked if correctly distributed.
-    # Ideally it should be properly distributed, for distributed inference. But here I think each proc will save it's own copies.
-    # Maybe easy thing to do is to shard all ensemble models. 
+
 
     ckpt_index = index_checkpoints(config.checkpoint_dir)
 
@@ -163,7 +149,7 @@ def train_single_round(round_num, args, config, dataset, output_path, logger, wa
     )
     
     # Restore learning rate scheduler state if resuming
-    if resume_info and not checkpointer.is_empty():
+    if config.resume_from_checkpoint and not checkpointer.is_empty():
         training_state = checkpointer.load_training_state()
         if training_state and 'lr_scheduler_state' in training_state:
             try:
@@ -205,7 +191,7 @@ def train_single_round(round_num, args, config, dataset, output_path, logger, wa
     signal.signal(signal.SIGINT, handler)
     
     # Try to resume from latest checkpoint if it exists
-    if resume_info and not checkpointer.is_empty():
+    if config.resume_from_checkpoint and not checkpointer.is_empty():
         if trainer.load_checkpoint(checkpoint_dir):
             main_print(f"Successfully resumed from checkpoint in round {trainer.round_num}")
         else:
@@ -435,7 +421,6 @@ def main(args):
     # ----------------------------------
     # Manifest file
     # ----------------------------------
-
     if config.resume_from_checkpoint:
         # TODO: load round info and everything from the manifest file
         start_round = load_from_manifest() + 1
@@ -483,6 +468,7 @@ def main(args):
     for round_num in range(start_round, config.total_rounds):
         
         checkpoint_path, metrics = train_single_round(
+            start_round = start_round,
             round_num=round_num,
             args=args,
             config=config,
