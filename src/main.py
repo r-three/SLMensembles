@@ -31,26 +31,7 @@ import wandb
 import signal, threading, functools
 
 def train_single_round(round_num, args, config, dataset, output_path, logger, wandb_run, overall_start_time, rank, device):
-    """
-    Train a single round of the ensemble distillation process.
-    
-    Args:
-        round_num: Current round number
-        args: Command line arguments
-        config: Configuration object
-        dataset: Training dataset
-        output_path: Output directory path
-        logger: CSV logger instance
-        wandb_run: Wandb run instance
-        overall_start_time: Training start time
-        rank: Process rank
-        device: CUDA device
-    
-    Returns:
-        tuple: (model_checkpoint_path, round_metrics)
-    """
-    
-    fix_seed(config.seed)
+    """ Train a single round of the ensemble distillation process. """
 
     main_print(f"\n{'='*50}")
     round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -359,6 +340,8 @@ def main(args):
     if is_main_process():
         logger = CSVLogger(output_path, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
+
+    fix_seed(config.seed)
 
     # ----------------------------------
     # Dataset Loading

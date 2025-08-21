@@ -1,4 +1,5 @@
 import torch
+import os
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
@@ -64,3 +65,96 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
             model = self.models.pop(model_idx)
             del model
             torch.cuda.empty_cache()
+
+
+class EnsembleLoader:
+    """Simple class to load ensemble models from completed training rounds."""
+    
+    def __init__(self, output_dir: str, model_base: str):
+        self.output_dir = output_dir
+        self.model_base = model_base
+        self.checkpoints_dir = os.path.join(output_dir, "checkpoints")
+    
+    def get_completed_rounds(self):
+        """Get list of completed rounds by scanning checkpoint directory."""
+        if not os.path.exists(self.checkpoints_dir):
+            return []
+        
+        completed_rounds = []
+        for item in os.listdir(self.checkpoints_dir):
+            try:
+                round_num = int(item)
+                round_dir = os.path.join(self.checkpoints_dir, item)
+                if os.path.isdir(round_dir) and self._has_model_checkpoint(round_dir):
+                    completed_rounds.append(round_num)
+            except ValueError:
+                continue
+        
+        return sorted(completed_rounds)
+    
+    def _has_model_checkpoint(self, round_dir):
+        """Check if a round directory has a model checkpoint."""
+        for item in os.listdir(round_dir):
+            step_dir = os.path.join(round_dir, item)
+            if os.path.isdir(step_dir) and item.startswith('step_'):
+                model_file = os.path.join(step_dir, "model_state_dict.pt")
+                if os.path.exists(model_file):
+                    return True
+        return False
+    
+    def get_best_checkpoint_for_round(self, round_num):
+        """Get the best checkpoint path for a specific round (lowest loss)."""
+        round_dir = os.path.join(self.checkpoints_dir, str(round_num))
+        if not os.path.exists(round_dir):
+            return None
+        
+        best_checkpoint = None
+        best_loss = float('inf')
+        
+        for item in os.listdir(round_dir):
+            if item.startswith('step_') and '_loss_' in item:
+                try:
+                    # Parse: step_12345_loss_0.9876
+                    parts = item.split('_')
+                    loss = float(parts[3])
+                    step_dir = os.path.join(round_dir, item)
+                    model_file = os.path.join(step_dir, "model_state_dict.pt")
+                    
+                    if os.path.exists(model_file) and loss < best_loss:
+                        best_loss = loss
+                        best_checkpoint = step_dir
+                except (ValueError, IndexError):
+                    continue
+        
+        return best_checkpoint
+    
+    def load_ensemble_for_round(self, target_round, device, torch_dtype=torch.bfloat16, vocab_size=None):
+        """Load ensemble of models from all completed rounds before target_round."""
+        completed_rounds = self.get_completed_rounds()
+        
+        # Only use rounds before the target round
+        ensemble_rounds = [r for r in completed_rounds if r < target_round]
+        
+        if not ensemble_rounds:
+            return None  # No ensemble models available
+        
+        # Get best checkpoint paths for each round
+        model_paths = []
+        for round_num in ensemble_rounds:
+            checkpoint_path = self.get_best_checkpoint_for_round(round_num)
+            if checkpoint_path:
+                model_paths.append(checkpoint_path)
+        
+        if not model_paths:
+            return None
+        
+        # Create ensemble
+        ensemble = ModelEnsemble(
+            model_paths=model_paths,
+            model_base=self.model_base,
+            torch_dtype=torch_dtype,
+            vocab_size=vocab_size
+        ).to(device)
+        ensemble.requires_grad_(False)
+        
+        return ensemble
