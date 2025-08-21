@@ -228,31 +228,31 @@ def get_directory(run_id):
 class CSVLogger:
     def __init__(
         self,
-        log_dir,
+        output_path,
         fieldnames: list,
         overall_start_time,
         filename: str = "CSV_metrics.csv",
         flush_every: int = 10,
     ):
+        self.filepath = os.path.join(output_path, "CSV_metrics.csv")
         self.fieldnames = fieldnames
         self.overall_start_time = overall_start_time
         self.buffer = []
         self.flush_every = flush_every
         self.counter = 0
 
-        if config.checkpoint_log_path:
-            self.filepath = config.checkpoint_log_path
+        if config.resume_from_checkpoint:
             if not os.path.exists(self.filepath):
                 main_print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
                 sys.exit(1)
         else:
-            if os.path.exists(os.path.join(log_dir, filename)) and not config.overwrite_csv:
+            if os.path.exists(os.path.join(output_path, filename)) and not config.overwrite_csv:
                 idx = 2
-                while os.path.exists(os.path.join(log_dir, f"{filename_base}_{idx}.csv")):
+                while os.path.exists(os.path.join(output_path, f"{filename_base}_{idx}.csv")):
                     idx += 1
                 filename = f"{filename_base}_{idx}.csv"
 
-            self.filepath = os.path.join(log_dir, filename)
+            self.filepath = os.path.join(output_path, filename)
 
             if not os.path.exists(self.filepath) or config.overwrite_csv:
                 with open(self.filepath, mode="w", newline="") as f:
