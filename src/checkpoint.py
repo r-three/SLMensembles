@@ -148,9 +148,11 @@ class Checkpointer:
 
     def load_model(self, model: FSDPModule):
         """Load (DCP) model weights from the latest checkpoint into the given FSDP model."""
+        self.get_resumable_checkpoint()
+
         if self.last_checkpoint_path is None:
             raise ValueError("No checkpoint found to load from")
-
+            
         reader = FileSystemReader(self.last_checkpoint_path)
 
         model_sd = get_model_state_dict(model=model, options=DCP_SD_OPTS)
