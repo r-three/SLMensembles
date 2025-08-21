@@ -146,31 +146,26 @@ class Checkpointer:
         except Exception:
             self.last_checkpoint_path = None
 
-    def load_model(self, model: FSDPModule):
-        """Load (DCP) model weights from the latest checkpoint into the given FSDP model."""
+    def load(self, model: FSDPModule, optim: torch.optim.Optimizer):
+        """Load the latest checkpoint model, training args, and optim state"""
         self.get_resumable_checkpoint()
 
         if self.last_checkpoint_path is None:
             raise ValueError("No checkpoint found to load from")
-            
+        
+        self.load_model(model)
+        self.load_optim(model, optim)
+        state = checkpointer.load_training_state()
+
+        return state
+
+    def load_model(self, model: FSDPModule):
+        """Load (DCP) model weights from the latest checkpoint into the given FSDP model."""
         reader = FileSystemReader(self.last_checkpoint_path)
 
         model_sd = get_model_state_dict(model=model, options=DCP_SD_OPTS)
         dcp_load({"model": model_sd}, storage_reader=reader)
-        set_model_state_dict(model=model, model_state_dict=model_sd, options=DCP_SD_OPTS)
-
-    def load_training_state(self):
-        """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
-        if self.last_checkpoint_path is None:
-            return None
-        training_state_path = os.path.join(self.last_checkpoint_path, TRAIN_STATE)
-
-        if not os.path.exists(training_state_path):
-            return None
-        state = torch.load(training_state_path, map_location="cpu", weights_only=True)
-        if state and "rng" in state and state["rng"] is not None:
-            _rng_restore(state["rng"])
-        return state
+        set_model_state_dict(model=model, model_state_dict=model_sd, options=DCP_SD_OPTS)\
 
     def load_optim(self, model: FSDPModule, optim: torch.optim.Optimizer):
         """Load (DCP) optimizer state from the latest checkpoint."""
@@ -184,6 +179,19 @@ class Checkpointer:
         set_optimizer_state_dict(
             model=model, optimizer=optim, optimizer_state_dict=optim_sd, options=DCP_SD_OPTS
         )
+
+    def load_training_state(self):
+        """Load training state (step counters, epoch, etc.) from the latest checkpoint."""
+        if self.last_checkpoint_path is None:
+            return None
+        training_state_path = os.path.join(self.last_checkpoint_path, TRAIN_STATE)
+
+        if not os.path.exists(training_state_path):
+            return None
+        state = torch.load(training_state_path, map_location="cpu", weights_only=True)
+        if state and "rng" in state and state["rng"] is not None:
+            _rng_restore(state["rng"])
+        return state
 
     def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None):
         """Save checkpoint with standardized round-based directory structure and rotation."""

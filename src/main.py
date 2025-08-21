@@ -385,9 +385,19 @@ def main(args):
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
     # ----------------------------------
-    # Initialize wandb (single run per experiment)
+    # Initialize wandb
     # ----------------------------------
     wandb_run = init_wandb_run() if is_main_process() else None
+
+    # ----------------------------------
+    # Manifest file
+    # ----------------------------------
+
+    if config.resume_from_checkpoint:
+        # TODO: load round info and everything from the manifest file
+        round = load_from_manifest()
+    else: 
+        if is_main_process(): create_manifest(output_path, start_time_str=overall_start_datetime, wandb_run=wandb_run, wandb_id=wandb_id)
 
     # ----------------------------------
     # Metrics
@@ -421,7 +431,6 @@ def main(args):
     main_print("===========================")
 
     if is_main_process(): logger.log(function="main", phase="none", round_num=0, metadata=metadata_dict)
-    if is_main_process(): create_manifest(output_path, start_time_str=overall_start_datetime, wandb_run=wandb_run, wandb_id=wandb_id)
 
     # ----------------------------------
     # Exception Handling
@@ -450,16 +459,21 @@ def main(args):
     if config.resume_from_checkpoint:
         checkpointer = Checkpointer(output_path) # output path is the prev checkpoint dir
 
-        checkpointer.find_latest_checkpoint()
-        checkpointer.load_model(model)
-        checkpointer.load_optim(model, optimizer)
-        state = checkpointer.load_training_state()
+        student_model = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name,
+            torch_dtype=torch.bfloat16,
+        ).to('cuda')
+
+        state = checkpointer.load(student_model, optimizer)
 
         global_step = int(state.get("global_step", state.get("step", 0)))
         epoch = int(state.get("epoch", 0))
+
+        # TODO: load CSV file as well
+
         if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
-        start_round = max_rounds + 1
-        start_epoch = 0
+        start_round = round + 1
+        start_epoch = epoch + 1
         resume_info = True
     else:
         checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
