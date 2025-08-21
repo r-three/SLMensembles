@@ -246,18 +246,9 @@ class CSVLogger:
                 main_print(f"[WARNING] Checkpoint CSV file does not exist: {self.filepath}")
                 sys.exit(1)
         else:
-            if os.path.exists(os.path.join(output_path, filename)) and not config.overwrite_csv:
-                idx = 2
-                while os.path.exists(os.path.join(output_path, f"{filename_base}_{idx}.csv")):
-                    idx += 1
-                filename = f"{filename_base}_{idx}.csv"
-
-            self.filepath = os.path.join(output_path, filename)
-
-            if not os.path.exists(self.filepath) or config.overwrite_csv:
-                with open(self.filepath, mode="w", newline="") as f:
-                    writer = csv.DictWriter(f, fieldnames=self.fieldnames)
-                    writer.writeheader()
+            with open(self.filepath, mode="w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writeheader()
 
     def log(self, **kwargs):
         """Log a row of data with automatic timestamping."""

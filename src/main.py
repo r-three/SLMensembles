@@ -414,8 +414,6 @@ def main(args):
         global_step = int(state.get("global_step", state.get("step", 0)))
         epoch = int(state.get("epoch", 0))
 
-        # TODO: load CSV file as well
-
         if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
         start_round = round + 1
         start_epoch = epoch + 1
@@ -427,17 +425,14 @@ def main(args):
         resume_info = False
 
     # ----------------------------------
-    # Logger config
+    # Logging config
     # ----------------------------------
-
     logger = None
+
     if is_main_process():
         logger = CSVLogger(output_path, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
-
-    # ----------------------------------
-    # Initialize wandb
-    # ----------------------------------
+    
     wandb_run = init_wandb_run() if is_main_process() else None
 
     # ----------------------------------
