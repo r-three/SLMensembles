@@ -60,8 +60,6 @@ def _rng_restore(rng: Dict[str, Any]) -> None:
     if "torch_cuda" in rng and rng["torch_cuda"] is not None and torch.cuda.is_available():
         torch.cuda.set_rng_state_all(rng["torch_cuda"])
 
-
-
 class Checkpointer:
     """
     Handles checkpoint saving and loading for distributed FSDP training.
@@ -193,7 +191,7 @@ class Checkpointer:
             _rng_restore(state["rng"])
         return state
 
-    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None):
+    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None, lr_scheduler=None):
         """Save checkpoint with standardized round-based directory structure and rotation."""
         ckpt_dir = os.path.join(self.checkpoint_dir, str(round_num), f"step_{step}_loss_{current_loss:.4f}")
         os.makedirs(ckpt_dir, exist_ok=True)
@@ -214,6 +212,9 @@ class Checkpointer:
 
         if training_state:
             meta.update(training_state)
+
+        if lr_scheduler:
+                meta["lr_scheduler_state"] = lr_scheduler.state_dict()
 
         if dist.get_rank() == 0:
             torch.save(meta, os.path.join(ckpt_dir, TRAIN_STATE))
@@ -276,6 +277,7 @@ class Checkpointer:
         }
 
 
+# TODO: call this function when loading the checkpoint
     def restore_rng_states(self, rng_states):
         """Restore random number generator states from checkpoint."""
         if rng_states is None:
