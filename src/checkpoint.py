@@ -82,7 +82,7 @@ class Checkpointer:
     def index_checkpoints(parent_dir: str) -> dict[int, list[tuple[str,int,float]]]:
         """
         Robustly index checkpoints for each round, supporting the nested layout:
-            <parent>/<round>/<step_{N}_loss_{X}>
+            <parent>/<round>_<step_{N}_loss_{X}>
         Returns: { round: [(path, step, loss), ... sorted by step] }
         """
         index: dict[int, list[tuple[str,int,float]]] = {}
