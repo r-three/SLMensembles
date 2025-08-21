@@ -71,8 +71,9 @@ class Checkpointer:
     where <step_dir> == 'step_{step:08d}_loss_{loss:.4f}'.
     """
 
-    def __init__(self, checkpoint_dir: str, max_checkpoints_per_round: int = 3):
-        self.checkpoint_dir = checkpoint_dir
+    def __init__(self, output_base_dir: str, max_checkpoints_per_round: int = 3):
+        self.output_dir = output_base_dir
+        self.checkpoint_dir = os.path.join(output_base_dir, "checkpoints")
         self.max_checkpoints_per_round = max_checkpoints_per_round
         self.last_training_time = None
         self.last_checkpoint_path = None
@@ -113,8 +114,8 @@ class Checkpointer:
                 index[r] = rows
         return index
 
-    def find_latest_checkpoint(self):
-        """Find the latest checkpoint in round-based directory structure."""
+    def get_resumable_checkpoint(self):
+        """Get the latest checkpoint to resume training from."""
         try:
             latest_round = -1
             latest_checkpoint = None

@@ -313,6 +313,40 @@ def main(args):
     # (JSON)      (Text)             (Tensors)       (-100/IDs)         (Tensors)           (Disk)               (GPU)              (GPU)          (GPU)         (GPU)
 
     # ----------------------------------
+    # Directory Structure
+    # ----------------------------------   
+    # Run_ID Format: {timestamp}-{git_hash}-{hyperparameter_fingerprint}
+    # Example: "20241221-143025-a1b2c3d4-e5f6g7h8"
+    #
+    # {config.base_output_dir}/
+    # └── {run_id}/                           # Unique run directory
+    #     ├── CSV_metrics.csv                 # Training metrics log (CSVLogger)
+    #     ├── manifest.txt                    # Run metadata and configuration
+    #     ├── STATUS.RUNNING                  # Status sentinel (during training)
+    #     ├── STATUS.DONE                     # Status sentinel (on completion)
+    #     ├── STATUS.FAILED                   # Status sentinel (on failure)
+    #     └── checkpoints/                    # Model checkpoints directory (Checkpointer)
+    #         ├── 0/                          # Round 0 checkpoints
+    #         │   ├── step_00001000_loss_2.3456/
+    #         │   │   ├── model_state_dict.pt
+    #         │   │   ├── optim_state_dict.pt
+    #         │   │   └── training_state.pt
+    #         │   └── step_00003000_loss_1.9876/ # Final checkpoint for round 0
+    #         ├── 1/                          # Round 1 checkpoints
+    #         │   ├── step_00001000_loss_1.8765/
+    #         │   └── step_00002000_loss_1.7654/
+    #         └── 2/                          # Round 2 checkpoints
+    #             └── step_00001500_loss_1.6543/
+    #     ├── round_0_model/                  # Final inference-ready model for round 0
+    #     │   ├── model.safetensors
+    #     │   ├── config.json
+    #     │   ├── tokenizer.json
+    #     │   └── generation_config.json
+    #     └── round_1_model/                  # Final inference-ready model for round 1
+    #         ├── model.safetensors
+    #         └── ... (etc.)
+
+    # ----------------------------------
     # DDP Setup
     # ----------------------------------
 
@@ -413,10 +447,9 @@ def main(args):
     # Checkpoint Logic
     # ----------------------------------
 
-    checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
-
     if config.resume_from_checkpoint:
-        checkpointed_dir = config.checkpointed_dir
+        checkpointer = Checkpointer(output_path) # output path is the prev checkpoint dir
+
         checkpointer.find_latest_checkpoint()
         checkpointer.load_model(model)
         checkpointer.load_optim(model, optimizer)
@@ -429,6 +462,7 @@ def main(args):
         start_epoch = 0
         resume_info = True
     else:
+        checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
         start_round = 0
         start_epoch = 0
         resume_info = False
