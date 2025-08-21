@@ -58,17 +58,16 @@ def main(args):
     # Logging and Run Configuration 
     # ----------------------------------
 
-    run_id, slug, wandb_name, wandb_id = build_run_identity()
-    output_path = get_directory(run_id)
+    if config.resume_from_checkpoint:
+        output_path = checkpointed_dir
+    else:
+        run_id, slug, wandb_name, wandb_id = build_run_identity()
+        output_path = get_directory(run_id)
 
     logger = None
     if is_main_process():
         logger = CSVLogger(output_path, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
-
-    checkpoint_dir = os.path.join(output_path, "checkpoints")
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    main_print(f"Checkpoints will be saved to: {checkpoint_dir}")
 
     # ----------------------------------
     # Dataset Loading
@@ -114,10 +113,6 @@ def main(args):
     main_print("===========================")
 
     if is_main_process(): logger.log(function="main", phase="none", round_num=0, metadata=metadata_dict)
-
-    # ----------------------------------
-    # Manifest File Creation
-    # ----------------------------------
     if is_main_process(): create_manifest(output_path, start_time_str=overall_start_datetime, wandb_run=wandb_run, wandb_id=wandb_id)
 
     # ----------------------------------
@@ -139,53 +134,35 @@ def main(args):
         num_warmup_steps=num_warmup_steps,
         num_training_steps=num_training_steps
     )
-    
+
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
 
-    if config.resume_from_checkpoint:
-        checkpoint_dir = config.checkpoint_dir
-    else:
-        checkpoint_dir = os.path.join(output_path, "checkpoints")
-    
-    checkpointer = Checkpointer(checkpoint_dir)
+    checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
 
     if config.resume_from_checkpoint:
+        checkpointed_dir = config.checkpointed_dir
         checkpointer.find_latest_checkpoint()
         checkpointer.load_model(model)
         checkpointer.load_optim(model, optimizer)
         state = checkpointer.load_training_state()
-    if state:
+
         global_step = int(state.get("global_step", state.get("step", 0)))
         epoch = int(state.get("epoch", 0))
-        if state.get("lr_scheduler_state") and lr_scheduler:
-            lr_scheduler.load_state_dict(state["lr_scheduler_state"])
-        if state.get("scaler_state") and use_amp:
-            scaler.load_state_dict(state["scaler_state"])
-
-
-
-    # TODO: fix this
-    # Load checkpoint index for ensemble building and resumption
-    ckpt_index = index_checkpoints(checkpoint_dir)
-    if len(ckpt_index) != 0:
-        completed_rounds = list(sorted(ckpt_index.keys()))
-        is_continuous = completed_rounds == list(range(len(completed_rounds)))
-        max_rounds = max(completed_rounds)
-        if not is_continuous:
-            raise Exception("The rounds obtained is not continuous.")
-        best_ckpts = [best_checkpoint(ckpt_index, r) for r in range(max_rounds + 1)]
-        main_print(f"Found {len(best_ckpts)} completed rounds: {best_ckpts}")
+        if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
         start_round = max_rounds + 1
         start_epoch = 0
         resume_info = True
     else:
-        best_ckpts = []
         start_round = 0
         start_epoch = 0
-        ensemble_model = None
         resume_info = False
+
+    # ----------------------------------
+    # Load Ensemble Models
+    # ----------------------------------
+          
 
     # ----------------------------------
     # Outer Training Loop
@@ -236,18 +213,7 @@ def main(args):
         # ----------------------------------
         # Load Model Weights and Set up Optimizer
         # ----------------------------------
-        # checkpointer = Checkpointer(checkpoint_dir)
-        # student_state_dict = AutoModelForCausalLM.from_pretrained(config.student_model_name, torch_dtype=torch.bfloat16).state_dict()
-        
-        # TODO: also checkpoint the dataloader sampler
-        # TODO: fix to device issue (can't initialize). If use to_empty(device="cuda"), cannot reload the state_dict. If load state_dict, will get: NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.
-        # if checkpointer.last_training_time is None:
-        #     student_model.to(device="cuda")
-            # checkpointer.load_org_model(student_model, student_state_dict)
-            # load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=False)
-        # else:
-            # checkpointer.load_model(student_model)
-        # Load model weights - either from checkpoint or original pretrained
+
         if resume_info and not checkpointer.is_empty():
             main_print("Loading model from checkpoint...")
             try:

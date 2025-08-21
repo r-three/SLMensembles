@@ -14,7 +14,9 @@ from torch.distributed.checkpoint.state_dict import (
 import torch.distributed as dist
 from torch.distributed.fsdp import FSDPModule
 from torch.distributed.tensor import distribute_tensor, DTensor
-
+from typing import Dict, List, Tuple
+from pathlib import Path
+from dataclasses import dataclass
 
 MODEL_CHECKPOINT = "model_state_dict.pt"
 OPTIM_CHECKPOINT = "optim_state_dict.pt"
@@ -215,14 +217,65 @@ class Checkpointer:
         else:
             return {}
 
-    def save(self, model: FSDPModule, optim: torch.optim.Optimizer):
+    def save(self, model: FSDPModule, optim: torch.optim.Optimizer, checkpoint_folder=None):
         model_state_dict = self._get_full_model_state_dict(model)
         optim_state_dict = self._get_full_optimizer_state_dict(model, optim)
         if torch.distributed.get_rank() == 0:
-            new_training_time = int(time.time() * 1000)
-            new_checkpoint_folder = f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}/{new_training_time}"
+            if checkpoint_folder:
+                new_checkpoint_folder = checkpoint_folder
+            else:
+                new_training_time = int(time.time() * 1000)
+                new_checkpoint_folder = f"{self.folder}/{'dcp_api' if self.dcp_api else 'dtensor_api'}/{new_training_time}"
             new_model_checkpoint = f"{new_checkpoint_folder}/{MODEL_CHECKPOINT}"
             new_optim_checkpoint = f"{new_checkpoint_folder}/{OPTIM_CHECKPOINT}"
             os.makedirs(new_checkpoint_folder, exist_ok=True)
             torch.save(model_state_dict, new_model_checkpoint)
             torch.save(optim_state_dict, new_optim_checkpoint)
+
+
+@dataclass(frozen=True)
+class Checkpoint:
+    path: Path
+    round: int
+    epoch: int
+    step: int
+    current_loss: float
+    min_loss: float
+
+def _parse_dirname(name: str) -> Tuple[int, int, float, float]:
+    r, e, s, cur, minl = name.split("_", 4)
+    return int(r), int(e), int(s), float(cur), float(minl)
+
+def index_checkpoints(parent: str) -> Dict[int, List[Checkpoint]]:
+    """
+    Walk `parent` and build an index {round -> [Checkpoint, …]}.
+    Non-matching folders are silently skipped.
+    """
+    parent = Path(parent)
+    index: Dict[int, List[Checkpoint]] = {}
+
+    for entry in parent.iterdir():
+        if not entry.is_dir():
+            continue
+        try:
+            r, e, s, cur, minl = _parse_dirname(entry.name)
+        except (ValueError, IndexError):
+            # skip folders that don’t match the expected pattern
+            continue
+
+        ckpt = Checkpoint(entry, r, e, s, cur, minl)
+        index.setdefault(r, []).append(ckpt)
+
+    return index
+
+def best_checkpoint(index: dict, round_num: int) -> Path:
+    """
+    Return the sub-directory Path with the *lowest* current_eval_loss
+    for the specified `round_num`.
+    Raises KeyError if that round doesn’t exist.
+    """
+    if round_num not in index:
+        raise KeyError(f"No checkpoints found for round {round_num}")
+
+    best = min(index[round_num], key=lambda c: c.current_loss)
+    return best.path

@@ -177,8 +177,9 @@ class Trainer(ABC):
             
             self.wandb_run.log(log_dict, step=self.tr_step)
         
-        if self.tr_step % config.ckpt_save_steps == 0: self.save_checkpoint(None)
-
+        if self.tr_step % config.ckpt_save_steps == 0 and dist.get_rank() == 0: self.save_checkpoint()
+        dist.barrier()
+        
         self.tr_step += 1
         return train_loss, test_loss
     
@@ -325,7 +326,7 @@ class Trainer(ABC):
         self.model.train()
         return mean_eval_loss
 
-    def save_checkpoint(self, checkpoint_dir: str | None = None):
+    def save_checkpoint(self):
         """Save model+optim via DCP and rotate per-round."""
 
         round_num = int(getattr(self, "round_num", 0))
