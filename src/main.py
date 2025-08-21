@@ -361,8 +361,17 @@ def main(args):
     main_print(f"--> Starting training at: {overall_start_datetime}\n")
 
     # ----------------------------------
-    # Logging and Run Configuration 
+    # Exception Handling
     # ----------------------------------
+    _exit_once = threading.Event()
+
+    default_excepthook = sys.excepthook
+    sys.excepthook = _on_exception
+
+    # ----------------------------------
+    # Run Configuration 
+    # ----------------------------------
+    fix_seed(config.seed)
 
     if config.resume_from_checkpoint:
         output_path = checkpointed_dir
@@ -370,19 +379,61 @@ def main(args):
         run_id, slug, wandb_name, wandb_id = build_run_identity()
         output_path = get_directory(run_id)
 
+    # ----------------------------------
+    # Dataset Loading
+    # ----------------------------------
+    dataClass = DistillDataset()
+    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
+
+    # ----------------------------------
+    # Set Up Optimizer and LR Scheduler
+    # ----------------------------------
+    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
+    num_training_steps = len(train_dataloader) * config.num_train_epochs
+    num_warmup_steps = config.warm_up_steps
+    lr_scheduler = get_cosine_schedule_with_warmup(
+        optim,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps
+    )
+
+    # ----------------------------------
+    # Checkpoint Logic
+    # ----------------------------------
+
+    if config.resume_from_checkpoint:
+        checkpointer = Checkpointer(output_path) # output path is the prev checkpoint dir
+
+        student_model = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name,
+            torch_dtype=torch.bfloat16,
+        ).to('cuda')
+
+        state = checkpointer.load(student_model, optimizer)
+
+        global_step = int(state.get("global_step", state.get("step", 0)))
+        epoch = int(state.get("epoch", 0))
+
+        # TODO: load CSV file as well
+
+        if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
+        start_round = round + 1
+        start_epoch = epoch + 1
+        resume_info = True
+    else:
+        checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
+        start_round = 0
+        start_epoch = 0
+        resume_info = False
+
+    # ----------------------------------
+    # Logger config
+    # ----------------------------------
+
     logger = None
     if is_main_process():
         logger = CSVLogger(output_path, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
-
-    fix_seed(config.seed)
-
-    # ----------------------------------
-    # Dataset Loading
-    # ----------------------------------
-
-    dataClass = DistillDataset()
-    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
     # ----------------------------------
     # Initialize wandb
@@ -432,54 +483,6 @@ def main(args):
 
     if is_main_process(): logger.log(function="main", phase="none", round_num=0, metadata=metadata_dict)
 
-    # ----------------------------------
-    # Exception Handling
-    # ----------------------------------
-    _exit_once = threading.Event()
-
-    default_excepthook = sys.excepthook
-    sys.excepthook = _on_exception
-
-    # ----------------------------------
-    # Set Up Optimizer and LR Scheduler
-    # ----------------------------------
-    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-    num_training_steps = len(train_dataloader) * config.num_train_epochs
-    num_warmup_steps = config.warm_up_steps
-    lr_scheduler = get_cosine_schedule_with_warmup(
-        optim,
-        num_warmup_steps=num_warmup_steps,
-        num_training_steps=num_training_steps
-    )
-
-    # ----------------------------------
-    # Checkpoint Logic
-    # ----------------------------------
-
-    if config.resume_from_checkpoint:
-        checkpointer = Checkpointer(output_path) # output path is the prev checkpoint dir
-
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-        ).to('cuda')
-
-        state = checkpointer.load(student_model, optimizer)
-
-        global_step = int(state.get("global_step", state.get("step", 0)))
-        epoch = int(state.get("epoch", 0))
-
-        # TODO: load CSV file as well
-
-        if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
-        start_round = round + 1
-        start_epoch = epoch + 1
-        resume_info = True
-    else:
-        checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
-        start_round = 0
-        start_epoch = 0
-        resume_info = False
 
     # ----------------------------------
     # Determine Starting Round
