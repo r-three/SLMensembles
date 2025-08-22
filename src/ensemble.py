@@ -71,46 +71,110 @@ class EnsembleLoader:
     def __init__(self, output_path: str, model_base: str):
         """Class to load ensemble models from completed training rounds."""
         self.output_path = output_path
+        self.model_base = model_base
+        self.ensemble_dir = os.path.join(output_path, "ensemble_models")
+        os.makedirs(self.ensemble_dir, exist_ok=True)
+    
+    def save_model_for_ensemble(self, model, round_num: int):
+        """
+        Save a trained model for ensemble use in HuggingFace format.
+        
+        Args:
+            model: The trained model (FSDP or regular PyTorch model)
+            round_num: The training round number
+            
+        Returns:
+            str: Path to the saved model directory
+        """
+        import torch.distributed as dist
+        from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
+        
+        # Create round-specific directory
+        round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
+        os.makedirs(round_dir, exist_ok=True)
+        
+        # Get full model state dict (gathered on CPU for rank 0 to save)
+        full_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
+        
+        try:
+            # For FSDP models, use distributed checkpoint API
+            full_model_state_dict = get_model_state_dict(model=model, options=full_state_dict_opts)
+        except:
+            # Fallback for non-FSDP models
+            full_model_state_dict = model.state_dict()
+        
+        # Only rank 0 saves the model files
+        if not dist.is_initialized() or dist.get_rank() == 0:
+            # Save model state dict (expected by ModelEnsemble)
+            torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
+            
+            # Also save in HuggingFace format for compatibility
+            try:
+                # Try to save as HuggingFace model if possible
+                if hasattr(model, 'save_pretrained'):
+                    model.save_pretrained(round_dir)
+                elif hasattr(model, 'module') and hasattr(model.module, 'save_pretrained'):
+                    # Handle wrapped models
+                    model.module.save_pretrained(round_dir)
+                else:
+                    # Create a minimal config and save manually
+                    from transformers import AutoConfig
+                    config_obj = AutoConfig.from_pretrained(self.model_base)
+                    config_obj.save_pretrained(round_dir)
+            except Exception as e:
+                print(f"Warning: Could not save HuggingFace format: {e}")
+            
+            print(f"Saved ensemble model for round {round_num} at: {round_dir}")
+        
+        # Ensure all ranks wait for the save to complete
+        if dist.is_initialized():
+            dist.barrier()
+        
+        return round_dir
     
     def get_completed_rounds(self):
-        """Get list of completed rounds by scanning checkpoint directory."""
-        
-        model_dirs = []
-        
-        for dir_name in os.listdir(self.output_path):
-            if dir_name.startswith('round_'):
-                round_dir = os.path.join(self.output_path, dir_name)
-                model_dirs.append(round_dir)
-        
-        return sorted(model_dirs)
-
-
-    # TODO: stopped here
-
-
-        if existing_models:
-            existing_models.sort(key=lambda x: x[0])
-            start_round = max((r for r, _ in existing_models)) + 1
-            ensemble_model_names = [path for _, path in existing_models]
-            ensemble_model = ModelEnsemble(
-                model_names=ensemble_model_names,
-                torch_dtype=torch.bfloat16,
-                device_map=config.student_device,
-                vocab_size=student_model.vocab_size,
-            )
-            ensemble_model.requires_grad_(False)
-
+        """Get list of completed rounds by scanning ensemble model directory."""
         completed_rounds = []
-        for item in os.listdir(self.checkpoints_dir):
-            try:
-                round_num = int(item)
-                round_dir = os.path.join(self.checkpoints_dir, item)
-                if os.path.isdir(round_dir) and self._has_model_checkpoint(round_dir):
-                    completed_rounds.append(round_num)
-            except ValueError:
-                continue
+        
+        if not os.path.exists(self.ensemble_dir):
+            return completed_rounds
+            
+        for dir_name in os.listdir(self.ensemble_dir):
+            if dir_name.startswith('round_'):
+                try:
+                    round_num = int(dir_name.split('_')[1])
+                    round_dir = os.path.join(self.ensemble_dir, dir_name)
+                    # Check if the model file exists
+                    model_file = os.path.join(round_dir, "model_state_dict.pt")
+                    if os.path.isfile(model_file):
+                        completed_rounds.append(round_num)
+                except (ValueError, IndexError):
+                    continue
         
         return sorted(completed_rounds)
+    
+    def get_model_paths_for_ensemble(self, max_round: int = None):
+        """
+        Get paths to saved ensemble models up to max_round.
+        
+        Args:
+            max_round: Maximum round to include (exclusive). If None, include all.
+            
+        Returns:
+            list: Paths to model directories for ensemble creation
+        """
+        completed_rounds = self.get_completed_rounds()
+        
+        if max_round is not None:
+            completed_rounds = [r for r in completed_rounds if r < max_round]
+        
+        model_paths = []
+        for round_num in completed_rounds:
+            round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
+            if os.path.isdir(round_dir):
+                model_paths.append(round_dir)
+        
+        return model_paths
     
     def _has_model_checkpoint(self, round_dir):
         """Check if a round directory has a model checkpoint."""

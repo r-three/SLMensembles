@@ -90,7 +90,7 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # Load Ensemble Models
     # ----------------------------------
 
-    ensembleloader = EnsembleLoader(output_path, )
+    ensembleloader = EnsembleLoader(output_path, config.student_model_name)
 
     ckpt_index = index_checkpoints(config.checkpoint_dir)
 
@@ -267,6 +267,18 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         trainer.save_checkpoint(checkpoint_dir)
         if rank == 0:
             main_print(f"Saved end-of-epoch checkpoint: round {round_num}, epoch {epoch_num}, step {trainer.tr_step}")
+        
+        # ----------------------------------
+        # Save model for ensemble use
+        # ----------------------------------
+        if rank == 0:
+            main_print(f"Saving model for ensemble use...")
+        
+        # Save the trained model using EnsembleLoader
+        ensemble_model_path = ensembleloader.save_model_for_ensemble(student_model, round_num)
+        
+        if rank == 0:
+            main_print(f"Saved ensemble model at: {ensemble_model_path}")
 
         # ----------------------------------
         # Update wandb run name and log metrics
@@ -492,6 +504,17 @@ def main(args):
                     round_num=round_num, 
                     metadata=metrics
                 ) 
+
+        if ensemble_model is None:
+            ensemble_model = ModelEnsemble(
+                [round_output_dir],
+                torch_dtype=torch.bfloat16,
+                device_map=config.student_device,
+                vocab_size=student_model.vocab_size,
+            )
+            ensemble_model.requires_grad_(False)
+        else:
+            ensemble_model.add_model(round_output_dir)
 
         # TODO: delete student model
 
