@@ -336,12 +336,12 @@ def main(args):
     #         └── 2/                          # Round 2 checkpoints
     #             └── step_00001500_loss_1.6543/
     #     ├── round_0_model/                  # Final inference-ready model for round 0
-    #     │   ├── model.safetensors
+    #     │   ├── model_state_dict.pt
     #     │   ├── config.json
     #     │   ├── tokenizer.json
     #     │   └── generation_config.json
     #     └── round_1_model/                  # Final inference-ready model for round 1
-    #         ├── model.safetensors
+    #         ├── model_state_dict.pt
     #         └── ... (etc.)
 
     # ----------------------------------

@@ -81,44 +81,30 @@ class EnsembleLoader:
         """Save a trained model."""
         # NOTE: can load model wiht with torch.load() and use directly
         round_dir = os.path.join(self.output_path, f"round_{round_num}")
+        hf_dir = os.path.join(round_dir, "hugging_face")
         os.makedirs(round_dir)
         
         full_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
         
-        try:
-            # For FSDP models
+        try: # For FSDP models
             full_model_state_dict = get_model_state_dict(model=model, options=full_state_dict_opts)
-        except:
-            # Fallback for non-FSDP models
+        except: # Fallback for non-FSDP models
             full_model_state_dict = model.state_dict()
         
         if is_main_process() == 0:
-            # Save model state dict (expected by ModelEnsemble)
             torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
-            
-            # Also save in HuggingFace format for compatibility
-            try:
-                # Try to save as HuggingFace model if possible
-                if hasattr(model, 'save_pretrained'):
-                    model.save_pretrained(round_dir)
-                elif hasattr(model, 'module') and hasattr(model.module, 'save_pretrained'):
-                    # Handle wrapped models
-                    model.module.save_pretrained(round_dir)
-                else:
-                    # Create a minimal config and save manually
-                    from transformers import AutoConfig
-                    config_obj = AutoConfig.from_pretrained(self.model_type)
-                    config_obj.save_pretrained(round_dir)
-            except Exception as e:
-                print(f"Warning: Could not save HuggingFace format: {e}")
+
+             # Try to save as HuggingFace
+            if hasattr(model, 'save_pretrained'):
+                model.save_pretrained(hf_dir)
+            elif hasattr(model, 'module') and hasattr(model.module, 'save_pretrained'):
+                model.module.save_pretrained(hf_dir)
+            else:
+                print(f"Warning: Could not save model in HuggingFace format")
             
             print(f"Saved ensemble model for round {round_num} at: {round_dir}")
         
-        # Ensure all ranks wait for the save to complete
-        if dist.is_initialized():
-            dist.barrier()
-        
-        return round_dir
+        dist.barrier()
     
     def get_completed_rounds(self):
         """Get list of completed rounds by scanning ensemble model directory."""
