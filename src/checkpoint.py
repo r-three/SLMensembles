@@ -119,12 +119,13 @@ class Checkpointer:
             latest_checkpoint = None
             latest_step = -1
             
-            for item in os.listdir(self.checkpoint_dir):
-                round_path = os.path.join(self.checkpoint_dir, item)
+            # TODO: fix this code
+            for num in os.listdir(self.checkpoint_dir):
+                round_path = os.path.join(self.checkpoint_dir, num)
                 if not os.path.isdir(round_path):
                     continue
                 try:
-                    round_num = int(item)
+                    round_num = int(num)
                     if round_num > latest_round:
                         for ckpt_dir in os.listdir(round_path):
                             ckpt_path = os.path.join(round_path, ckpt_dir)

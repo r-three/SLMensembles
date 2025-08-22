@@ -87,10 +87,10 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # TODO: ? load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=args.dcp_api)
     
     # ----------------------------------
-    # Load Checkpointed Models
+    # Load Ensemble Models
     # ----------------------------------
 
-
+    ensembleloader = EnsembleLoader(output_path, )
 
     ckpt_index = index_checkpoints(config.checkpoint_dir)
 

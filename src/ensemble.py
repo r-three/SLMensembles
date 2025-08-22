@@ -68,17 +68,38 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
 
 
 class EnsembleLoader:    
-    def __init__(self, output_dir: str, model_base: str):
+    def __init__(self, output_path: str, model_base: str):
         """Class to load ensemble models from completed training rounds."""
-        self.output_dir = output_dir
-        self.model_base = model_base
-        self.checkpoints_dir = os.path.join(output_dir, "checkpoints")
+        self.output_path = output_path
     
     def get_completed_rounds(self):
         """Get list of completed rounds by scanning checkpoint directory."""
-        if not os.path.exists(self.checkpoints_dir):
-            return []
         
+        model_dirs = []
+        
+        for dir_name in os.listdir(self.output_path):
+            if dir_name.startswith('round_'):
+                round_dir = os.path.join(self.output_path, dir_name)
+                model_dirs.append(round_dir)
+        
+        return sorted(model_dirs)
+
+
+    # TODO: stopped here
+
+
+        if existing_models:
+            existing_models.sort(key=lambda x: x[0])
+            start_round = max((r for r, _ in existing_models)) + 1
+            ensemble_model_names = [path for _, path in existing_models]
+            ensemble_model = ModelEnsemble(
+                model_names=ensemble_model_names,
+                torch_dtype=torch.bfloat16,
+                device_map=config.student_device,
+                vocab_size=student_model.vocab_size,
+            )
+            ensemble_model.requires_grad_(False)
+
         completed_rounds = []
         for item in os.listdir(self.checkpoints_dir):
             try:
@@ -100,32 +121,6 @@ class EnsembleLoader:
                 if os.path.exists(model_file):
                     return True
         return False
-    
-    def get_best_checkpoint_for_round(self, round_num):
-        """Get the best checkpoint path for a specific round (lowest loss)."""
-        round_dir = os.path.join(self.checkpoints_dir, str(round_num))
-        if not os.path.exists(round_dir):
-            return None
-        
-        best_checkpoint = None
-        best_loss = float('inf')
-        
-        for item in os.listdir(round_dir):
-            if item.startswith('step_') and '_loss_' in item:
-                try:
-                    # Parse: step_12345_loss_0.9876
-                    parts = item.split('_')
-                    loss = float(parts[3])
-                    step_dir = os.path.join(round_dir, item)
-                    model_file = os.path.join(step_dir, "model_state_dict.pt")
-                    
-                    if os.path.exists(model_file) and loss < best_loss:
-                        best_loss = loss
-                        best_checkpoint = step_dir
-                except (ValueError, IndexError):
-                    continue
-        
-        return best_checkpoint
     
     def load_ensemble_for_round(self, target_round, device, torch_dtype=torch.bfloat16, vocab_size=None):
         """Load ensemble of models from all completed rounds before target_round."""
@@ -150,7 +145,7 @@ class EnsembleLoader:
         # Create ensemble
         ensemble = ModelEnsemble(
             model_paths=model_paths,
-            model_base=self.model_base,
+            model_base=config.student_model_name,
             torch_dtype=torch_dtype,
             vocab_size=vocab_size
         ).to(device)
