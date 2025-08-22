@@ -5,6 +5,7 @@ from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateD
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
+from utils import is_main_process
 import config
 
 
@@ -70,34 +71,28 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
 
 
 class EnsembleLoader:    
-    def __init__(self, output_path: str, model_type: str, round_num: int):
+    def __init__(self, output_path: str, model_type: str):
         """Class to load ensemble models from completed training rounds."""
         self.output_path = output_path
         self.model_type = model_type
-        self.round_num = round_num
         os.makedirs(self.ensemble_dir, exist_ok=True)
     
     def save_model_for_ensemble(self, model, round_num: int):
         """Save a trained model."""
-        # NOTE: can load model with Can load with torch.load() and use directly
-
-        
-        # Create round-specific directory
+        # NOTE: can load model wiht with torch.load() and use directly
         round_dir = os.path.join(self.output_path, f"round_{round_num}")
-        os.makedirs(round_dir, exist_ok=True)
+        os.makedirs(round_dir)
         
-        # Get full model state dict (gathered on CPU for rank 0 to save)
         full_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
         
         try:
-            # For FSDP models, use distributed checkpoint API
+            # For FSDP models
             full_model_state_dict = get_model_state_dict(model=model, options=full_state_dict_opts)
         except:
             # Fallback for non-FSDP models
             full_model_state_dict = model.state_dict()
         
-        # Only rank 0 saves the model files
-        if not dist.is_initialized() or dist.get_rank() == 0:
+        if is_main_process() == 0:
             # Save model state dict (expected by ModelEnsemble)
             torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
             
