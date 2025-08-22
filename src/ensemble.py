@@ -77,35 +77,6 @@ class EnsembleLoader:
         self.model_type = model_type
         os.makedirs(self.ensemble_dir, exist_ok=True)
     
-    def save_model_for_ensemble(self, model, round_num: int):
-        """Save a trained model."""
-        # NOTE: can load model wiht with torch.load() and use directly
-        round_dir = os.path.join(self.output_path, f"round_{round_num}")
-        hf_dir = os.path.join(round_dir, "hugging_face")
-        os.makedirs(round_dir)
-        
-        full_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
-        
-        try: # For FSDP models
-            full_model_state_dict = get_model_state_dict(model=model, options=full_state_dict_opts)
-        except: # Fallback for non-FSDP models
-            full_model_state_dict = model.state_dict()
-        
-        if is_main_process() == 0:
-            torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
-
-             # Try to save as HuggingFace
-            if hasattr(model, 'save_pretrained'):
-                model.save_pretrained(hf_dir)
-            elif hasattr(model, 'module') and hasattr(model.module, 'save_pretrained'):
-                model.module.save_pretrained(hf_dir)
-            else:
-                print(f"Warning: Could not save model in HuggingFace format")
-            
-            print(f"Saved ensemble model for round {round_num} at: {round_dir}")
-        
-        dist.barrier()
-    
     def get_completed_rounds(self):
         """Get list of completed rounds by scanning ensemble model directory."""
         completed_rounds = []
@@ -118,47 +89,12 @@ class EnsembleLoader:
                 try:
                     round_num = int(dir_name.split('_')[1])
                     round_dir = os.path.join(self.ensemble_dir, dir_name)
-                    # Check if the model file exists
-                    model_file = os.path.join(round_dir, "model_state_dict.pt")
-                    if os.path.isfile(model_file):
+                    if os.path.isfile(os.path.join(round_dir, "model_state_dict.pt")):
                         completed_rounds.append(round_num)
                 except (ValueError, IndexError):
                     continue
         
         return sorted(completed_rounds)
-    
-    def get_model_paths_for_ensemble(self, max_round: int = None):
-        """
-        Get paths to saved ensemble models up to max_round.
-        
-        Args:
-            max_round: Maximum round to include (exclusive). If None, include all.
-            
-        Returns:
-            list: Paths to model directories for ensemble creation
-        """
-        completed_rounds = self.get_completed_rounds()
-        
-        if max_round is not None:
-            completed_rounds = [r for r in completed_rounds if r < max_round]
-        
-        model_paths = []
-        for round_num in completed_rounds:
-            round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
-            if os.path.isdir(round_dir):
-                model_paths.append(round_dir)
-        
-        return model_paths
-    
-    def _has_model_checkpoint(self, round_dir):
-        """Check if a round directory has a model checkpoint."""
-        for item in os.listdir(round_dir):
-            step_dir = os.path.join(round_dir, item)
-            if os.path.isdir(step_dir) and item.startswith('step_'):
-                model_file = os.path.join(step_dir, "model_state_dict.pt")
-                if os.path.exists(model_file):
-                    return True
-        return False
     
     def load_ensemble_for_round(self, target_round, device, torch_dtype=torch.bfloat16, vocab_size=None):
         """Load ensemble of models from all completed rounds before target_round."""
@@ -190,3 +126,32 @@ class EnsembleLoader:
         ensemble.requires_grad_(False)
         
         return ensemble
+    
+    def save_model_for_ensemble(self, model, round_num: int):
+        """Save a trained model."""
+        # NOTE: can load model wiht with torch.load() and use directly
+        round_dir = os.path.join(self.output_path, f"round_{round_num}")
+        hf_dir = os.path.join(round_dir, "hugging_face")
+        os.makedirs(round_dir)
+        
+        full_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
+        
+        try: # For FSDP models
+            full_model_state_dict = get_model_state_dict(model=model, options=full_state_dict_opts)
+        except: # Fallback for non-FSDP models
+            full_model_state_dict = model.state_dict()
+        
+        if is_main_process() == 0:
+            torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
+
+             # Try to save as HuggingFace
+            if hasattr(model, 'save_pretrained'):
+                model.save_pretrained(hf_dir)
+            elif hasattr(model, 'module') and hasattr(model.module, 'save_pretrained'):
+                model.module.save_pretrained(hf_dir)
+            else:
+                print(f"Warning: Could not save model in HuggingFace format")
+            
+            print(f"Saved ensemble model for round {round_num} at: {round_dir}")
+        
+        dist.barrier()
