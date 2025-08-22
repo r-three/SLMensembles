@@ -1,5 +1,7 @@
 import torch
 import os
+import torch.distributed as dist
+from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
@@ -10,23 +12,23 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
     def __init__(
         self,
         model_paths,
-        model_base,
+        model_type,
         config=None,
         torch_dtype=torch.bfloat16,
         vocab_size=None,
     ):
         if config is None:
-            config = AutoConfig.from_pretrained(model_base)
+            config = AutoConfig.from_pretrained(model_type)
         super().__init__(config)
 
         self.torch_dtype = torch_dtype
         self.vocab_size = vocab_size
         self.loss_fn = nn.CrossEntropyLoss()
-        self.model_base = model_base
+        self.model_type = model_type
 
         modules = []
         for path in model_paths:
-            model = AutoModelForCausalLM.from_pretrained(model_base, torch_dtype=self.torch_dtype)
+            model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
             model.load_state_dict(torch.load(path / "model_state_dict.pt", weights_only=True))
             model.eval()
             modules.append(model)
@@ -68,29 +70,20 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
 
 
 class EnsembleLoader:    
-    def __init__(self, output_path: str, model_base: str):
+    def __init__(self, output_path: str, model_type: str, round_num: int):
         """Class to load ensemble models from completed training rounds."""
         self.output_path = output_path
-        self.model_base = model_base
-        self.ensemble_dir = os.path.join(output_path, "ensemble_models")
+        self.model_type = model_type
+        self.round_num = round_num
         os.makedirs(self.ensemble_dir, exist_ok=True)
     
     def save_model_for_ensemble(self, model, round_num: int):
-        """
-        Save a trained model for ensemble use in HuggingFace format.
-        
-        Args:
-            model: The trained model (FSDP or regular PyTorch model)
-            round_num: The training round number
-            
-        Returns:
-            str: Path to the saved model directory
-        """
-        import torch.distributed as dist
-        from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
+        """Save a trained model."""
+        # NOTE: can load model with Can load with torch.load() and use directly
+
         
         # Create round-specific directory
-        round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
+        round_dir = os.path.join(self.output_path, f"round_{round_num}")
         os.makedirs(round_dir, exist_ok=True)
         
         # Get full model state dict (gathered on CPU for rank 0 to save)
@@ -119,7 +112,7 @@ class EnsembleLoader:
                 else:
                     # Create a minimal config and save manually
                     from transformers import AutoConfig
-                    config_obj = AutoConfig.from_pretrained(self.model_base)
+                    config_obj = AutoConfig.from_pretrained(self.model_type)
                     config_obj.save_pretrained(round_dir)
             except Exception as e:
                 print(f"Warning: Could not save HuggingFace format: {e}")
@@ -209,7 +202,7 @@ class EnsembleLoader:
         # Create ensemble
         ensemble = ModelEnsemble(
             model_paths=model_paths,
-            model_base=config.student_model_name,
+            model_type=config.student_model_name,
             torch_dtype=torch_dtype,
             vocab_size=vocab_size
         ).to(device)

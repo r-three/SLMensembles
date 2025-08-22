@@ -317,7 +317,7 @@ def main(args):
     # Example: "20241221-143025-a1b2c3d4-e5f6g7h8"
     #
     # {config.base_output_dir}/
-    # └── {run_id}/                           # Unique run directory
+    # └── {output_path (run_id)}/                           # Unique run directory
     #     ├── CSV_metrics.csv                 # Training metrics log (CSVLogger)
     #     ├── manifest.txt                    # Run metadata and configuration
     #     ├── STATUS.RUNNING                  # Status sentinel (during training)
