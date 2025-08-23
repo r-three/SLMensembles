@@ -463,7 +463,7 @@ class CustomPadCollator:
 
         return batch_padded
   
-def prepare_dataset(train_ds, eval_ds, config, max_length, seed):
+def prepare_dataset(train_ds, eval_ds, max_length, seed):
     """Prepare datasets with distributed samplers for FSDP2 training."""
 
     dc = CustomPadCollator(max_length, 
@@ -697,14 +697,6 @@ class DistillDataset:
 
 # ---------------------- Main execution for testing ----------------------
 if __name__ == "__main__":
-    import torch
-    import time
-    import pdb
-    import datasets
-    from transformers import AutoTokenizer, AutoModelForCausalLM
-    from trl import DataCollatorForCompletionOnlyLM
-    import config
-
     main_print("--> Evaluate model")
 
     device = torch.cuda.current_device()

@@ -91,6 +91,7 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # Load Ensemble Models
     # ----------------------------------
     ensembleloader = EnsembleLoader(output_path)
+    ensemble = ensembleloader.load_ensemble(device="cuda")
 
     # ----------------------------------
     # Set Up Optimizer and LR Scheduler
@@ -111,7 +112,6 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     train_dataloader, _ = prepare_dataset(
         dataset['train'],
         dataset['test'],
-        config,
         1024,
         config.seed,
     )  # Just to get the length, initialize again for each epoch.
