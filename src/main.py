@@ -38,6 +38,13 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
     main_print(f"{'='*50}")
 
+    # -------------------------------------
+    # Update wandb run name for this round
+    # -------------------------------------
+    if is_main_process() and wandb_run is not None:
+        wandb_run.name = f"{config.run_name}_round_{round_num}"
+        wandb_run.log({"round": round_num})
+
     # ----------------------------------
     # Load and Shard Student Model
     # ----------------------------------
@@ -79,61 +86,29 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         inspect_model(student_model)
     
         if args.mixed_precision: inspect_mixed_precision(student_model)
-    
-    # ----------------------------------
-    # Load Model Weights and Set up Optimizer
-    # ----------------------------------
 
-    # TODO: ? load_original_weights_fsdp2(student_model, student_state_dict, use_dcp_api=args.dcp_api)
-    
     # ----------------------------------
     # Load Ensemble Models
     # ----------------------------------
+    ensembleloader = EnsembleLoader(output_path)
 
-    ensembleloader = EnsembleLoader(output_path, config.student_model_name)
-
-    ckpt_index = index_checkpoints(config.checkpoint_dir)
-
-    if len(ckpt_index) != 0:
-        completed_rounds = ckpt_index.keys()
-        completed_rounds = list(completed_rounds)
-        completed_rounds = sorted(completed_rounds)
-        is_continuous = completed_rounds == list(range(len(completed_rounds)))
-        max_rounds = max(completed_rounds)
-        if not is_continuous:
-            raise Exception("The rounds obtained is not continuous.")
-        best_ckpts = [best_checkpoint(ckpt_index, r) for r in range(max_rounds + 1)]
-    else:
-        best_ckpts = []
-    
-    print("Best ckpts: ", best_ckpts)
-
-    if best_ckpts:
-        ensemble_model = ModelEnsemble(
-            model_paths=best_ckpts,
-            model_base=config.student_model_name,
-            torch_dtype=torch.bfloat16,
-            vocab_size=student_model.config.vocab_size,
-        ).to(device)
-        ensemble_model.requires_grad_(False)
-        start_round = max_rounds + 1
-        start_epoch = 0
-    else:
-        start_round = 0
-        start_epoch = 0
-        ensemble_model = None
-
-    # Update wandb run name for this round
-    if is_main_process() and wandb_run is not None:
-        wandb_run.name = f"{config.run_name}_round_{round_num}"
-        wandb_run.log({"round": round_num})
+    # ----------------------------------
+    # Set Up Optimizer and LR Scheduler
+    # ----------------------------------
+    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
+    num_training_steps = len(train_dataloader) * config.num_train_epochs
+    num_warmup_steps = config.warm_up_steps
+    lr_scheduler = get_cosine_schedule_with_warmup(
+        optim,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps
+    )
 
     # ----------------------------------
     # Initialize trainer
     # ----------------------------------
 
-    # TODO: move all the init, prepare steps and DS and DL into the class
-    train_dataloader, eval_dataloader = prepare_dataset(
+    train_dataloader, _ = prepare_dataset(
         dataset['train'],
         dataset['test'],
         config,
@@ -142,11 +117,7 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     )  # Just to get the length, initialize again for each epoch.
     num_training_steps = len(train_dataloader) * config.num_train_epochs
     num_warmup_steps = config.warmup_steps  # e.g., 10% warmup
-    lr_scheduler = get_cosine_schedule_with_warmup(
-        optim,
-        num_warmup_steps=num_warmup_steps,
-        num_training_steps=num_training_steps
-    )
+
     
     # Restore learning rate scheduler state if resuming
     if config.resume_from_checkpoint and not checkpointer.is_empty():
@@ -382,18 +353,6 @@ def main(args):
     # ----------------------------------
     dataClass = DistillDataset()
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
-
-    # ----------------------------------
-    # Set Up Optimizer and LR Scheduler
-    # ----------------------------------
-    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-    num_training_steps = len(train_dataloader) * config.num_train_epochs
-    num_warmup_steps = config.warm_up_steps
-    lr_scheduler = get_cosine_schedule_with_warmup(
-        optim,
-        num_warmup_steps=num_warmup_steps,
-        num_training_steps=num_training_steps
-    )
     
     # ----------------------------------
     # Checkpoint Logic
