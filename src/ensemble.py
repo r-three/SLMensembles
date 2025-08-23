@@ -57,11 +57,22 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
                 )
         return CausalLMOutputWithPast(logits=logits, loss=loss)
 
-    def add_model(self, model_name):
-        new_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.torch_dtype)
-        if self.vocab_size is not None:
-            new_model.resize_token_embeddings(new_num_tokens=self.vocab_size)
-        self.models.append(new_model)
+    def add_model(self, model_dir):
+        """Add a new model to the ensemble from a saved checkpoint path."""
+        model = AutoModelForCausalLM.from_pretrained(self.model_type, torch_dtype=self.torch_dtype)
+        model_path = Path(model_path) / "model_state_dict.pt"
+        if model_path.exists():
+            model.load_state_dict(torch.load(model_path, weights_only=True))
+        else:
+            model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
+        
+        model.eval()
+        model.requires_grad_(False)
+        
+        if self.models:
+            model = model.to(self.models[0].device)
+        
+        self.models.append(model)
 
     def remove_model(self, model_idx):
         if model_idx < len(self.models):
@@ -75,6 +86,7 @@ class EnsembleLoader:
         """Class to load ensemble models from completed training rounds."""
         self.ensemble_dir = output_path
         self.model_type = config.student_model_name
+        self.loaded_rounds = set()
     
     def _get_completed_rounds(self):
         """Get list of completed rounds by scanning ensemble model directory."""
@@ -98,18 +110,44 @@ class EnsembleLoader:
     def load_ensemble(self, device, torch_dtype=torch.bfloat16):
         """Load and create ensemble of models from completed rounds for use in training."""
         model_rounds = self._get_completed_rounds()
+       
+        if model_rounds:
+            ensemble = ModelEnsemble(
+                model_paths=model_rounds,
+                torch_dtype=torch_dtype,
+                vocab_size=config.student_vocab_size,
+            ).to(device)
+            ensemble.requires_grad_(False)
+
+            self.loaded_rounds.update(model_rounds)
+            return ensemble
+
+        return None
+    
+    def load_or_update_ensemble(self, existing_ensemble, device, torch_dtype=torch.bfloat16):
+        """Load initial ensemble or update existing ensemble with new models."""
+        model_rounds = self._get_completed_rounds()
         
         if not model_rounds:
             return None
         
-        ensemble = ModelEnsemble(
-            model_paths=model_rounds,
-            torch_dtype=torch_dtype,
-            vocab_size=config.vocab_size,
-        ).to(device)
-        ensemble.requires_grad_(False)
-
-        return ensemble
+        new_rounds = [r for r in model_rounds if r not in self.loaded_rounds]
+        
+        if existing_ensemble is None and model_rounds:
+            ensemble = ModelEnsemble(
+                model_paths=model_rounds,
+                torch_dtype=torch_dtype,
+                vocab_size=config.student_vocab_size,
+            ).to(device)
+            ensemble.requires_grad_(False)
+            self.loaded_rounds.update(model_rounds)
+            return ensemble
+        elif existing_ensemble and new_rounds:
+            for round_path in new_rounds:
+                existing_ensemble.add_model(round_path)
+            self.loaded_rounds.update(new_rounds)
+        
+        return existing_ensemble
     
     def save_model_for_ensemble(self, model, round_num: int):
         """Save a trained model."""

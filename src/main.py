@@ -87,9 +87,12 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         if args.mixed_precision: inspect_mixed_precision(student_model)
 
     # ----------------------------------
-    # Load Ensemble Models
+    # Load or Update Ensemble Models
     # ----------------------------------
-    ensemble = ensembleloader.load_ensemble(device="cuda")
+    if hasattr(ensembleloader, 'current_ensemble'):
+        ensemble = ensembleloader.current_ensemble
+    else:
+        ensemble = ensembleloader.load_or_update_ensemble(None, device="cuda")
 
     # ----------------------------------
     # Set Up Optimizer and LR Scheduler
@@ -302,7 +305,6 @@ def main(args):
         ).to('cuda')
 
         state = checkpointer.load(student_model, optimizer)
-        # NOTE: model is saved in sharded state, so it doesn't need to be sharded again
 
         if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
         global_step = int(state.get("global_step", state.get("step", 0)))
@@ -384,10 +386,13 @@ def main(args):
     # ----------------------------------
     # Outer Training Loop
     # ----------------------------------
-    ensemble_model = None  # TODO: need to integrate with the ensembleloader. THe ensembleloader loads the models in output_dir each iteration of the train_single_round
-    # the models which we add below to ensemble_model - is there a way to load the models all at the start, ensure that they're placed correctly across available device(s), 
-    # and then update the whole ensemble groud once the training finishes? - this is really important
+    ensemble_model = None
+    if config.resume_from_checkpoint:
+        ensemble_model = ensembleloader.load_or_update_ensemble(None, device="cuda")
+        
     for round_num in range(start_round, config.total_rounds):
+        ensembleloader.current_ensemble = ensemble_model
+        
         ensemble_dir, metrics = train_single_round(
             start_round = start_round,
             round_num=round_num,
@@ -412,23 +417,20 @@ def main(args):
             ensemble_model = ModelEnsemble(
                 [ensemble_dir],
                 torch_dtype=torch.bfloat16,
-                device_map="cuda",
                 vocab_size=config.student_vocab_size,
             )
+            ensemble_model = ensemble_model.to("cuda")
         else:
-            # TODO: fix model creation - use save_model_for_ensemble or is add_model of ModelEnsemble better?
             ensemble_model.add_model(ensemble_dir)
 
-        # ----------------------------------
-        # Cleanup
-        # ----------------------------------
-        dist.barrier()
-        if is_main_process() and wandb_run is not None:
-            wandb_run.finish()
-            main_print("--> Finished wandb run")
-            
-        torch.distributed.destroy_process_group()
-
+    # ----------------------------------
+    # Cleanup and Final Summary
+    # ----------------------------------
+    dist.barrier()
+    if is_main_process() and wandb_run is not None:
+        wandb_run.finish()
+        main_print("--> Finished wandb run")
+        
         # Final summary
         total_time = time.time() - overall_start_time
         if is_main_process():
