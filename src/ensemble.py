@@ -1,5 +1,6 @@
 import torch
 import os
+from pathlib import Path
 import torch.distributed as dist
 from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from torch import nn
@@ -31,6 +32,9 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         for path in model_paths:
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
             model.load_state_dict(torch.load(path / "model_state_dict.pt", weights_only=True))
+            state = torch.load(path / "model_state_dict.pt", map_location="cpu")
+            model.load_state_dict(state)
+            # TODO: fix the above
             model.eval()
             modules.append(model)
         self.models = nn.ModuleList(modules)
@@ -47,6 +51,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
             for model in self.models[1:]:
                 sum_logits += model(input_ids=input_ids.to(model.device), attention_mask=attention_mask.to(model.device), **kwargs).logits
 
+            logits = sum_logits / len(self.models)
             loss = None
             if labels is not None:
                 loss = self.models[0].loss_function(
@@ -75,56 +80,42 @@ class EnsembleLoader:
         """Class to load ensemble models from completed training rounds."""
         self.output_path = output_path
         self.model_type = model_type
-        os.makedirs(self.ensemble_dir, exist_ok=True)
+        self.ensemble_dir = Path(self.output_path)
     
     def get_completed_rounds(self):
         """Get list of completed rounds by scanning ensemble model directory."""
         completed_rounds = []
         
-        if not os.path.exists(self.ensemble_dir):
+        if not self.ensemble_dir.exists():
             return completed_rounds
             
-        for dir_name in os.listdir(self.ensemble_dir):
-            if dir_name.startswith('round_'):
+        for path in self.ensemble_dir.iterdir():
+            if path.name.startswith('round_'):
                 try:
-                    round_num = int(dir_name.split('_')[1])
-                    round_dir = os.path.join(self.ensemble_dir, dir_name)
-                    if os.path.isfile(os.path.join(round_dir, "model_state_dict.pt")):
-                        completed_rounds.append(round_num)
+                    round_dir = os.path.join(self.ensemble_dir, path)
+                    model_file = os.path.join(round_dir, "model_state_dict.pt")
+                    if os.path.isfile(model_file):
+                        completed_rounds.append(model_file)
                 except (ValueError, IndexError):
                     continue
         
         return sorted(completed_rounds)
     
-    def load_ensemble_for_round(self, target_round, device, torch_dtype=torch.bfloat16, vocab_size=None):
-        """Load ensemble of models from all completed rounds before target_round."""
-        completed_rounds = self.get_completed_rounds()
+    def load_ensemble(self, device, torch_dtype=torch.bfloat16):
+        """Load and create ensemble of models from completed rounds for use in training."""
+        model_rounds = self.get_completed_rounds()
         
-        # Only use rounds before the target round
-        ensemble_rounds = [r for r in completed_rounds if r < target_round]
-        
-        if not ensemble_rounds:
-            return None  # No ensemble models available
-        
-        # Get best checkpoint paths for each round
-        model_paths = []
-        for round_num in ensemble_rounds:
-            checkpoint_path = self.get_best_checkpoint_for_round(round_num)
-            if checkpoint_path:
-                model_paths.append(checkpoint_path)
-        
-        if not model_paths:
+        if not model_rounds:
             return None
         
-        # Create ensemble
         ensemble = ModelEnsemble(
-            model_paths=model_paths,
+            model_paths=model_rounds,
             model_type=config.student_model_name,
             torch_dtype=torch_dtype,
-            vocab_size=vocab_size
+            vocab_size=config.vocab_size,
         ).to(device)
         ensemble.requires_grad_(False)
-        
+
         return ensemble
     
     def save_model_for_ensemble(self, model, round_num: int):
@@ -155,3 +146,4 @@ class EnsembleLoader:
             print(f"Saved ensemble model for round {round_num} at: {round_dir}")
         
         dist.barrier()
+        return str(round_dir)

@@ -16,7 +16,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   inspect_mixed_precision, inspect_model,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler)
-from ensemble import ModelEnsemble
+from ensemble import ModelEnsemble, EnsembleLoader
 from checkpoint import index_checkpoints, best_checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from tqdm.auto import tqdm
