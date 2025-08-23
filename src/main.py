@@ -15,7 +15,9 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   is_main_process, main_print, check_batch_shape, fix_seed,
                   inspect_mixed_precision, inspect_model,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
-                  create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, _on_exception)
+                  create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, 
+                  _on_exception, create_manifest)
+from utils import ManifestManager
 from ensemble import ModelEnsemble, EnsembleLoader
 from checkpoint import index_checkpoints, best_checkpoint, Checkpointer
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -32,7 +34,6 @@ import signal, threading, functools
 
 def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, args, lr_scheduler=None):
     """ Train a single round of the ensemble distillation process. """
-
     main_print(f"\n{'='*50}")
     round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     main_print(f"--> Starting Round {round_num} at: {round_start_datetime}")
@@ -119,14 +120,13 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     )
     trainer.prepare_train()
 
-    # TODO: train model to repdict loss? 
-
     # ----------------------------------
     # SLURM Signal Handling
     # ----------------------------------
     handler = functools.partial(slurm_term_handler, trainer=trainer)
     signal.signal(signal.SIGTERM, handler)
     signal.signal(signal.SIGINT, handler)
+    # Needs to exit cleanly and save the very latest model checkpoint
 
     # ----------------------------------
     # Epoch Loop
@@ -144,6 +144,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
             dataset['train'],
             dataset['test'],
         )
+        # TODO: typically only need to call this sampler for the training sampler. Do this every epoch to get a new shuffle across ranks.
         if hasattr(train_dataloader, "sampler") and hasattr(train_dataloader.sampler, "set_epoch"):
             train_dataloader.sampler.set_epoch(epoch_num)
         if hasattr(eval_dataloader, "sampler") and hasattr(eval_dataloader.sampler, "set_epoch"):
@@ -151,8 +152,6 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         if is_main_process():
             check_batch_shape(train_dataloader)
 
-        # TODO: typically only need to call this for the training sampler. Do this every epoch to get a new shuffle across ranks.
-        
         train_dl_iterator = iter(train_dataloader)
 
         # ----------------------------------
@@ -172,7 +171,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     ensemble_dir = ensembleloader.save_model_for_ensemble(student_model, round_num)
     main_print(f"Saved ensemble model at: {ensemble_dir}")
 
-    # TODO: delete student model
+    # TODO: delete student model and clean up memory
 
     # ---------------------------------------
     # Update wandb run name and log metrics
@@ -255,6 +254,8 @@ def main(args):
     # ----------------------------------
     # Exception Handling
     # ----------------------------------
+    # TODO: is this the correct SLURM job exception? Will it save the latest version of the model as a checkpoint?
+    # TODO: this goes with the above SLURM Signal Handling in the train_single_round I assume?
     _exit_once = threading.Event()
     default_excepthook = sys.excepthook
     sys.excepthook = _on_exception
@@ -267,7 +268,7 @@ def main(args):
     if config.resume_from_checkpoint:
         output_path = config.checkpointed_dir
     else:
-        run_id, slug, wandb_name, wandb_id = build_run_identity()
+        run_id, slug, wandb_name, wandb_id = build_run_identity() # TODO: slug should probably be used somewhere or logged
         output_path = get_directory(run_id)
 
     # ----------------------------------
@@ -313,9 +314,25 @@ def main(args):
     # ----------------------------------
     # Manifest file
     # ----------------------------------
+    manifest = create_manifest(output_path, wandb_run=wandb_run)
+
+    # During training - update any value easily
+    # TODO: update the code below:
+    # manifest.update('train.round', current_round)
+    # manifest.update('train.current_loss', loss_value)
+    # manifest.update('outcomes.best_loss', best_loss)
+    
+    # TODO: need to implement manifest updates throuhgout the code as well as status changes at the end 
+    # manifest.set_status('DONE')  # Also handles STATUS files
+
+    # Read values
+    current_round = manifest.get('round', 0)
+
+
     if config.resume_from_checkpoint:
         # TODO: load round info and everything from the manifest file
-        start_round = load_from_manifest() + 1
+        # TODO: need to update the manifest file with the latest metrics from each run at the end of train_single_round
+        start_round = manifest.get('round', 0) + 1 
     else: 
         if is_main_process(): create_manifest(output_path, start_time_str=overall_start_datetime, wandb_run=wandb_run, wandb_id=wandb_id)
         start_round = 0
@@ -361,7 +378,6 @@ def main(args):
     # ----------------------------------
     # Outer Training Loop
     # ----------------------------------
-
     for round_num in range(start_round, config.total_rounds):
         ensemble_dir, metrics = train_single_round(
             start_round = start_round,
@@ -390,7 +406,7 @@ def main(args):
                 vocab_size=config.student_vocab_size,
             )
         else:
-            # TODO: fix model creation - check ModelEnsemble for details
+            # TODO: fix model creation - use save_model_for_ensemble or is add_model of ModelEnsemble better?
             ensemble_model.add_model(ensemble_dir)
 
         # ----------------------------------
@@ -402,6 +418,8 @@ def main(args):
             main_print("--> Finished wandb run")
             
         torch.distributed.destroy_process_group()
+
+        main_print("Finished Training with: ") # TODO: add a short detailled end of run prinout
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")

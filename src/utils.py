@@ -223,6 +223,252 @@ def get_directory(run_id):
     os.makedirs(run_dir)
     return run_dir
 
+# ---------------------- Manifest File Handling ----------------------
+
+class ManifestManager:
+    """
+    Manages a manifest dictionary with automatic file synchronization.
+    Provides human-readable INI-like format that's easy to cat and parse.
+    """
+    
+    def __init__(self, manifest_path, auto_save=True):
+        self.manifest_path = manifest_path
+        self.auto_save = auto_save
+        self.data = {}
+        self._load_if_exists()
+    
+    def _load_if_exists(self):
+        """Load existing manifest file if it exists"""
+        if os.path.exists(self.manifest_path):
+            self.load()
+    
+    def load(self):
+        """Load manifest from file"""
+        if not os.path.exists(self.manifest_path):
+            return
+        
+        self.data = {}
+        current_section = None
+        
+        with open(self.manifest_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                # Section header [section_name]
+                if line.startswith('[') and line.endswith(']'):
+                    current_section = line[1:-1]
+                    self.data[current_section] = {}
+                # Key-value pair
+                elif ':' in line:
+                    key, value = line.split(':', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    
+                    # Convert common types
+                    if value.lower() in ('true', 'false'):
+                        value = value.lower() == 'true'
+                    elif value.replace('.', '').replace('-', '').isdigit():
+                        value = float(value) if '.' in value else int(value)
+                    elif value.lower() == 'none':
+                        value = None
+                    
+                    if current_section:
+                        self.data[current_section][key] = value
+                    else:
+                        self.data[key] = value
+    
+    def save(self):
+        """Save manifest to file with atomic write"""
+        lines = []
+        
+        # First write top-level keys
+        for key, value in self.data.items():
+            if not isinstance(value, dict):
+                lines.append(f"{key}: {value}")
+        
+        # Add blank line if we had top-level keys
+        if any(not isinstance(v, dict) for v in self.data.values()):
+            lines.append("")
+        
+        # Then write sections
+        for section_name, section_data in self.data.items():
+            if isinstance(section_data, dict):
+                lines.append(f"[{section_name}]")
+                for key, value in section_data.items():
+                    lines.append(f"{key}: {value}")
+                lines.append("")  # blank line between sections
+        
+        # Atomic write
+        tmp_path = self.manifest_path + ".tmp"
+        with open(tmp_path, 'w') as f:
+            f.write('\n'.join(lines))
+        os.replace(tmp_path, self.manifest_path)
+    
+    def update(self, key_or_dict, value=None, section=None):
+        """
+        Update manifest data. Can be used in multiple ways:
+        - update('key', 'value') - set top-level key
+        - update('key', 'value', section='section_name') - set key in section
+        - update({'key1': 'val1', 'key2': 'val2'}) - update multiple top-level keys
+        - update({'key1': 'val1'}, section='section_name') - update multiple keys in section
+        """
+        if isinstance(key_or_dict, dict):
+            # Bulk update
+            if section:
+                if section not in self.data:
+                    self.data[section] = {}
+                self.data[section].update(key_or_dict)
+            else:
+                self.data.update(key_or_dict)
+        else:
+            # Single key update
+            if section:
+                if section not in self.data:
+                    self.data[section] = {}
+                self.data[section][key_or_dict] = value
+            else:
+                self.data[key_or_dict] = value
+        
+        if self.auto_save:
+            self.save()
+    
+    def get(self, key, section=None, default=None):
+        """Get value from manifest"""
+        if section:
+            return self.data.get(section, {}).get(key, default)
+        return self.data.get(key, default)
+    
+    def set_status(self, status):
+        """Convenience method to update status"""
+        self.update('status', status)
+    
+    def increment_round(self):
+        """Convenience method to increment training round"""
+        current_round = self.get('round', section='train', default=0)
+        self.update('round', current_round + 1, section='train')
+    
+    def finalize(self, success=True, end_time=None, wall_time_sec=None):
+        """Finalize the manifest with completion info"""
+        if end_time is None:
+            end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        self.update({
+            'end_time': end_time,
+            'wall_time_sec': wall_time_sec,
+        }, section='outcomes')
+        
+        self.set_status('DONE' if success else 'FAILED')
+
+
+def create_manifest(output_path, start_time_str=None, wandb_run=None, wandb_id=None):
+    """Create initial manifest file and return ManifestManager instance"""
+    run_id = os.path.basename(output_path)
+    manifest_path = os.path.join(output_path, "manifest.txt")
+    
+    # Status sentinels
+    status_running = os.path.join(output_path, "STATUS.RUNNING")
+    status_done = os.path.join(output_path, "STATUS.DONE")
+    status_failed = os.path.join(output_path, "STATUS.FAILED")
+    
+    # Clean up old status files
+    for status_file in [status_failed, status_running, status_done]:
+        if os.path.exists(status_file):
+            os.remove(status_file)
+    
+    # Resolve hardware info
+    if dist.is_available() and dist.is_initialized():
+        world_size = dist.get_world_size()
+    else:
+        world_size = int(os.environ.get("WORLD_SIZE", 1))
+    
+    # Timestamps
+    start_time_str = start_time_str or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Create manifest manager
+    manifest = ManifestManager(manifest_path)
+    
+    # Initialize with all the data
+    manifest.update({
+        'run_id': run_id,
+        'start_time': start_time_str,
+        'run_dir': output_path,
+        'git_commit': _git_short(),
+        'status': 'RUNNING'
+    })
+    
+    manifest.update({
+        'id': wandb_id,
+        'name': getattr(wandb_run, 'name', None) if wandb_run else None,
+        'project': 'slm-ensembles',
+    }, section='wandb')
+    
+    manifest.update({
+        'ddp': getattr(config, 'ddp', False),
+        'world_size': world_size,
+        'devices': getattr(config, 'devices', 'unknown'),
+    }, section='hardware')
+    
+    manifest.update({
+        'dataset_name': config.dataset_name,
+        'dataset_path': config.dataset_path,
+        'synthetic_data': getattr(config, 'synthetic_data', False),
+    }, section='data')
+    
+    manifest.update({
+        'teacher': config.teacher_model_name,
+        'student': config.student_model_name,
+        'tokenizer': config.tokenizer_name,
+    }, section='models')
+    
+    manifest.update({
+        'alpha': config.alpha,
+        'kl_temperature': config.kl_temperature,
+        'learning_rate': config.learning_rate,
+        'weight_decay': getattr(config, 'weight_decay', 0.01),
+        'warmup_ratio': getattr(config, 'warmup_ratio', 0.1),
+        'warmup_steps': getattr(config, 'warmup_steps', 0),
+        'num_train_epochs': config.num_train_epochs,
+        'ensemble_models': config.total_rounds,
+        'seed': config.seed,
+        'round': 0,
+    }, section='train')
+    
+    manifest.update({
+        'end_time': None,
+        'wall_time_sec': None,
+    }, section='outcomes')
+    
+    # Create status file
+    open(status_running, 'a').close()
+    
+    return manifest
+
+
+# Legacy function wrappers for backward compatibility
+def _write_txt(path, manifest_dict):
+    """Legacy function - use ManifestManager instead"""
+    manifest = ManifestManager(path, auto_save=False)
+    manifest.data = manifest_dict
+    manifest.save()
+
+
+def _touch(path):
+    """Create status file and clean up others"""
+    status_files = [
+        path.replace(os.path.basename(path), "STATUS.FAILED"),
+        path.replace(os.path.basename(path), "STATUS.RUNNING"), 
+        path.replace(os.path.basename(path), "STATUS.DONE")
+    ]
+    
+    for status_file in status_files:
+        if os.path.exists(status_file):
+            os.remove(status_file)
+    
+    open(path, "a").close()
+
+
 # ---------------------- CSV Logger ----------------------
 
 class CSVLogger:
@@ -269,267 +515,6 @@ class CSVLogger:
             writer.writerows(self.buffer)
         self.buffer.clear()
         self.counter = 0
-
-# ---------------------- Manifest File Handling ----------------------
-
-class ManifestManager:
-    """
-    Manages a human-readable manifest file that can be easily updated during training.
-    Format is YAML-like with sections and key-value pairs, optimized for readability.
-    """
-    
-    def __init__(self, manifest_path):
-        self.manifest_path = manifest_path
-        self.data = {}
-        self._status_paths = {
-            'running': manifest_path.replace('manifest.txt', 'STATUS.RUNNING'),
-            'done': manifest_path.replace('manifest.txt', 'STATUS.DONE'),
-            'failed': manifest_path.replace('manifest.txt', 'STATUS.FAILED')
-        }
-    
-    def _format_value(self, value, indent=0):
-        """Format a value for human-readable output"""
-        spaces = "  " * indent
-        if isinstance(value, dict):
-            lines = []
-            for k, v in value.items():
-                if isinstance(v, dict):
-                    lines.append(f"{spaces}{k}:")
-                    lines.extend(self._format_value(v, indent + 1))
-                else:
-                    lines.append(f"{spaces}{k}: {v}")
-            return lines
-        elif isinstance(value, list):
-            return [f"{spaces}- {item}" for item in value]
-        else:
-            return [f"{spaces}{value}"]
-    
-    def _parse_manifest(self, content):
-        """Parse the manifest file back into a dictionary"""
-        data = {}
-        lines = content.strip().split('\n')
-        current_section = None
-        current_subsection = None
-        
-        for line in lines:
-            line = line.rstrip()
-            if not line:
-                continue
-                
-            # Count leading spaces to determine nesting level
-            indent_level = (len(line) - len(line.lstrip())) // 2
-            line = line.strip()
-            
-            if ':' in line:
-                key, value = line.split(':', 1)
-                key = key.strip()
-                value = value.strip() if value.strip() else None
-                
-                if indent_level == 0:
-                    # Top-level key
-                    if value is not None:
-                        data[key] = value
-                    else:
-                        data[key] = {}
-                        current_section = key
-                elif indent_level == 1 and current_section:
-                    # Second-level key
-                    if value is not None:
-                        data[current_section][key] = value
-                    else:
-                        data[current_section][key] = {}
-                        current_subsection = key
-                elif indent_level == 2 and current_section and current_subsection:
-                    # Third-level key
-                    data[current_section][current_subsection][key] = value
-        
-        return data
-    
-    def load(self):
-        """Load manifest from file if it exists"""
-        if os.path.exists(self.manifest_path):
-            try:
-                with open(self.manifest_path, 'r') as f:
-                    content = f.read()
-                self.data = self._parse_manifest(content)
-            except Exception as e:
-                print(f"Warning: Could not load manifest from {self.manifest_path}: {e}")
-                self.data = {}
-        return self.data
-    
-    def save(self):
-        """Save current manifest data to file atomically"""
-        lines = []
-        
-        # Add header with timestamp
-        lines.append(f"# Manifest updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append("")
-        
-        # Format the data
-        for key, value in self.data.items():
-            if isinstance(value, dict):
-                lines.append(f"{key}:")
-                lines.extend(self._format_value(value, 1))
-            else:
-                lines.append(f"{key}: {value}")
-            lines.append("")  # blank line between sections
-        
-        # Atomic write
-        tmp_path = self.manifest_path + ".tmp"
-        with open(tmp_path, 'w') as f:
-            f.write('\n'.join(lines))
-        os.replace(tmp_path, self.manifest_path)
-    
-    def update(self, key_path, value):
-        """
-        Update a value in the manifest using dot notation.
-        Examples:
-        - update('status', 'RUNNING')
-        - update('train.round', 1)
-        - update('outcomes.end_time', '2024-01-01 12:00:00')
-        """
-        keys = key_path.split('.')
-        current = self.data
-        
-        # Navigate to the parent of the target key
-        for key in keys[:-1]:
-            if key not in current:
-                current[key] = {}
-            current = current[key]
-        
-        # Set the value
-        current[keys[-1]] = value
-        self.save()
-    
-    def get(self, key_path, default=None):
-        """Get a value using dot notation"""
-        keys = key_path.split('.')
-        current = self.data
-        
-        try:
-            for key in keys:
-                current = current[key]
-            return current
-        except (KeyError, TypeError):
-            return default
-    
-    def set_status(self, status):
-        """Update status and manage status sentinel files"""
-        self.update('status', status)
-        
-        # Remove all status files first
-        for status_file in self._status_paths.values():
-            if os.path.exists(status_file):
-                os.remove(status_file)
-        
-        # Create the appropriate status file
-        if status in ['RUNNING', 'DONE', 'FAILED']:
-            status_file = self._status_paths[status.lower()]
-            open(status_file, 'a').close()
-
-
-def create_manifest(output_path, start_time_str=None, wandb_run=None, wandb_id=None):
-    """Create initial manifest file and return ManifestManager instance"""
-    run_id = os.path.basename(output_path)
-    manifest_path = os.path.join(output_path, "manifest.txt")
-    
-    # Create manifest manager
-    manifest = ManifestManager(manifest_path)
-    
-    # Resolve hardware info
-    if dist.is_available() and dist.is_initialized():
-        world_size = dist.get_world_size()
-    else:
-        world_size = int(os.environ.get("WORLD_SIZE", 1))
-
-    # Timestamps
-    start_time_str = start_time_str or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Build initial manifest data
-    manifest.data = {
-        "run_id": run_id,
-        "start_time": start_time_str,
-        "run_dir": output_path,
-        "wandb": {
-            "id": wandb_id,
-            "name": getattr(wandb_run, 'name', None) if wandb_run else None,
-            "project": "slm-ensembles", 
-        },
-        "git_commit": _git_short(),
-        "hardware": {
-            "ddp": getattr(config, "ddp", False),
-            "world_size": world_size,
-            "devices": getattr(config, "devices", "auto"),
-        },
-        "data": {
-            "dataset_name": config.dataset_name,
-            "dataset_path": config.dataset_path,
-            "synthetic_data": getattr(config, "synthetic_data", False),
-        },
-        "models": {
-            "teacher": config.teacher_model_name,
-            "student": config.student_model_name,
-            "tokenizer": config.tokenizer_name,
-        },
-        "train": {
-            "alpha": config.alpha,
-            "kl_temperature": config.kl_temperature,
-            "learning_rate": config.learning_rate,
-            "weight_decay": config.weight_decay,
-            "warmup_ratio": config.warmup_ratio,
-            "warmup_steps": config.warmup_steps,
-            "num_train_epochs": config.num_train_epochs,
-            "ensemble_models": config.total_rounds,
-            "seed": config.seed,
-            "round": 0,
-        },
-        "outcomes": {
-            "end_time": None,
-            "wall_time_sec": None,
-        },
-        "status": "RUNNING",
-    }
-    
-    manifest.save()
-    manifest.set_status("RUNNING")
-    
-    return manifest
-
-
-# Global manifest instance for backward compatibility
-_global_manifest = None
-
-def _finalize_manifest(status_ok: bool, end_time: str, wall_time_sec: float):
-    """Finalize manifest with completion status"""
-    global _global_manifest
-    if _global_manifest:
-        _global_manifest.update('outcomes.end_time', end_time)
-        _global_manifest.update('outcomes.wall_time_sec', wall_time_sec)
-        _global_manifest.set_status("DONE" if status_ok else "FAILED")
-
-
-def _on_exit_success():
-    """Handle successful exit"""
-    global _global_manifest
-    if _global_manifest and _global_manifest.get('status') != 'FAILED':
-        _finalize_manifest(
-            status_ok=True,
-            end_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            wall_time_sec=time.time() - globals().get('base_start_time', time.time()),
-        )
-
-
-def _on_exception(exc_type, exc_value, exc_traceback):
-    """Handle exception during execution"""
-    global _global_manifest
-    if _global_manifest:
-        _finalize_manifest(
-            status_ok=False,
-            end_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            wall_time_sec=time.time() - globals().get('base_start_time', time.time()),
-        )
-    # Call original exception handler
-    sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
 # ---------------------- Dataset handling ----------------------
 
