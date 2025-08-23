@@ -31,8 +31,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         modules = []
         for path in model_paths:
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
-            # TODO: are these models placed on device in the main or train_single_round? Is it better to keep them on the cpu or distribute it to the available gpus?
-            # Or are the gpus better used for the sharded student model?
             state_dict = torch.load(path / "model_state_dict.pt", weights_only=True, map_location='cpu')
             model.load_state_dict(state_dict)
             model.eval()
