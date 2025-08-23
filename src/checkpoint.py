@@ -125,7 +125,7 @@ class Checkpointer:
             return None
         state = torch.load(training_state_path, map_location="cpu", weights_only=True)
         if state and "rng" in state and state["rng"] is not None:
-            _rng_restore(state["rng"])
+            restore_rng_states(state["rng"])
         return state
 
     def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None, lr_scheduler=None):
@@ -216,24 +216,11 @@ class Checkpointer:
             pass
         return out
 
-
-    def _rng_restore(rng: Dict[str, Any]) -> None:
-        """Restore Random Number Generator states."""
-        if not rng:
-            return
-        if "torch" in rng and rng["torch"] is not None:
-            torch.set_rng_state(rng["torch"])
-        if "torch_cuda" in rng and rng["torch_cuda"] is not None and torch.cuda.is_available():
-            torch.cuda.set_rng_state_all(rng["torch_cuda"])
-
-    # TODO: call this function when loading the checkpoint
     def restore_rng_states(self, rng_states):
         """Restore random number generator states from checkpoint."""
         if rng_states is None:
             return
-        
         if 'torch' in rng_states and rng_states['torch'] is not None:
             torch.set_rng_state(rng_states['torch'])
-        
-        if 'torch_cuda' in rng_states and rng_states['torch_cuda'] is not None:
+        if 'torch_cuda' in rng_states and rng_states['torch_cuda'] is not None and torch.cuda.is_available():
             torch.cuda.set_rng_state_all(rng_states['torch_cuda'])
