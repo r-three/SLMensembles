@@ -94,6 +94,7 @@ class Trainer(ABC):
         self.best_loss = float('inf')
         self.wait = 0
         self.should_stop = False
+        self.epoch = 0
 
     def prepare_train(self):
         self.model.train()
@@ -103,7 +104,7 @@ class Trainer(ABC):
             self.logger.log(
                 function="prepare_train",
                 round_num=self.round_num,
-                epoch_num=getattr(self.state, "epoch", None),
+                epoch_num=getattr(self, "epoch", 0),
                 phase="init",
                 role="student",
                 step=self.tr_step,
@@ -139,12 +140,15 @@ class Trainer(ABC):
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)
         loss = loss_fct(shift_logits, shift_labels)
-        ignore_index = getattr(self.config, "ignore_index", -100)
+        ignore_index = getattr(config, "ignore_index", -100)
         valid_mask = shift_labels.ne(ignore_index)
         valid_count = valid_mask.sum()
         return loss, None, None, valid_count
 
     def step(self, train_batch, eval_dl, epoch):
+        # Store the current epoch
+        self.epoch = epoch
+        
         train_loss = self.train_step(train_batch, epoch)
 
         test_loss = None
@@ -229,7 +233,7 @@ class Trainer(ABC):
             self.logger.log(
                 function="train_step",
                 round_num=self.round_num,
-                epoch_num=getattr(self.state, "epoch", None),
+                epoch_num=getattr(state, "epoch", None),
                 phase="train",
                 role="student",
                 step=self.tr_step,
@@ -415,7 +419,7 @@ class DistillTrainer(Trainer):
             self.logger.log(
                 function="train_step",
                 round_num=self.round_num,
-                epoch_num=getattr(self.state, "epoch", None),
+                epoch_num=getattr(state, "epoch", None),
                 phase="train",
                 role="student",
                 step=self.tr_step,

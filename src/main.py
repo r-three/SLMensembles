@@ -28,7 +28,7 @@ from datasets import Dataset, DatasetDict
 import wandb
 import signal, threading, functools
 
-def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, args, manifest, lr_scheduler=None):
+def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, checkpointer, args, manifest, lr_scheduler=None):
     """ Train a single round of the ensemble distillation process. """
     main_print(f"\n{'='*50}")
     round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -100,7 +100,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
     train_dataloader, _ = prepare_dataset(dataset['train'], dataset['test'])
     num_training_steps = len(train_dataloader) * config.num_train_epochs
-    num_warmup_steps = config.warm_up_steps
+    num_warmup_steps = config.warmup_steps
     if not lr_scheduler:
         lr_scheduler = get_cosine_schedule_with_warmup(
             optim,
@@ -282,9 +282,6 @@ def main(args):
     else:
         run_id, slug, wandb_name, wandb_id = build_run_identity()
         output_path = get_directory(run_id)
-        status_running = os.path.join(output_path, "STATUS.RUNNING")
-        status_done    = os.path.join(output_path, "STATUS.DONE")
-        status_failed  = os.path.join(output_path, "STATUS.FAILED")
 
     # ----------------------------------
     # Dataset Loading
@@ -357,7 +354,6 @@ def main(args):
             "Run id": run_id,
             "Slug": slug if slug else "N/A",
             "Wandb run id": wandb_run.id if wandb_run else None,
-            "Description": config.description,
             "Teacher Model": config.teacher_model_name,
             "Student Model": config.student_model_name,
             "Dataset Name": config.dataset_name,
@@ -375,7 +371,6 @@ def main(args):
     main_print(f"Created logging directory: {output_path}")
     main_print(f"Models stored in: {output_path}")
     main_print(f"{run_id}")
-    main_print(f"{config.description}\n")
     if is_main_process():
         for k, v in metadata_dict.items():
             main_print(f"{k}: {v}")
@@ -404,6 +399,7 @@ def main(args):
             rank=rank,
             device=device,
             ensembleloader = ensembleloader,
+            checkpointer=checkpointer,
             args=args,
             manifest=manifest,
             lr_scheduler=lr_scheduler if (round_num == start_round and config.resume_from_checkpoint) else None,
