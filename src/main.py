@@ -445,6 +445,9 @@ def main(args):
             # Update manifest with final status
             manifest.finalize(success=True, wall_time_sec=total_time)
             main_print("="*60)
+    
+    # Destroy process group
+    torch.distributed.destroy_process_group()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")

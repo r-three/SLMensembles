@@ -60,7 +60,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
     def add_model(self, model_dir):
         """Add a new model to the ensemble from a saved checkpoint path."""
         model = AutoModelForCausalLM.from_pretrained(self.model_type, torch_dtype=self.torch_dtype)
-        model_path = Path(model_path) / "model_state_dict.pt"
+        model_path = Path(model_dir) / "model_state_dict.pt"
         if model_path.exists():
             model.load_state_dict(torch.load(model_path, weights_only=True))
         else:
