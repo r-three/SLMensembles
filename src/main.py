@@ -109,12 +109,8 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # Initialize trainer
     # ----------------------------------
 
-    train_dataloader, _ = prepare_dataset(
-        dataset['train'],
-        dataset['test'],
-        1024,
-        config.seed,
-    )  # Just to get the length, initialize again for each epoch.
+    train_dataloader, _ = prepare_dataset(dataset['train'], dataset['test'])  
+    # Just to get the length, initialize again for each epoch.
     num_training_steps = len(train_dataloader) * config.num_train_epochs
     num_warmup_steps = config.warmup_steps  # e.g., 10% warmup
 
@@ -189,12 +185,16 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         train_dataloader, eval_dataloader = prepare_dataset(
             dataset['train'],
             dataset['test'],
-            config,
-            1024,
-            config.seed + round_num + epoch_num,
         )
+        # Ensure per-epoch shuffling for DistributedSampler
+        if hasattr(train_dataloader, "sampler") and hasattr(train_dataloader.sampler, "set_epoch"):
+            train_dataloader.sampler.set_epoch(epoch_num)
+        # Optional: set for eval for deterministic partitioning
+        if hasattr(eval_dataloader, "sampler") and hasattr(eval_dataloader.sampler, "set_epoch"):
+            eval_dataloader.sampler.set_epoch(epoch_num)
         if is_main_process():
             check_batch_shape(train_dataloader)
+        # TODO: typically only need to call this for the training sampler. Do this every epoch to get a new shuffle across ranks.
         
         train_dl_iterator = iter(train_dataloader)
 
