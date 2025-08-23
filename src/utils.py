@@ -666,7 +666,10 @@ class DistillDataset:
             self.cache_teacher_logprobs()
 
         main_print("--> Loading Teacher Logits")
-        return datasets.load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
+        dataset = datasets.load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
+        
+        dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        return dataset
 
     def concatenate_logprobs_chunks(self, split_dirs: list[str]):
         """Concatenate logit chunks into a single dataset."""
@@ -776,11 +779,11 @@ class DistillDataset:
                                 end = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0]
                                 end_idx = end[0].item() if len(end) != 0 else len(batch_data['input_ids'][b]) - 1
                                 
-                                save_ds["input_ids"].append(batch_data["input_ids"][b][:end_idx])
-                                save_ds["attention_mask"].append(batch_data["attention_mask"][b][:end_idx])
-                                save_ds["labels"].append(batch_data["labels"][b][:end_idx])
-                                save_ds["logprob_values"].append(values[b][start_idx:end_idx])
-                                save_ds["logprob_indices"].append(indices[b][start_idx:end_idx])
+                                save_ds["input_ids"].append(batch_data["input_ids"][b][:end_idx].tolist())
+                                save_ds["attention_mask"].append(batch_data["attention_mask"][b][:end_idx].tolist())
+                                save_ds["labels"].append(batch_data["labels"][b][:end_idx].tolist())
+                                save_ds["logprob_values"].append(values[b][start_idx:end_idx].tolist())
+                                save_ds["logprob_indices"].append(indices[b][start_idx:end_idx].tolist())
                                 save_ds["start_idx"].append(start_idx)
                                 save_ds["end_idx"].append(end_idx)
 
