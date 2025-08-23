@@ -32,17 +32,10 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         for path in model_paths:
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
             model.load_state_dict(torch.load(path / "model_state_dict.pt", weights_only=True))
-            state = torch.load(path / "model_state_dict.pt", map_location="cpu")
-            model.load_state_dict(state)
-            # TODO: fix the above
             model.eval()
             modules.append(model)
         self.models = nn.ModuleList(modules)
         self.models.eval()
-
-        for model in self.models:
-            if self.vocab_size is not None:
-                model.resize_token_embeddings(new_num_tokens=self.vocab_size)
 
     def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
         with torch.no_grad():
@@ -78,9 +71,8 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
 class EnsembleLoader:    
     def __init__(self, output_path: str, model_type: str):
         """Class to load ensemble models from completed training rounds."""
-        self.output_path = output_path
+        self.ensemble_dir = output_path
         self.model_type = model_type
-        self.ensemble_dir = Path(self.output_path)
     
     def get_completed_rounds(self):
         """Get list of completed rounds by scanning ensemble model directory."""
