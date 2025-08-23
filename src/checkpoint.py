@@ -55,28 +55,32 @@ class Checkpointer:
             latest_checkpoint = None
             latest_step = -1
             
-            # TODO: fix this code
-            for num in os.listdir(self.checkpoint_dir):
-                round_path = os.path.join(self.checkpoint_dir, num)
+            # Find the latest checkpoint across all rounds
+            for round_dir in os.listdir(self.checkpoint_dir):
+                round_path = os.path.join(self.checkpoint_dir, round_dir)
                 if not os.path.isdir(round_path):
                     continue
+                    
                 try:
-                    round_num = int(num)
-                    if round_num > latest_round:
-                        for ckpt_dir in os.listdir(round_path):
-                            ckpt_path = os.path.join(round_path, ckpt_dir)
-                            if os.path.isdir(ckpt_path) and 'step_' in ckpt_dir:
-                                try:
-                                    step_part = ckpt_dir.split('_')[1]
-                                    step = int(step_part)
-                                    if round_num > latest_round or (round_num == latest_round and step > latest_step):
-                                        latest_round = round_num
-                                        latest_step = step
-                                        latest_checkpoint = ckpt_path
-                                except (ValueError, IndexError):
-                                    continue
+                    round_num = int(round_dir)
                 except ValueError:
                     continue
+                
+                for ckpt_dir in os.listdir(round_path):
+                    if not ckpt_dir.startswith('step_'):
+                        continue
+                        
+                    ckpt_path = os.path.join(round_path, ckpt_dir)
+                    try:
+                        # Extract step number from "step_X_loss_Y" format
+                        step = int(ckpt_dir.split('_')[1])
+                        
+                        if round_num > latest_round or (round_num == latest_round and step > latest_step):
+                            latest_round = round_num
+                            latest_step = step
+                            latest_checkpoint = ckpt_path
+                    except (ValueError, IndexError):
+                        continue
             self.last_checkpoint_path = latest_checkpoint
         except Exception:
             self.last_checkpoint_path = None
