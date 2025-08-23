@@ -152,7 +152,7 @@ class Trainer(ABC):
         train_loss = self.train_step(train_batch, epoch)
 
         test_loss = None
-        if self.tr_step % self.config.logging_steps == 0:
+        if self.tr_step % config.logging_steps == 0:
             test_loss = self.eval_step(eval_dl, epoch)
         
         if self.wandb_run is not None and is_main_process():
@@ -185,6 +185,8 @@ class Trainer(ABC):
         batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
         batch["labels"] = batch["labels"].type(torch.LongTensor)
 
+        breakpoint()
+
         self.gad += 1
         self.processed_id += 1
 
@@ -196,7 +198,7 @@ class Trainer(ABC):
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
             try:
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
                 grad_norm = float(grad_norm)
             except Exception:
                 grad_norm = None
@@ -208,7 +210,7 @@ class Trainer(ABC):
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
             try:
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.max_grad_norm)
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
                 grad_norm = float(grad_norm)
             except Exception:
                 grad_norm = None
@@ -228,7 +230,7 @@ class Trainer(ABC):
         if (
             self.logger is not None
             and self.rank == 0
-            and (self.tr_step % getattr(self.config, "logging_steps", 1) == 0)
+            and (self.tr_step % getattr(config, "logging_steps", 1) == 0)
         ):
             self.logger.log(
                 function="train_step",
@@ -398,7 +400,7 @@ class DistillTrainer(Trainer):
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)
         next_token_loss = loss_fct(shift_logits, shift_labels)
-        ignore_index = getattr(self.config, "ignore_index", -100)
+        ignore_index = getattr(config, "ignore_index", -100)
         valid_mask = shift_labels.ne(ignore_index)
         valid_count = valid_mask.sum()
         # Only calculate loss for those that are not chat template / question and not padded. 
@@ -407,26 +409,27 @@ class DistillTrainer(Trainer):
         # -------------------------
         # Compute Loss
         # -------------------------
-        alpha = self.config.alpha if not self.config.synthetic_data else 1
+        alpha = config.alpha if not config.synthetic_data else 1
         kl_loss = 0
         if (labels != -100).sum == 0:
             print(labels)
-        if not self.config.synthetic_data:
+        if not config.synthetic_data:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
+            
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         if self.logger is not None:
             self.logger.log(
                 function="train_step",
                 round_num=self.round_num,
-                epoch_num=getattr(state, "epoch", None),
+                epoch_num=getattr(self, "epoch", 0),  # Fixed reference to state.epoch
                 phase="train",
                 role="student",
                 step=self.tr_step,
                 train_loss=hybrid_loss,
                 train_next_token_loss=next_token_loss,
                 train_kl_loss=kl_loss,
-                perplexity=math.exp(hybrid_loss) if hybrid_loss is not None else None,
+                perplexity=math.exp(hybrid_loss.item()) if hybrid_loss is not None else None,
                 learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
                 alpha=config.alpha,
             )
@@ -437,6 +440,8 @@ class DistillTrainer(Trainer):
         # -----------------------
         # Compute KL Loss
         # -----------------------
+
+        breakpoint()
 
         # sum(len(inputs['logprob_indices'][i])) = mask.sum()
         student_probs = F.log_softmax(student_logits / config.kl_temperature, dim=-1)

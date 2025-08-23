@@ -155,6 +155,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
 
         train_dl_iterator = iter(train_dataloader)
 
+         
+
         # ----------------------------------
         # Training Loop
         # ----------------------------------
@@ -287,7 +289,7 @@ def main(args):
     # Dataset Loading
     # ----------------------------------
     dataClass = DistillDataset()
-    dataset = dataClass.get_dataset()
+    dataset = dataClass.get_teacher_logprobs()
 
     # ----------------------------------
     # Checkpoint Logic
@@ -387,7 +389,9 @@ def main(args):
         
     for round_num in range(start_round, config.total_rounds):
         ensembleloader.current_ensemble = ensemble_model
-        
+
+         
+
         ensemble_dir, metrics = train_single_round(
             start_round = start_round,
             round_num=round_num,
