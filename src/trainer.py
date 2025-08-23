@@ -30,7 +30,7 @@ class LoggingCallback(TrainerCallback):
             self.logger.log(
             function="on_prediction_step_end",
             round_num=self.round_num,
-            epoch_num=getattr(state, "epoch", None),
+            epoch_num=getattr(self, "epoch", None),
             phase="eval",
             role="student",
             step=state.global_step,
@@ -44,7 +44,7 @@ class LoggingCallback(TrainerCallback):
         self.logger.log(
             function="on_log",
             round_num=self.round_num,
-            epoch_num=getattr(state, "epoch", None),
+            epoch_num=getattr(self, "epoch", None),
             phase="train",
             role="student",
             step=state.global_step,
@@ -182,11 +182,18 @@ class Trainer(ABC):
     
     def train_step(self, batch, epoch):
         self.model.train()
+        
+        if isinstance(batch["input_ids"], list):
+            batch["input_ids"] = torch.tensor(batch["input_ids"])
+        if isinstance(batch["attention_mask"], list):
+            batch["attention_mask"] = torch.tensor(batch["attention_mask"])
+        if isinstance(batch["labels"], list):
+            batch["labels"] = torch.tensor(batch["labels"])
+            
         batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
+        batch["attention_mask"] = batch["attention_mask"].type(torch.LongTensor)
         batch["labels"] = batch["labels"].type(torch.LongTensor)
-
-        breakpoint()
-
+        
         self.gad += 1
         self.processed_id += 1
 
@@ -197,11 +204,8 @@ class Trainer(ABC):
             self.model.set_requires_gradient_sync(False)  # with (grad = False):
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
-            try:
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
-                grad_norm = float(grad_norm)
-            except Exception:
-                grad_norm = None
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
+            grad_norm = float(grad_norm)
             self.model.set_requires_gradient_sync(True)
         else:
             # next forward / backward pass will be synced
@@ -209,11 +213,8 @@ class Trainer(ABC):
             dist.barrier()
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
-            try:
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
-                grad_norm = float(grad_norm)
-            except Exception:
-                grad_norm = None
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
+            grad_norm = float(grad_norm)
             self.optim.step()
             if isinstance(self.lr_scheduler, ReduceLROnPlateau):
                 self.lr_scheduler.step(self.metric)
@@ -224,7 +225,7 @@ class Trainer(ABC):
         loss_sum = _gather(tr_step_loss.reshape(1)).mean().item()
         nt_sum = _gather((next_token_loss if next_token_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).mean().item()
         kl_sum = _gather((kl_loss if kl_loss is not None else torch.tensor(0.0, device=tr_step_loss.device)).reshape(1)).mean().item()
-        valid_sum = _gather(valid_count.reshape(1)).mean().item()
+        valid_sum = _gather(valid_count.float().reshape(1)).mean().item()
 
         # Periodic CSV logging
         if (
@@ -235,7 +236,7 @@ class Trainer(ABC):
             self.logger.log(
                 function="train_step",
                 round_num=self.round_num,
-                epoch_num=getattr(state, "epoch", None),
+                epoch_num=getattr(self, "epoch", None),
                 phase="train",
                 role="student",
                 step=self.tr_step,
@@ -422,7 +423,7 @@ class DistillTrainer(Trainer):
             self.logger.log(
                 function="train_step",
                 round_num=self.round_num,
-                epoch_num=getattr(self, "epoch", 0),  # Fixed reference to state.epoch
+                epoch_num=getattr(self, "epoch", 0),
                 phase="train",
                 role="student",
                 step=self.tr_step,
@@ -441,7 +442,7 @@ class DistillTrainer(Trainer):
         # Compute KL Loss
         # -----------------------
 
-        breakpoint()
+         
 
         # sum(len(inputs['logprob_indices'][i])) = mask.sum()
         student_probs = F.log_softmax(student_logits / config.kl_temperature, dim=-1)
