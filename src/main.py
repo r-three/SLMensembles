@@ -30,7 +30,7 @@ from checkpoint import Checkpoint
 import wandb
 import signal, threading, functools
 
-def train_single_round(start_round, round_num, args, config, dataset, output_path, logger, wandb_run, overall_start_time, rank, device):
+def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, args):
     """ Train a single round of the ensemble distillation process. """
 
     main_print(f"\n{'='*50}")
@@ -87,7 +87,6 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # ----------------------------------
     # Load Ensemble Models
     # ----------------------------------
-    ensembleloader = EnsembleLoader(output_path)
     ensemble = ensembleloader.load_ensemble(device="cuda")
 
     # ----------------------------------
@@ -273,8 +272,8 @@ def main(args):
     # Dataset Loading
     # ----------------------------------
     dataClass = DistillDataset()
-    dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
-    
+    dataset = dataClass.get_dataset()
+
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
@@ -299,7 +298,7 @@ def main(args):
         resume_info = False
 
     # ----------------------------------
-    # Logging config
+    # Logging and WandB config
     # ----------------------------------
     logger = None
 
@@ -320,7 +319,12 @@ def main(args):
         start_round = 0
 
     # ----------------------------------
-    # Metrics
+    # Ensemble Loader
+    # ----------------------------------
+    ensembleloader = EnsembleLoader(output_path)
+
+    # ----------------------------------
+    # Metrics Output and Logging
     # ----------------------------------
     if is_main_process():   
         metadata_dict = {
@@ -358,18 +362,18 @@ def main(args):
 
     for round_num in range(start_round, config.total_rounds):
         
-        metrics = train_single_round(
+        ensemble_dir, metrics = train_single_round(
             start_round = start_round,
             round_num=round_num,
-            args=args,
-            config=config,
             dataset=dataset,
             output_path=output_path,
             logger=logger,
             wandb_run=wandb_run,
             overall_start_time=overall_start_time,
             rank=rank,
-            device=device
+            device=device,
+            ensembleloader = ensembleloader,
+            args=args,
         )
         
         if is_main_process():
@@ -378,7 +382,7 @@ def main(args):
 
         if ensemble_model is None:
             ensemble_model = ModelEnsemble(
-                [round_output_dir],
+                [ensemble_dir],
                 torch_dtype=torch.bfloat16,
                 device_map=config.student_device,
                 vocab_size=student_model.vocab_size,
