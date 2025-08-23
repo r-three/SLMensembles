@@ -18,7 +18,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, 
                   _on_exception, ManifestManager, DistillDataset, get_round_path)
 from ensemble import ModelEnsemble, EnsembleLoader
-from checkpoint import index_checkpoints, best_checkpoint, Checkpointer, Checkpoint
+from checkpoint import Checkpointer
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from tqdm.auto import tqdm
 from shard_weight import *

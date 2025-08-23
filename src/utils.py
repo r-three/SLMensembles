@@ -384,9 +384,9 @@ def create_manifest(output_path, start_time_str=None, wandb_run=None, wandb_id=N
     manifest_path = os.path.join(output_path, "manifest.txt")
     
     # Status sentinels
-    status_running = os.path.join(output_path, "STATUS.RUNNING")
-    status_done = os.path.join(output_path, "STATUS.DONE")
-    status_failed = os.path.join(output_path, "STATUS.FAILED")
+    status_running = os.path.join(output_path, "STATUS.RUNNING", exist_ok=True)
+    status_done = os.path.join(output_path, "STATUS.DONE", exist_ok=True)
+    status_failed = os.path.join(output_path, "STATUS.FAILED", exist_ok=True)
     
     # Clean up old status files
     for status_file in [status_failed, status_running, status_done]:
