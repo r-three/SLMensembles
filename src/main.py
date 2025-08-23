@@ -172,7 +172,10 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     ensemble_dir = ensembleloader.save_model_for_ensemble(student_model, round_num)
     main_print(f"Saved ensemble model at: {ensemble_dir}")
 
-    # TODO: delete student model and clean up memory
+    del student_model
+    del trainer
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     # ---------------------------------------
     # Update wandb run name and log metrics
@@ -263,9 +266,6 @@ def main(args):
     # ----------------------------------
     # Exception Handling
     # ----------------------------------
-    # TODO: is this the correct SLURM job exception? Will it save the latest version of the model as a checkpoint?
-    # TODO: this goes with the above SLURM Signal Handling in the train_single_round I assume?
-    _exit_once = threading.Event()
     default_excepthook = sys.excepthook
     sys.excepthook = _on_exception
 
@@ -383,6 +383,9 @@ def main(args):
     # ----------------------------------
     # Outer Training Loop
     # ----------------------------------
+    ensemble_model = None  # TODO: need to integrate with the ensembleloader. THe ensembleloader loads the models in output_dir each iteration of the train_single_round
+    # the models which we add below to ensemble_model - is there a way to load the models all at the start, ensure that they're placed correctly across available device(s), 
+    # and then update the whole ensemble groud once the training finishes? - this is really important
     for round_num in range(start_round, config.total_rounds):
         ensemble_dir, metrics = train_single_round(
             start_round = start_round,

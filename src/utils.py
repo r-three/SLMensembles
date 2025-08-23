@@ -1,4 +1,4 @@
-import os, csv, time, glob, sys, atexit
+import os, csv, time, glob, sys, atexit, threading
 from datetime import datetime
 import pdb
 from tqdm import tqdm
@@ -86,6 +86,9 @@ def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
 
 # ---------------------- Utility functions ----------------------
 
+# Global event for SLURM signal handling
+_exit_once = threading.Event()
+
 def slurm_term_handler(signum, frame, trainer):
     if _exit_once.is_set():
         return
@@ -96,6 +99,19 @@ def slurm_term_handler(signum, frame, trainer):
         main_print("Checkpoint saved. Exiting...")
     finally:
         os._exit(0)
+
+def _on_exception(exc_type, exc_value, exc_traceback):
+    """Exception hook to handle unexpected errors gracefully."""
+    if _exit_once.is_set():
+        return
+    _exit_once.set()
+    
+    # Call the default exception hook first
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+    
+    # Clean exit
+    main_print("Exception occurred, exiting...")
+    os._exit(1)
 
 def init_wandb_run():
     try:
