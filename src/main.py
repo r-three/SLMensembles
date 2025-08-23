@@ -193,7 +193,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         'min_eval_loss': trainer.min_eval_loss if hasattr(trainer, 'min_eval_loss') else None,
         'total_steps': trainer.tr_step if hasattr(trainer, 'tr_step') else None,
     }
-    
+
     if is_main_process():
         manifest.update({
             f'round_{round_num}_final_loss': round_metrics['final_loss'],
@@ -282,6 +282,9 @@ def main(args):
     else:
         run_id, slug, wandb_name, wandb_id = build_run_identity()
         output_path = get_directory(run_id)
+        status_running = os.path.join(output_path, "STATUS.RUNNING")
+        status_done    = os.path.join(output_path, "STATUS.DONE")
+        status_failed  = os.path.join(output_path, "STATUS.FAILED")
 
     # ----------------------------------
     # Dataset Loading
