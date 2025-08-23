@@ -73,7 +73,6 @@ CSV_COLUMNS = [
     "eval_loss",
     "eval_kl_loss",
     "grad_norm",
-    "perplexity",
     "learning_rate",
     "alpha",
     "tags",

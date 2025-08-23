@@ -182,7 +182,6 @@ class Trainer(ABC):
     
     def train_step(self, batch, epoch):
         self.model.train()
-        
         if isinstance(batch["input_ids"], list):
             batch["input_ids"] = torch.tensor(batch["input_ids"])
         if isinstance(batch["attention_mask"], list):
@@ -261,8 +260,16 @@ class Trainer(ABC):
                                   disable=self.rank != 0,
                                   file=sys.__stdout__,)):
             with torch.no_grad():
+                if isinstance(batch["input_ids"], list):
+                    batch["input_ids"] = torch.tensor(batch["input_ids"])
+                if isinstance(batch["attention_mask"], list):
+                    batch["attention_mask"] = torch.tensor(batch["attention_mask"])
+                if isinstance(batch["labels"], list):
+                    batch["labels"] = torch.tensor(batch["labels"])
+                
                 batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
                 batch["labels"] = batch["labels"].type(torch.LongTensor)
+
                 loss_sum, next_token_sum, kl_sum, valid_cnt = self.compute_loss(batch)
                 eval_loss += loss_sum
                 if next_token_sum is not None:
@@ -297,7 +304,6 @@ class Trainer(ABC):
                     eval_loss=mean_eval_loss,
                     eval_next_token_loss=mean_nk_loss,
                     eval_kl_loss=mean_kl_loss,
-                    perplexity=math.exp(mean_eval_loss) if mean_eval_loss is not None else None,
                     learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
                     alpha=config.alpha,
                 )
@@ -430,7 +436,6 @@ class DistillTrainer(Trainer):
                 train_loss=hybrid_loss,
                 train_next_token_loss=next_token_loss,
                 train_kl_loss=kl_loss,
-                perplexity=math.exp(hybrid_loss.item()) if hybrid_loss is not None else None,
                 learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
                 alpha=config.alpha,
             )
