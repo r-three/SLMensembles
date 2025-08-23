@@ -30,7 +30,7 @@ from checkpoint import Checkpoint
 import wandb
 import signal, threading, functools
 
-def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, args):
+def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, args, lr_scheduler=None):
     """ Train a single round of the ensemble distillation process. """
 
     main_print(f"\n{'='*50}")
@@ -96,11 +96,12 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     train_dataloader, _ = prepare_dataset(dataset['train'], dataset['test'])
     num_training_steps = len(train_dataloader) * config.num_train_epochs
     num_warmup_steps = config.warm_up_steps
-    lr_scheduler = get_cosine_schedule_with_warmup(
-        optim,
-        num_warmup_steps=num_warmup_steps,
-        num_training_steps=num_training_steps
-    )
+    if not lr_scheduler:
+        lr_scheduler = get_cosine_schedule_with_warmup(
+            optim,
+            num_warmup_steps=num_warmup_steps,
+            num_training_steps=num_training_steps
+        )
 
     # ----------------------------------
     # Initialize trainer
@@ -279,9 +280,6 @@ def main(args):
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
-    checkpointer = None
-    start_epoch = 0
-    resume_info = False
     
     if config.resume_from_checkpoint:
         checkpointer = Checkpointer(output_path) # output path is the path fror prev checkpoint
@@ -300,6 +298,8 @@ def main(args):
         resume_info = True
     else:
         checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
+        start_epoch = 0
+        resume_info = False
 
     # ----------------------------------
     # Logging and WandB config
@@ -377,6 +377,7 @@ def main(args):
             device=device,
             ensembleloader = ensembleloader,
             args=args,
+            lr_scheduler=lr_scheduler if (round_num == start_round and config.resume_from_checkpoint) else None,
         )
         
         if is_main_process():
