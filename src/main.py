@@ -166,27 +166,22 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
 =
         dist.barrier()
 
-        # ----------------------------------
-        # Save model
-        # ----------------------------------
-        if is_main_process() == 0:
-        
-        # Save the trained model using EnsembleLoader
-        ensemble_model_path = ensembleloader.save_model_for_ensemble(student_model, round_num)
-        
-        if rank == 0:
-            main_print(f"Saved ensemble model at: {ensemble_model_path}")
+    # ----------------------------------
+    # Save model
+    # ----------------------------------
+    ensemble_dir = ensembleloader.save_model_for_ensemble(student_model, round_num)
+    main_print(f"Saved ensemble model at: {ensemble_dir}")
 
-        # ----------------------------------
-        # Update wandb run name and log metrics
-        # ----------------------------------
-
+    # ---------------------------------------
+    # Update wandb run name and log metrics
+    # ---------------------------------------
     if is_main_process() and wandb_run is not None:
         wandb_run.name = f"round_{round_num}_epoch_{epoch_num}"
         wandb_run.log({"epoch": epoch_num, "round": round_num}) 
 
-    # Return the checkpoint path and metrics for this round
-    final_checkpoint_path = checkpointer.last_checkpoint_path if hasattr(checkpointer, 'last_checkpoint_path') else None
+    # ---------------------------------------
+    # Return round metrics
+    # ---------------------------------------
     round_metrics = {
         'round_num': round_num,
         'final_loss': trainer.current_loss if hasattr(trainer, 'current_loss') else None,
@@ -194,7 +189,7 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         'total_steps': trainer.tr_step if hasattr(trainer, 'tr_step') else None,
     }
     
-    return final_checkpoint_path, round_metrics
+    return ensemble_dir, round_metrics
 
 
 def main(args):
@@ -283,7 +278,6 @@ def main(args):
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
-
     if config.resume_from_checkpoint:
         checkpointer = Checkpointer(output_path) # output path is the path fror prev checkpoint
 
@@ -364,7 +358,7 @@ def main(args):
 
     for round_num in range(start_round, config.total_rounds):
         
-        checkpoint_path, metrics = train_single_round(
+        metrics = train_single_round(
             start_round = start_round,
             round_num=round_num,
             args=args,
@@ -378,17 +372,9 @@ def main(args):
             device=device
         )
         
-        # Log round completion
         if is_main_process():
             main_print(f"Completed round {round_num}")
             main_print(f"Round metrics: {metrics}")
-            if logger:
-                logger.log(
-                    function="main", 
-                    phase="round_complete", 
-                    round_num=round_num, 
-                    metadata=metrics
-                ) 
 
         if ensemble_model is None:
             ensemble_model = ModelEnsemble(
