@@ -462,21 +462,28 @@ class CustomPadCollator:
                 batch_padded[k] = values  # Leave as list if not stackable
 
         return batch_padded
-  
-def prepare_dataset(train_ds, eval_ds, max_length, seed):
-    """Prepare datasets with distributed samplers for FSDP2 training."""
 
-    dc = CustomPadCollator(max_length, 
-                           pad_token_id=151699, 
-                           pad_label_id=-100, 
-                           pad_attention_id=0)
+def _default_collate_fn(batch):
+    """Simple collate function for pre-padded data."""
+    keys = batch[0].keys()
+    collated = {}
+    for key in keys:
+        values = [item[key] for item in batch]
+        if isinstance(values[0], torch.Tensor):
+            collated[key] = torch.stack(values)
+        else:
+            collated[key] = values
+    return collated
+
+def prepare_dataset(train_ds, eval_ds, max_length=1024):
+    """Prepare datasets with distributed samplers for FSDP2 training."""
 
     train_sampler = DistributedSampler(
         train_ds,
         dist.get_world_size(),
         dist.get_rank(),
         shuffle=True,
-        seed=seed,
+        seed=config.seed,
     )
     test_sampler = DistributedSampler(
         eval_ds,
@@ -486,13 +493,13 @@ def prepare_dataset(train_ds, eval_ds, max_length, seed):
     )
 
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-
+    # TODO: verify correctness of collator
     train_dataloader = DataLoader(
         train_ds,
         batch_size=config.per_device_train_batch_size,
         sampler=train_sampler,
         shuffle=False,
-        collate_fn=dc,
+        collate_fn=_default_collate_fn,
         num_workers=8,
         persistent_workers=False
     )
@@ -501,7 +508,7 @@ def prepare_dataset(train_ds, eval_ds, max_length, seed):
         batch_size=config.eval_batch_size,
         sampler=test_sampler,
         shuffle=False,
-        collate_fn=dc,
+        collate_fn=_default_collate_fn,
         num_workers=8,
         persistent_workers=False
     )
