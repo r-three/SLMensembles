@@ -256,7 +256,6 @@ def main(args):
     # Exception Handling
     # ----------------------------------
     _exit_once = threading.Event()
-
     default_excepthook = sys.excepthook
     sys.excepthook = _on_exception
 
@@ -280,9 +279,8 @@ def main(args):
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
-    
     if config.resume_from_checkpoint:
-        checkpointer = Checkpointer(output_path) # output path is the path fror prev checkpoint
+        checkpointer = Checkpointer(output_path) # output path is the path from prev checkpoint
 
         student_model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
