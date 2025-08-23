@@ -15,9 +15,9 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   is_main_process, main_print, check_batch_shape, fix_seed,
                   inspect_mixed_precision, inspect_model,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
-                  create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler)
+                  create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, _on_exception)
 from ensemble import ModelEnsemble, EnsembleLoader
-from checkpoint import index_checkpoints, best_checkpoint
+from checkpoint import index_checkpoints, best_checkpoint, Checkpointer
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from tqdm.auto import tqdm
 from shard_weight import *
@@ -109,7 +109,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         student_model, 
         optim, 
         lr_scheduler,
-        ensemble_model,
+        ensemble,
         logger=logger,
         round_num=round_num,
         checkpointer=checkpointer,
@@ -130,7 +130,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     # Epoch Loop
     # ----------------------------------
-    for epoch_num in range(start_epoch, config.num_train_epochs):
+    for epoch_num in range(0, config.num_train_epochs):
         epoch_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         main_print(f"\n{'='*50}")
         main_print(f"--> Starting Epoch {epoch_num} at: {epoch_start_datetime}")
@@ -265,7 +265,7 @@ def main(args):
     fix_seed(config.seed)
 
     if config.resume_from_checkpoint:
-        output_path = checkpointed_dir
+        output_path = config.checkpointed_dir
     else:
         run_id, slug, wandb_name, wandb_id = build_run_identity()
         output_path = get_directory(run_id)
@@ -279,6 +279,10 @@ def main(args):
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
+    checkpointer = None
+    start_epoch = 0
+    resume_info = False
+    
     if config.resume_from_checkpoint:
         checkpointer = Checkpointer(output_path) # output path is the path fror prev checkpoint
 
@@ -296,8 +300,6 @@ def main(args):
         resume_info = True
     else:
         checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
-        start_epoch = 0
-        resume_info = False
 
     # ----------------------------------
     # Logging and WandB config
@@ -390,7 +392,7 @@ def main(args):
             )
         else:
             # TODO: fix model creation - check ModelEnsemble for details
-            ensemble_model.add_model(round_output_dir)
+            ensemble_model.add_model(ensemble_dir)
 
         # ----------------------------------
         # Cleanup
