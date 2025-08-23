@@ -76,7 +76,7 @@ class EnsembleLoader:
         self.ensemble_dir = output_path
         self.model_type = config.student_model_name
     
-    def get_completed_rounds(self):
+    def _get_completed_rounds(self):
         """Get list of completed rounds by scanning ensemble model directory."""
         completed_rounds = []
         
@@ -97,7 +97,7 @@ class EnsembleLoader:
     
     def load_ensemble(self, device, torch_dtype=torch.bfloat16):
         """Load and create ensemble of models from completed rounds for use in training."""
-        model_rounds = self.get_completed_rounds()
+        model_rounds = self._get_completed_rounds()
         
         if not model_rounds:
             return None
