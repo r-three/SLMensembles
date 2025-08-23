@@ -98,11 +98,6 @@ class Trainer(ABC):
         self.should_stop = False
 
     def prepare_train(self):
-        if dist.get_rank() == 0:
-            with open("results.csv", "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(["Initialized training", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-                writer.writerow(["Train step (local)", "Mean eval loss", "Next token loss", "KL loss", "Valid count"]) 
         self.model.train()
         self.model.config.use_cache = False  # avoid cache warnings in training
         # Lightweight init log
@@ -286,10 +281,6 @@ class Trainer(ABC):
         main_print(f"Step: {self.tr_step}, eval loss: {mean_eval_loss}")
 
         if dist.get_rank() == 0:
-            with open("results.csv", "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([self.tr_step, mean_eval_loss, mean_nk_loss, mean_kl_loss, gathered_valid_total])
-            
             if self.logger is not None:
                 self.logger.log(
                     function="eval_step",

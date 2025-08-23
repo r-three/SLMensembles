@@ -97,6 +97,7 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # Set Up Optimizer and LR Scheduler
     # ----------------------------------
     optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
+    train_dataloader, _ = prepare_dataset(dataset['train'], dataset['test'])
     num_training_steps = len(train_dataloader) * config.num_train_epochs
     num_warmup_steps = config.warm_up_steps
     lr_scheduler = get_cosine_schedule_with_warmup(
@@ -108,12 +109,6 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # ----------------------------------
     # Initialize trainer
     # ----------------------------------
-
-    train_dataloader, _ = prepare_dataset(dataset['train'], dataset['test'])  
-    # Just to get the length, initialize again for each epoch.
-    num_training_steps = len(train_dataloader) * config.num_train_epochs
-    num_warmup_steps = config.warmup_steps  # e.g., 10% warmup
-
     
     # Restore learning rate scheduler state if resuming
     if config.resume_from_checkpoint and not checkpointer.is_empty():
@@ -147,8 +142,7 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         report_to="wandb" if is_main_process() else "none",
     )
 
-
-# TODO: train model to repdict loss? 
+    # TODO: train model to repdict loss? 
 
     # ----------------------------------
     # SLURM Signal Handling
@@ -199,14 +193,10 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         train_dl_iterator = iter(train_dataloader)
 
         # ----------------------------------
-        # Inner Training Loop
+        # Training Loop
         # ----------------------------------
 
-        for step_idx in tqdm(
-            range(len(train_dataloader)),
-            disable=rank != 0,
-            file=sys.__stdout__,
-        ):
+        for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.__stdout__):
             if args.explicit_prefetching:
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
