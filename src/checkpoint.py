@@ -148,7 +148,7 @@ class Checkpointer:
             "round_num": int(round_num),
             "step": int(step),
             "loss": float(current_loss),
-            "rng": save_rng_states(),
+            "rng": self.save_rng_states(),
         }
 
         if training_state:
@@ -166,7 +166,7 @@ class Checkpointer:
         dist.barrier()
         self.rotate_checkpoints(os.path.join(self.checkpoint_dir, str(round_num)))
     
-    def save_rng_states() -> Dict[str, Any]:
+    def save_rng_states(self):
         """Capture Random Number Generator states."""
         out = {"time": time.time()}
         try:

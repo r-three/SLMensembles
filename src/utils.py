@@ -668,7 +668,15 @@ class DistillDataset:
         main_print("--> Loading Teacher Logits")
         dataset = datasets.load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
         
-        dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        # Apply selective tensor conversion - only convert input_ids, attention_mask, labels to tensors
+        def convert_to_tensors(batch):
+            batch["input_ids"] = torch.tensor(batch["input_ids"])
+            batch["attention_mask"] = torch.tensor(batch["attention_mask"]) 
+            batch["labels"] = torch.tensor(batch["labels"])
+            
+            return batch
+        
+        dataset = dataset.map(convert_to_tensors, batched=False)
         return dataset
 
     def concatenate_logprobs_chunks(self, split_dirs: list[str]):
