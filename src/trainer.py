@@ -10,7 +10,7 @@ import csv
 import sys
 import torch.distributed as dist
 from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
-from utils import main_print
+from utils import main_print, is_main_process
 from tqdm.auto import tqdm
 from datetime import datetime
 import math
@@ -69,7 +69,6 @@ class Trainer(ABC):
         model,
         optim,
         lr_scheduler,
-        config,
         logger=None,
         checkpointer=None,
         round_num=0,
@@ -79,7 +78,6 @@ class Trainer(ABC):
         self.model = model
         self.optim = optim
         self.lr_scheduler = lr_scheduler
-        self.config = config
         self.logger = logger
         self.checkpointer = checkpointer
         self.round_num = round_num
@@ -146,14 +144,14 @@ class Trainer(ABC):
         valid_count = valid_mask.sum()
         return loss, None, None, valid_count
 
-    def step(self, train_batch, eval_dl, epoch, wandb_run):
+    def step(self, train_batch, eval_dl, epoch):
         train_loss = self.train_step(train_batch, epoch)
 
         test_loss = None
         if self.tr_step % self.config.logging_steps == 0:
             test_loss = self.eval_step(eval_dl, epoch)
         
-        if self.wandb_run is not None and dist.get_rank() == 0:
+        if self.wandb_run is not None and is_main_process():
             log_dict = {
                 "train/loss": train_loss,
                 "train/epoch": epoch,
@@ -172,7 +170,7 @@ class Trainer(ABC):
             
             self.wandb_run.log(log_dict, step=self.tr_step)
         
-        if self.tr_step % config.ckpt_save_steps == 0 and dist.get_rank() == 0: self.save_checkpoint()
+        if self.tr_step % config.ckpt_save_steps == 0 and is_main_process(): self.save_checkpoint()
         dist.barrier()
         
         self.tr_step += 1
@@ -280,7 +278,7 @@ class Trainer(ABC):
 
         main_print(f"Step: {self.tr_step}, eval loss: {mean_eval_loss}")
 
-        if dist.get_rank() == 0:
+        if is_main_process:
             if self.logger is not None:
                 self.logger.log(
                     function="eval_step",
@@ -342,11 +340,10 @@ class DistillTrainer(Trainer):
         model,
         optim,
         lr_scheduler,
-        config,
         ensemble_model,
         logger=None,
-        checkpointer=None,
         round_num=0,
+        checkpointer=None,
         overall_start_time=None,
         wandb_run=None,
     ):
@@ -354,7 +351,6 @@ class DistillTrainer(Trainer):
             model,
             optim,
             lr_scheduler,
-            config,
             logger,
             checkpointer,
             round_num,

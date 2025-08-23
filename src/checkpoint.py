@@ -153,7 +153,7 @@ class Checkpointer:
         if lr_scheduler:
                 meta["lr_scheduler_state"] = lr_scheduler.state_dict()
 
-        if dist.get_rank() == 0:
+        if is_main_process() == 0:
             torch.save(meta, os.path.join(ckpt_dir, TRAIN_STATE))
 
         self.last_checkpoint_path = ckpt_dir
