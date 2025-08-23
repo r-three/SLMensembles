@@ -112,7 +112,7 @@ class Checkpointer:
             raise ValueError("No checkpoint found to load from")
 
         reader = FileSystemReader(self.last_checkpoint_path)
-        optim_sd = get_optimizer_state_dict(model=model, optimizer=optim, options=DCP_SD_OPTS)
+        optim_sd = get_optimizer_state_dict(model=model, optimizers=optim, options=DCP_SD_OPTS)
         dcp_load({"optim": optim_sd}, storage_reader=reader)
 
         set_optimizer_state_dict(
@@ -140,7 +140,7 @@ class Checkpointer:
         writer = FileSystemWriter(ckpt_dir)
         state = {
             "model": get_model_state_dict(model=model, options=DCP_SD_OPTS),
-            "optim": get_optimizer_state_dict(model=model, optimizer=optim, options=DCP_SD_OPTS),
+            "optim": get_optimizer_state_dict(model=model, optimizers=optim, options=DCP_SD_OPTS),
         }
         dcp_save(state, storage_writer=writer)
 
