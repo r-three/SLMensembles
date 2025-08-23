@@ -302,6 +302,7 @@ def main(args):
         ).to('cuda')
 
         state = checkpointer.load(student_model, optimizer)
+        # NOTE: model is saved in sharded state, so it doesn't need to be sharded again
 
         if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
         global_step = int(state.get("global_step", state.get("step", 0)))
