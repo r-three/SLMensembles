@@ -428,7 +428,20 @@ def main(args):
             
         torch.distributed.destroy_process_group()
 
-        main_print("Finished Training with: ") # TODO: add a short detailled end of run prinout
+        # Final summary
+        total_time = time.time() - overall_start_time
+        if is_main_process():
+            main_print("\n" + "="*60)
+            main_print("TRAINING COMPLETED SUCCESSFULLY")
+            main_print("="*60)
+            main_print(f"Total rounds completed: {config.total_rounds}")
+            main_print(f"Output directory: {output_path}")
+            main_print(f"Total training time: {format_time_elapsed(total_time)}")
+            main_print(f"Final manifest status: {manifest.get('status', default='UNKNOWN')}")
+            
+            # Update manifest with final status
+            manifest.finalize(success=True, wall_time_sec=total_time)
+            main_print("="*60)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")
