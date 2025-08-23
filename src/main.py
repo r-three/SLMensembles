@@ -148,11 +148,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
             dataset['train'],
             dataset['test'],
         )
-        # TODO: typically only need to call this sampler for the training sampler. Do this every epoch to get a new shuffle across ranks.
         if hasattr(train_dataloader, "sampler") and hasattr(train_dataloader.sampler, "set_epoch"):
             train_dataloader.sampler.set_epoch(epoch_num)
-        if hasattr(eval_dataloader, "sampler") and hasattr(eval_dataloader.sampler, "set_epoch"):
-            eval_dataloader.sampler.set_epoch(epoch_num)
         if is_main_process():
             check_batch_shape(train_dataloader)
 
@@ -284,7 +281,7 @@ def main(args):
         wandb_name = None
         slug = None
     else:
-        run_id, slug, wandb_name, wandb_id = build_run_identity() # TODO: slug should probably be used somewhere or logged
+        run_id, slug, wandb_name, wandb_id = build_run_identity()
         output_path = get_directory(run_id)
 
     # ----------------------------------
@@ -356,6 +353,7 @@ def main(args):
     if is_main_process():   
         metadata_dict = {
             "Run id": run_id,
+            "Slug": slug if slug else "N/A",
             "Wandb run id": wandb_run.id if wandb_run else None,
             "Description": config.description,
             "Teacher Model": config.teacher_model_name,
