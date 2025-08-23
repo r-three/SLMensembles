@@ -475,7 +475,7 @@ def _default_collate_fn(batch):
             collated[key] = values
     return collated
 
-def prepare_dataset(train_ds, eval_ds, max_length=1024):
+def prepare_dataset(train_ds, eval_ds):
     """Prepare datasets with distributed samplers for FSDP2 training."""
 
     train_sampler = DistributedSampler(
