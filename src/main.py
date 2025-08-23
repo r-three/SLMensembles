@@ -16,23 +16,19 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   inspect_mixed_precision, inspect_model,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, 
-                  _on_exception, create_manifest)
-from utils import ManifestManager
+                  _on_exception, ManifestManager, DistillDataset, get_round_path)
 from ensemble import ModelEnsemble, EnsembleLoader
-from checkpoint import index_checkpoints, best_checkpoint, Checkpointer
+from checkpoint import index_checkpoints, best_checkpoint, Checkpointer, Checkpoint
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from tqdm.auto import tqdm
 from shard_weight import *
-from utils import fix_seed
 import atexit
 from pathlib import Path
 from datasets import Dataset, DatasetDict
-from utils import DistillDataset, get_round_path
-from checkpoint import Checkpoint
 import wandb
 import signal, threading, functools
 
-def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, args, lr_scheduler=None):
+def train_single_round(start_round, round_num, dataset, output_path, logger, wandb_run, overall_start_time, rank, device, ensembleloader, args, manifest, lr_scheduler=None):
     """ Train a single round of the ensemble distillation process. """
     main_print(f"\n{'='*50}")
     round_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -45,6 +41,11 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     if is_main_process() and wandb_run is not None:
         wandb_run.name = f"{config.run_name}_round_{round_num}"
         wandb_run.log({"round": round_num})
+    
+    # Update manifest with current round
+    if is_main_process():
+        manifest.update('round', round_num, section='train')
+        manifest.set_status('TRAINING')
 
     # ----------------------------------
     # Load and Shard Student Model
@@ -189,6 +190,14 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         'min_eval_loss': trainer.min_eval_loss if hasattr(trainer, 'min_eval_loss') else None,
         'total_steps': trainer.tr_step if hasattr(trainer, 'tr_step') else None,
     }
+    # TODO: ensure the manifest file has these columns
+    # Update manifest with round metrics
+    if is_main_process():
+        manifest.update({
+            f'round_{round_num}_final_loss': round_metrics['final_loss'],
+            f'round_{round_num}_min_eval_loss': round_metrics['min_eval_loss'],
+            f'round_{round_num}_total_steps': round_metrics['total_steps'],
+        }, section='outcomes')
     
     return ensemble_dir, round_metrics
 
@@ -267,6 +276,10 @@ def main(args):
 
     if config.resume_from_checkpoint:
         output_path = config.checkpointed_dir
+        run_id = os.path.basename(output_path)
+        wandb_id = None  # Will be loaded from manifest
+        wandb_name = None
+        slug = None
     else:
         run_id, slug, wandb_name, wandb_id = build_run_identity() # TODO: slug should probably be used somewhere or logged
         output_path = get_directory(run_id)
@@ -314,27 +327,19 @@ def main(args):
     # ----------------------------------
     # Manifest file
     # ----------------------------------
-    manifest = create_manifest(output_path, wandb_run=wandb_run)
-
-    # During training - update any value easily
-    # TODO: update the code below:
-    # manifest.update('train.round', current_round)
-    # manifest.update('train.current_loss', loss_value)
-    # manifest.update('outcomes.best_loss', best_loss)
-    
-    # TODO: need to implement manifest updates throuhgout the code as well as status changes at the end 
-    # manifest.set_status('DONE')  # Also handles STATUS files
-
-    # Read values
-    current_round = manifest.get('round', 0)
-
-
     if config.resume_from_checkpoint:
-        # TODO: load round info and everything from the manifest file
-        # TODO: need to update the manifest file with the latest metrics from each run at the end of train_single_round
-        start_round = manifest.get('round', 0) + 1 
-    else: 
-        if is_main_process(): create_manifest(output_path, start_time_str=overall_start_datetime, wandb_run=wandb_run, wandb_id=wandb_id)
+        # Load existing manifest
+        manifest_path = os.path.join(output_path, "manifest.txt")
+        manifest = ManifestManager(manifest_path)
+        start_round = manifest.get('round', section='train', default=0)
+        start_round = start_round + 1 if start_round > 0 else 0
+    else:
+        if is_main_process():
+            manifest = create_manifest(output_path, start_time_str=overall_start_datetime, 
+                                     wandb_run=wandb_run, wandb_id=wandb_id)
+        else:
+            manifest_path = os.path.join(output_path, "manifest.txt")
+            manifest = ManifestManager(manifest_path)
         start_round = 0
 
     # ----------------------------------
@@ -391,6 +396,7 @@ def main(args):
             device=device,
             ensembleloader = ensembleloader,
             args=args,
+            manifest=manifest,
             lr_scheduler=lr_scheduler if (round_num == start_round and config.resume_from_checkpoint) else None,
         )
         
