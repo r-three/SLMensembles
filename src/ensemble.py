@@ -14,7 +14,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
     def __init__(
         self,
         model_paths,
-        model_type,
+        model_type=config.student_model_name,
         config=None,
         torch_dtype=torch.bfloat16,
         vocab_size=None,
@@ -104,7 +104,6 @@ class EnsembleLoader:
         
         ensemble = ModelEnsemble(
             model_paths=model_rounds,
-            model_type=config.student_model_name,
             torch_dtype=torch_dtype,
             vocab_size=config.vocab_size,
         ).to(device)
@@ -139,4 +138,4 @@ class EnsembleLoader:
             print(f"Saved ensemble model for round {round_num} at: {round_dir}")
         
         dist.barrier()
-        return str(round_dir)
+        return round_dir

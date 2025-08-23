@@ -162,7 +162,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
             trainer.step(batch, eval_dataloader, epoch_num)
-=
+
         dist.barrier()
 
     # ----------------------------------
@@ -170,6 +170,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     ensemble_dir = ensembleloader.save_model_for_ensemble(student_model, round_num)
     main_print(f"Saved ensemble model at: {ensemble_dir}")
+
+    # TODO: delete student model
 
     # ---------------------------------------
     # Update wandb run name and log metrics
@@ -361,7 +363,6 @@ def main(args):
     # ----------------------------------
 
     for round_num in range(start_round, config.total_rounds):
-        
         ensemble_dir, metrics = train_single_round(
             start_round = start_round,
             round_num=round_num,
@@ -384,19 +385,17 @@ def main(args):
             ensemble_model = ModelEnsemble(
                 [ensemble_dir],
                 torch_dtype=torch.bfloat16,
-                device_map=config.student_device,
-                vocab_size=student_model.vocab_size,
+                device_map="cuda",
+                vocab_size=config.student_vocab_size,
             )
-            ensemble_model.requires_grad_(False)
         else:
+            # TODO: fix model creation - check ModelEnsemble for details
             ensemble_model.add_model(round_output_dir)
-
-        # TODO: delete student model
 
         # ----------------------------------
         # Cleanup
         # ----------------------------------
-        torch.distributed.barrier()
+        dist.barrier()
         if is_main_process() and wandb_run is not None:
             wandb_run.finish()
             main_print("--> Finished wandb run")
