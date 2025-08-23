@@ -193,8 +193,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         'min_eval_loss': trainer.min_eval_loss if hasattr(trainer, 'min_eval_loss') else None,
         'total_steps': trainer.tr_step if hasattr(trainer, 'tr_step') else None,
     }
-    # TODO: ensure the manifest file has these columns
-    # Update manifest with round metrics
+    
     if is_main_process():
         manifest.update({
             f'round_{round_num}_final_loss': round_metrics['final_loss'],
