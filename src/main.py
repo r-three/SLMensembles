@@ -48,7 +48,6 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # ----------------------------------
     # Load and Shard Student Model
     # ----------------------------------
-
     if not (round_num == start_round and config.resume_from_checkpoint):
         if not config.ensemble_random_init:
             student_model = AutoModelForCausalLM.from_pretrained(
@@ -63,7 +62,6 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         # ----------------------------------
         # Mixed precision setup
         # ----------------------------------
-
         fsdp_kwargs = {}
         if args.mixed_precision:
             fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
@@ -74,7 +72,6 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         # ----------------------------------
         # Shard Model
         # ----------------------------------
-        
         for layer in student_model.model.layers:
             fully_shard(layer, **fsdp_kwargs)
         fully_shard(student_model, **fsdp_kwargs)
@@ -109,38 +106,18 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     # ----------------------------------
     # Initialize trainer
     # ----------------------------------
-    
-    # Restore learning rate scheduler state if resuming
-    if config.resume_from_checkpoint and not checkpointer.is_empty():
-        training_state = checkpointer.load_training_state()
-        if training_state and 'lr_scheduler_state' in training_state:
-            try:
-                lr_scheduler.load_state_dict(training_state['lr_scheduler_state'])
-                main_print("Successfully restored learning rate scheduler state")
-            except Exception as e:
-                main_print(f"Failed to restore LR scheduler state: {e}")
-        
-        # Restore RNG states for reproducibility
-        if training_state and 'rng_states' in training_state:
-            try:
-                restore_rng_states(training_state['rng_states'])
-                main_print("Successfully restored RNG states")
-            except Exception as e:
-                main_print(f"Failed to restore RNG states: {e}")
-    # Initialize trainer with logger and round information
     trainer = DistillTrainer(
         student_model, 
         optim, 
-        lr_scheduler, 
-        config, 
+        lr_scheduler,
         ensemble_model,
         logger=logger,
         round_num=round_num,
-        overall_start_time=overall_start_time,  
         checkpointer=checkpointer,
+        overall_start_time=overall_start_time,  
         wandb_run=wandb_run if is_main_process() else None,
-        report_to="wandb" if is_main_process() else "none",
     )
+    trainer.prepare_train()
 
     # TODO: train model to repdict loss? 
 
@@ -150,22 +127,10 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
     handler = functools.partial(slurm_term_handler, trainer=trainer)
     signal.signal(signal.SIGTERM, handler)
     signal.signal(signal.SIGINT, handler)
-    
-    # Try to resume from latest checkpoint if it exists
-    if config.resume_from_checkpoint and not checkpointer.is_empty():
-        if trainer.load_checkpoint(checkpoint_dir):
-            main_print(f"Successfully resumed from checkpoint in round {trainer.round_num}")
-        else:
-            main_print("Failed to resume from checkpoint, starting training from scratch")
-    else:
-        main_print("Starting training from scratch")
-    
-    trainer.prepare_train()
 
     # ----------------------------------
     # Epoch Loop
     # ----------------------------------
-
     for epoch_num in range(start_epoch, config.num_train_epochs):
         epoch_start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         main_print(f"\n{'='*50}")
@@ -175,19 +140,17 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         # ----------------------------------
         # Prepare dataset
         # ----------------------------------
-
         train_dataloader, eval_dataloader = prepare_dataset(
             dataset['train'],
             dataset['test'],
         )
-        # Ensure per-epoch shuffling for DistributedSampler
         if hasattr(train_dataloader, "sampler") and hasattr(train_dataloader.sampler, "set_epoch"):
             train_dataloader.sampler.set_epoch(epoch_num)
-        # Optional: set for eval for deterministic partitioning
         if hasattr(eval_dataloader, "sampler") and hasattr(eval_dataloader.sampler, "set_epoch"):
             eval_dataloader.sampler.set_epoch(epoch_num)
         if is_main_process():
             check_batch_shape(train_dataloader)
+
         # TODO: typically only need to call this for the training sampler. Do this every epoch to get a new shuffle across ranks.
         
         train_dl_iterator = iter(train_dataloader)
@@ -195,45 +158,18 @@ def train_single_round(start_round, round_num, args, config, dataset, output_pat
         # ----------------------------------
         # Training Loop
         # ----------------------------------
-
         for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.__stdout__):
             if args.explicit_prefetching:
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
-            trainer.step(batch, eval_dataloader, epoch_num, wandb_run)
-            
-            # Simple periodic checkpointing for SLURM interruption safety
-            if (trainer.save_steps and trainer.save_steps > 0 and trainer.tr_step % trainer.save_steps == 0):
-                torch.distributed.barrier()
-                # Build your small metadata dict if you want (epoch/step/scheduler/RNG)
-                training_state = create_training_state(
-                    round_num=trainer.round_num,
-                    epoch_num=current_epoch,
-                    step=trainer.tr_step,
-                    current_loss=trainer.current_loss,
-                    min_loss=trainer.min_eval_loss,
-                    lr_scheduler_state=lr_scheduler.state_dict() if lr_scheduler else None,
-                    rng_states=capture_rng_states(),  # if you have this
-                )
-                checkpointer.save(student_model, optim, trainer.round_num, trainer.tr_step, trainer.current_loss, training_state)
-                if rank == 0:
-                    main_print(f"Saved periodic checkpoint at step {trainer.tr_step}")
+            trainer.step(batch, eval_dataloader, epoch_num)
+=
+        dist.barrier()
+
         # ----------------------------------
-        # Save checkpoint
+        # Save model
         # ----------------------------------
-        torch.distributed.barrier()  # Wait for all ranks to finish the epoch
-        
-        # Save end-of-epoch checkpoint using standardized structure
-        checkpoint_dir = os.path.join(output_path, "checkpoints")
-        trainer.save_checkpoint(checkpoint_dir)
-        if rank == 0:
-            main_print(f"Saved end-of-epoch checkpoint: round {round_num}, epoch {epoch_num}, step {trainer.tr_step}")
-        
-        # ----------------------------------
-        # Save model for ensemble use
-        # ----------------------------------
-        if rank == 0:
-            main_print(f"Saving model for ensemble use...")
+        if is_main_process() == 0:
         
         # Save the trained model using EnsembleLoader
         ensemble_model_path = ensembleloader.save_model_for_ensemble(student_model, round_num)
