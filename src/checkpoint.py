@@ -22,8 +22,6 @@ from torch.distributed.checkpoint.state_dict import (
 from torch.distributed.checkpoint import save as dcp_save, load as dcp_load
 from torch.distributed.checkpoint import FileSystemWriter, FileSystemReader
 
-# --------------- Helper Functions ---------------
-
 MODEL_CHECKPOINT = "model_state_dict.pt"
 OPTIM_CHECKPOINT = "optim_state_dict.pt"
 TRAIN_STATE = "training_state.pt"  
@@ -32,33 +30,6 @@ STEP_DIR_RE = re.compile(r"^step_(\d+)_loss_([0-9.]+)$")
 DCP_SD_OPTS = StateDictOptions(full_state_dict=False, cpu_offload=False)
 FULL_SD_OPTS = StateDictOptions(full_state_dict=True, cpu_offload=True)
 
-
-def _fmt_step_dir(step: int, loss: float) -> str:
-    """Format a step directory name."""
-    return f"step_{step:08d}_loss_{loss:.4f}"
-
-
-def _rng_capture() -> Dict[str, Any]:
-    """Capture Random Number Generator states."""
-    out = {"time": time.time()}
-    try:
-        out["python"] = None
-        out["numpy"] = None
-        out["torch"] = torch.get_rng_state()
-        out["torch_cuda"] = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
-    except Exception:
-        pass
-    return out
-
-
-def _rng_restore(rng: Dict[str, Any]) -> None:
-    """Restore Random Number Generator states."""
-    if not rng:
-        return
-    if "torch" in rng and rng["torch"] is not None:
-        torch.set_rng_state(rng["torch"])
-    if "torch_cuda" in rng and rng["torch_cuda"] is not None and torch.cuda.is_available():
-        torch.cuda.set_rng_state_all(rng["torch_cuda"])
 
 class Checkpointer:
     """
@@ -76,41 +47,6 @@ class Checkpointer:
         self.last_training_time = None
         self.last_checkpoint_path = None
         os.makedirs(self.checkpoint_dir, exist_ok=True)
-
-    @staticmethod
-    def index_checkpoints(parent_dir: str) -> dict[int, list[tuple[str,int,float]]]:
-        """
-        Robustly index checkpoints for each round, supporting the nested layout:
-            <parent>/<round>/<step_{N}_loss_{X}>
-        Returns: { round: [(path, step, loss), ... sorted by step] }
-        """
-        index: dict[int, list[tuple[str,int,float]]] = {}
-        if not os.path.isdir(parent_dir):
-            return index
-        for item in os.listdir(parent_dir):
-            round_path = os.path.join(parent_dir, item)
-            try:
-                r = int(item)
-            except ValueError:
-                continue
-            if not os.path.isdir(round_path):
-                continue
-            rows = []
-            for sub in os.listdir(round_path):
-                if not sub.startswith("step_"):
-                    continue
-                try:
-                    # step_12345_loss_0.9876
-                    parts = sub.split("_")
-                    step = int(parts[1])
-                    loss = float(parts[3])
-                    rows.append((os.path.join(round_path, sub), step, loss))
-                except Exception:
-                    pass
-            rows.sort(key=lambda t: t[1])
-            if rows:
-                index[r] = rows
-        return index
 
     def get_resumable_checkpoint(self):
         """Get the latest checkpoint to resume training from."""
@@ -226,7 +162,6 @@ class Checkpointer:
         dist.barrier()
         self.rotate_checkpoints(os.path.join(self.checkpoint_dir, str(round_num)))
 
-    
     def rotate_checkpoints(self, round_dir: str):
         """Keep only the latest max_checkpoints_per_round checkpoints in the round directory."""
         if not os.path.exists(round_dir):
@@ -254,20 +189,6 @@ class Checkpointer:
                 except Exception as e:
                     print(f"Warning: Failed to remove old checkpoint {old_checkpoint_path}: {e}")
 
-    @staticmethod
-    def export_ensemble_member(model: FSDPModule, round: int, output_dir: str):
-        """Gather a FULL state dict (CPU offload) and write a single .pt file for inference/ensemble."""
-        os.makedirs(output_dir, exist_ok=True)
-        # Gather full parameters on CPU (rank0 saves file; others just participate)
-        save_dir = os.path.join(output_dir, f"round_{round}")
-        os.makedirs(save_dir, exist_ok=True)
-        full_sd = get_model_state_dict(model=model, options=FULL_SD_OPTS)
-        if dist.get_rank() == 0:
-            torch.save(full_sd, os.path.join(save_dir, MODEL_CHECKPOINT))
-        dist.barrier()
-        return save_dir
-
-
     def save_rng_states(self):
         """Save random number generator states for reproducible resumption."""
         return {
@@ -278,7 +199,34 @@ class Checkpointer:
         }
 
 
-# TODO: call this function when loading the checkpoint
+    def _fmt_step_dir(step: int, loss: float) -> str:
+        """Format a step directory name."""
+        return f"step_{step:08d}_loss_{loss:.4f}"
+
+
+    def _rng_capture() -> Dict[str, Any]:
+        """Capture Random Number Generator states."""
+        out = {"time": time.time()}
+        try:
+            out["python"] = None
+            out["numpy"] = None
+            out["torch"] = torch.get_rng_state()
+            out["torch_cuda"] = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        except Exception:
+            pass
+        return out
+
+
+    def _rng_restore(rng: Dict[str, Any]) -> None:
+        """Restore Random Number Generator states."""
+        if not rng:
+            return
+        if "torch" in rng and rng["torch"] is not None:
+            torch.set_rng_state(rng["torch"])
+        if "torch_cuda" in rng and rng["torch_cuda"] is not None and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all(rng["torch_cuda"])
+
+    # TODO: call this function when loading the checkpoint
     def restore_rng_states(self, rng_states):
         """Restore random number generator states from checkpoint."""
         if rng_states is None:
