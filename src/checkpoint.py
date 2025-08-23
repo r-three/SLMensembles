@@ -144,7 +144,7 @@ class Checkpointer:
             "round_num": int(round_num),
             "step": int(step),
             "loss": float(current_loss),
-            "rng": _rng_capture(),
+            "rng": save_rng_states(),
         }
 
         if training_state:
@@ -161,6 +161,28 @@ class Checkpointer:
 
         dist.barrier()
         self.rotate_checkpoints(os.path.join(self.checkpoint_dir, str(round_num)))
+    
+    def save_rng_states() -> Dict[str, Any]:
+        """Capture Random Number Generator states."""
+        out = {"time": time.time()}
+        try:
+            out["python"] = None
+            out["numpy"] = None
+            out["torch"] = torch.get_rng_state()
+            out["torch_cuda"] = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        except Exception:
+            pass
+        return out
+
+    def restore_rng_states(self, rng_states):
+        """Restore random number generator states from checkpoint."""
+        if rng_states is None:
+            return
+        if 'torch' in rng_states and rng_states['torch'] is not None:
+            torch.set_rng_state(rng_states['torch'])
+        if 'torch_cuda' in rng_states and rng_states['torch_cuda'] is not None and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all(rng_states['torch_cuda'])
+
 
     def rotate_checkpoints(self, round_dir: str):
         """Keep only the latest max_checkpoints_per_round checkpoints in the round directory."""
@@ -189,38 +211,4 @@ class Checkpointer:
                 except Exception as e:
                     print(f"Warning: Failed to remove old checkpoint {old_checkpoint_path}: {e}")
 
-    def save_rng_states(self):
-        """Save random number generator states for reproducible resumption."""
-        return {
-            'python': None,  # We'll keep this simple for now
-            'numpy': None,   # Add if needed
-            'torch': torch.get_rng_state(),
-            'torch_cuda': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
-        }
-
-
-    def _fmt_step_dir(step: int, loss: float) -> str:
-        """Format a step directory name."""
-        return f"step_{step:08d}_loss_{loss:.4f}"
-
-
-    def _rng_capture() -> Dict[str, Any]:
-        """Capture Random Number Generator states."""
-        out = {"time": time.time()}
-        try:
-            out["python"] = None
-            out["numpy"] = None
-            out["torch"] = torch.get_rng_state()
-            out["torch_cuda"] = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
-        except Exception:
-            pass
-        return out
-
-    def restore_rng_states(self, rng_states):
-        """Restore random number generator states from checkpoint."""
-        if rng_states is None:
-            return
-        if 'torch' in rng_states and rng_states['torch'] is not None:
-            torch.set_rng_state(rng_states['torch'])
-        if 'torch_cuda' in rng_states and rng_states['torch_cuda'] is not None and torch.cuda.is_available():
-            torch.cuda.set_rng_state_all(rng_states['torch_cuda'])
+    
