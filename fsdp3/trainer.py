@@ -130,7 +130,9 @@ class Trainer(ABC):
         valid_total = torch.tensor(0).to(torch.cuda.current_device())
         for _, batch in enumerate(tqdm(eval_dl,
                                   disable=self.rank != 0,
-                                  file=sys.__stdout__,)):
+                                  file=sys.stdout,
+                                  mininterval=1.0,
+                                  ncols=100)):
             with torch.no_grad():
                 batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
                 batch["labels"] = batch["labels"].type(torch.LongTensor)

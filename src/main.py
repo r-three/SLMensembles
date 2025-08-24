@@ -16,7 +16,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   inspect_mixed_precision, inspect_model,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, 
-                  _on_exception, ManifestManager, DistillDataset, get_round_path, cleanup_and_exit, 
+                  ManifestManager, DistillDataset, get_round_path, cleanup_and_exit, 
                   exception_handler)
 from ensemble import ModelEnsemble, EnsembleLoader
 from checkpoint import Checkpointer
@@ -159,7 +159,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         # ----------------------------------
         # Training Loop
         # ----------------------------------
-        for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.__stdout__):
+        for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
             if args.explicit_prefetching:
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
