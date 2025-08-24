@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 from torch.distributed.fsdp import FSDPModule
+from utils import is_main_process
 
 import torch
 import torch.distributed as dist

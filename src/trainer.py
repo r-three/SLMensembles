@@ -175,9 +175,10 @@ class Trainer(ABC):
             self.wandb_run.log(log_dict, step=self.tr_step)
         
         if self.tr_step % config.ckpt_save_steps == 0 and is_main_process(): self.save_checkpoint()
-        dist.barrier()
+        if self.tr_step % 10 == 0: torch.cuda.empty_cache()
         
         self.tr_step += 1
+        dist.barrier()
         return train_loss, test_loss
     
     def train_step(self, batch, epoch):
@@ -326,6 +327,11 @@ class Trainer(ABC):
             self.should_stop = True
         
         self.model.train()
+        
+        # Cleanup evaluation tensors
+        del eval_loss, nxt_token_loss, kl_loss, valid_total
+        torch.cuda.empty_cache()
+        
         return mean_eval_loss
 
     def save_checkpoint(self):
@@ -446,19 +452,34 @@ class DistillTrainer(Trainer):
         # -----------------------
         # Compute KL Loss
         # -----------------------
-
-         
-
+        
         # sum(len(inputs['logprob_indices'][i])) = mask.sum()
         student_probs = F.log_softmax(student_logits / config.kl_temperature, dim=-1)
         student_masked_probs = student_probs[mask]        # [valid_count, vocab_size]
         
-        teacher_logprob_values = torch.cat([torch.tensor(inputs['logprob_values'][i]) for i in range(len(inputs['logprob_values']))], dim=0).to(student_logits.device)
-        teacher_logprob_indices = torch.cat([torch.tensor(inputs['logprob_indices'][i]) for i in range(len(inputs['logprob_indices']))], dim=0).to(torch.int64).to(student_logits.device, dtype=torch.int64)
+        # Pre-allocate tensors to avoid repeated tensor creation
+        device = student_logits.device
+        
+        # Batch tensor creation - much more efficient than looping
+        # Flatten all values and indices into single lists, then create tensors once
+        all_values = []
+        all_indices = []
+        
+        for batch_values, batch_indices in zip(inputs['logprob_values'], inputs['logprob_indices']):
+            all_values.extend(batch_values)
+            all_indices.extend(batch_indices)
+        
+        # Single tensor creation instead of multiple + concatenation
+        teacher_logprob_values = torch.tensor(all_values, device=device, dtype=torch.float32)
+        teacher_logprob_indices = torch.tensor(all_indices, device=device, dtype=torch.int64)
         
         student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
-        
         kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum()
+        
+        # Explicit cleanup of intermediate tensors
+        del all_values, all_indices
+        del teacher_logprob_values, teacher_logprob_indices
+        del student_selected_probs, student_masked_probs
         
         return kl_loss
 

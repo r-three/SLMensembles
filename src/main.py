@@ -16,7 +16,8 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   inspect_mixed_precision, inspect_model,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, 
-                  _on_exception, ManifestManager, DistillDataset, get_round_path)
+                  _on_exception, ManifestManager, DistillDataset, get_round_path, cleanup_and_exit, 
+                  exception_handler)
 from ensemble import ModelEnsemble, EnsembleLoader
 from checkpoint import Checkpointer
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -155,8 +156,6 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
 
         train_dl_iterator = iter(train_dataloader)
 
-         
-
         # ----------------------------------
         # Training Loop
         # ----------------------------------
@@ -178,6 +177,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     del trainer
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+        torch.cuda.synchronize()
 
     # ---------------------------------------
     # Update wandb run name and log metrics
@@ -268,7 +268,8 @@ def main(args):
     # Exception Handling
     # ----------------------------------
     default_excepthook = sys.excepthook
-    sys.excepthook = _on_exception
+    sys.excepthook = exception_handler
+    atexit.register(cleanup_and_exit)
 
     # ----------------------------------
     # Run Configuration 

@@ -100,18 +100,24 @@ def slurm_term_handler(signum, frame, trainer):
     finally:
         os._exit(0)
 
-def _on_exception(exc_type, exc_value, exc_traceback):
-    """Exception hook to handle unexpected errors gracefully."""
-    if _exit_once.is_set():
-        return
-    _exit_once.set()
+def cleanup_and_exit():
+    """Cleanup function to ensure proper resource cleanup on exit/error"""
+    try:
+        if torch.distributed.is_initialized():
+            torch.distributed.destroy_process_group()
+    except Exception as e:
+        main_print(f"Warning: Error during cleanup: {e}")
+    finally:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+def exception_handler(exc_type, exc_value, exc_traceback):
+    """Custom exception handler that ensures cleanup"""
+    main_print(f"Exception occurred: {exc_type.__name__}: {exc_value}")
+    cleanup_and_exit()
+    # Call original exception handler
+    default_excepthook(exc_type, exc_value, exc_traceback)
     
-    # Call the default exception hook first
-    sys.__excepthook__(exc_type, exc_value, exc_traceback)
-    
-    # Clean exit
-    main_print("Exception occurred, exiting...")
-    os._exit(1)
 
 def init_wandb_run():
     try:
@@ -673,7 +679,7 @@ class DistillDataset:
             batch["input_ids"] = torch.tensor(batch["input_ids"])
             batch["attention_mask"] = torch.tensor(batch["attention_mask"]) 
             batch["labels"] = torch.tensor(batch["labels"])
-            
+
             return batch
         
         dataset = dataset.map(convert_to_tensors, batched=False)
