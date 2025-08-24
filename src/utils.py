@@ -88,8 +88,10 @@ def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
 
 # Global event for SLURM signal handling
 _exit_once = threading.Event()
+_cleanup_once = threading.Event()
 
 def slurm_term_handler(signum, frame, trainer):
+    """Handle SLURM termination signals."""
     if _exit_once.is_set():
         return
     _exit_once.set()
@@ -100,16 +102,45 @@ def slurm_term_handler(signum, frame, trainer):
     finally:
         os._exit(0)
 
+def setup_exception_handling():
+    """Set up custom exception handling and cleanup on exit."""
+    # Store the original excepthook
+    default_excepthook = sys.excepthook
+    
+    # Register cleanup function
+    atexit.register(cleanup_and_exit)
+    
+    # Set our custom exception handler
+    def exception_handler(exc_type, exc_value, exc_traceback):
+        """Custom exception handler that ensures cleanup"""
+        if exc_type is not None:
+            main_print(f"Unhandled exception: {exc_value}")
+            cleanup_and_exit()
+            default_excepthook(exc_type, exc_value, exc_traceback)
+            sys.exit(1)
+    
+    sys.excepthook = exception_handler
+
 def cleanup_and_exit():
-    """Cleanup function to ensure proper resource cleanup on exit/error"""
+    # Cleanup function to ensure proper resource cleanup on exit/error
+    if _cleanup_once.is_set():
+        return
+    _cleanup_once.set()
+    
     try:
-        if torch.distributed.is_initialized():
-            torch.distributed.destroy_process_group()
+        if is_main_process():
+            main_print("\n--> Cleaning up resources...")
+            # Add any additional cleanup here
+            if 'WANDB_RUN_ID' in os.environ:
+                import wandb
+                if wandb.run is not None:
+                    wandb.finish()
+        if dist.is_initialized():
+            dist.destroy_process_group()
     except Exception as e:
-        main_print(f"Warning: Error during cleanup: {e}")
+        main_print(f"Error during cleanup: {e}")
     finally:
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        os._exit(1)
 
 def exception_handler(exc_type, exc_value, exc_traceback):
     """Custom exception handler that ensures cleanup"""
@@ -627,8 +658,9 @@ def prepare_dataset(train_ds, eval_ds):
         sampler=train_sampler,
         shuffle=False,
         collate_fn=_default_collate_fn,
-        num_workers=8,
-        persistent_workers=False
+        num_workers=0,
+        persistent_workers=False,
+        pin_memory=True
     )
     eval_dataloader = DataLoader(
         eval_ds,
@@ -636,10 +668,12 @@ def prepare_dataset(train_ds, eval_ds):
         sampler=test_sampler,
         shuffle=False,
         collate_fn=_default_collate_fn,
-        num_workers=8,
-        persistent_workers=False
+        num_workers=0,
+        persistent_workers=False,
+        pin_memory=True
     )
-    
+
+    dist.barrier()
     return train_dataloader, eval_dataloader
     
 class DistillDataset:

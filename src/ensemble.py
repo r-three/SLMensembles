@@ -151,7 +151,7 @@ class EnsembleLoader:
     
     def save_model_for_ensemble(self, model, round_num: int):
         """Save a trained model."""
-        round_dir = os.path.join(self.output_path, f"round_{round_num}")
+        round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
         hf_dir = os.path.join(round_dir, "hugging_face")
         os.makedirs(round_dir)
         

@@ -154,7 +154,7 @@ class Trainer(ABC):
         test_loss = None
         if self.tr_step % config.logging_steps == 0:
             test_loss = self.eval_step(eval_dl, epoch)
-        
+
         if self.wandb_run is not None and is_main_process():
             log_dict = {
                 "train/loss": train_loss,
@@ -174,7 +174,7 @@ class Trainer(ABC):
             
             self.wandb_run.log(log_dict, step=self.tr_step)
         
-        if self.tr_step % config.ckpt_save_steps == 0 and is_main_process(): self.save_checkpoint()
+        if self.tr_step % config.ckpt_save_steps == 0 and is_main_process(): self.save_checkpoint(test_loss)
         if self.tr_step % 10 == 0: torch.cuda.empty_cache()
         
         self.tr_step += 1
@@ -321,10 +321,11 @@ class Trainer(ABC):
         # -------- Early stopping --------
         if self.best_loss - mean_eval_loss < config.early_stop_min_delta:
             self.best_loss = mean_eval_loss
-            self.wait = 0
+            # self.wait = 0
+            self.wait += 1 # TODO: remove this
         else:
             self.wait += 1
-        if self.wait >= config.early_stop_patience:
+        if self.wait >= config.early_stop_patience + 1:
             main_print(f"Early stopping triggered: no improvement for {self.wait} evaluations.")
             self.should_stop = True
         
@@ -336,12 +337,11 @@ class Trainer(ABC):
         
         return mean_eval_loss
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, loss: float):
         """Save model+optim via DCP and rotate per-round."""
 
         round_num = int(getattr(self, "round_num", 0))
         step = int(getattr(self, "global_step", getattr(self, "tr_step", 0)))
-        loss = float(getattr(self, "eval_loss", getattr(self, "train_loss", float("inf"))))
 
         training_state = {
             "epoch": getattr(self, "epoch", 0),

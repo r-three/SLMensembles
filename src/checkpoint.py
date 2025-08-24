@@ -135,7 +135,7 @@ class Checkpointer:
 
     def save(self, model: FSDPModule, optim: torch.optim.Optimizer, round_num: int, step: int, current_loss: float, training_state=None, lr_scheduler=None):
         """Save checkpoint with standardized round-based directory structure and rotation."""
-        ckpt_dir = os.path.join(self.checkpoint_dir, str(round_num), f"step_{step}_loss_{current_loss:.4f}")
+        ckpt_dir = os.path.join(self.checkpoint_dir, str(round_num), f"step_{step}_loss_{str(current_loss)}")
         os.makedirs(ckpt_dir, exist_ok=True)
 
         writer = FileSystemWriter(ckpt_dir)

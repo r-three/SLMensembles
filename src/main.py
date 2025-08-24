@@ -165,6 +165,9 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
             batch = next(train_dl_iterator)
             trainer.step(batch, eval_dataloader, epoch_num)
 
+            # TODO: remove this
+            if trainer.should_stop == True: break
+
         dist.barrier()
 
     # ----------------------------------
@@ -267,9 +270,8 @@ def main(args):
     # ----------------------------------
     # Exception Handling
     # ----------------------------------
-    default_excepthook = sys.excepthook
-    sys.excepthook = exception_handler
-    atexit.register(cleanup_and_exit)
+    from utils import setup_exception_handling
+    setup_exception_handling()
 
     # ----------------------------------
     # Run Configuration 
