@@ -21,3 +21,4 @@ teacher_logits2/
 results.csv
 wandb/
 notes.txt
+src/og_config.py
