@@ -447,6 +447,7 @@ def main(args):
     # Final summary
     total_time = time.time() - float(overall_start_time)
     if is_main_process():
+        manifest.finalize(success=True, wall_time_sec=total_time)
         main_print("\n" + "="*60)
         main_print("TRAINING COMPLETED SUCCESSFULLY")
         main_print("="*60)
@@ -454,13 +455,10 @@ def main(args):
         main_print(f"Output directory: {output_path}")
         main_print(f"Total training time: {format_time_elapsed(total_time)}")
         main_print(f"Final manifest status: {manifest.get('status', default='UNKNOWN')}")
-        
-        # Update manifest with final status
-        manifest.finalize(success=True, wall_time_sec=total_time)
         main_print("="*60)
     
     # Destroy process group
-    torch.distributed.destroy_process_group()
+    dist.destroy_process_group()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")

@@ -56,10 +56,13 @@ def check_batch_shape(train_dataloader):
     for key, value in batch.items():
         if isinstance(value, torch.Tensor):
             print(f"  {key}: {value.shape}")
-        elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], torch.Tensor):
-            print(f"  {key}: {[v.shape for v in value[:3]]}...")  # Show first 3 shapes
+        elif isinstance(value, list):
+            if len(value) > 0 and isinstance(value[0], torch.Tensor):
+                print(f"  {key}: list of {len(value)} tensors, first shape: {value[0].shape}")
+            else:
+                print(f"  {key}: list of {len(value)} items, type: {type(value[0]) if value else 'empty'}")
         else:
-            print(f"  {key}: {type(value)}")
+            print(f"  {key}: {type(value)}, value: {value if not isinstance(value, (list, dict)) else f'{type(value)} with {len(value)} items'}")
 
 
 def set_modules_to_forward_prefetch(model, num_to_forward_prefetch):
