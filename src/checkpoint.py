@@ -138,12 +138,21 @@ class Checkpointer:
         ckpt_dir = os.path.join(self.checkpoint_dir, str(round_num), f"step_{step}_loss_{str(current_loss)}")
         os.makedirs(ckpt_dir, exist_ok=True)
 
-        writer = FileSystemWriter(ckpt_dir)
-        state = {
-            "model": get_model_state_dict(model=model, options=DCP_SD_OPTS),
-            "optim": get_optimizer_state_dict(model=model, optimizers=optim, options=DCP_SD_OPTS),
-        }
-        dcp_save(state, storage_writer=writer)
+        try:
+            writer = FileSystemWriter(ckpt_dir)
+            state = {
+                "model": get_model_state_dict(model=model, options=DCP_SD_OPTS),
+                "optim": get_optimizer_state_dict(model=model, optimizers=optim, options=DCP_SD_OPTS),
+            }
+            dcp_save(state, storage_writer=writer)
+        except Exception as e:
+            print(f"Warning: DCP save failed: {e}. Falling back to simple torch.save...")
+            # Fallback to simple torch.save for testing
+            if is_main_process():
+                torch.save({
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optim.state_dict(),
+                }, os.path.join(ckpt_dir, "checkpoint.pt"))
 
         meta = {
             "round_num": int(round_num),
@@ -158,7 +167,7 @@ class Checkpointer:
         if lr_scheduler:
                 meta["lr_scheduler_state"] = lr_scheduler.state_dict()
 
-        if is_main_process() == 0:
+        if is_main_process():
             torch.save(meta, os.path.join(ckpt_dir, TRAIN_STATE))
 
         self.last_checkpoint_path = ckpt_dir
