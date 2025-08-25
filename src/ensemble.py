@@ -162,17 +162,21 @@ class EnsembleLoader:
         hf_dir = os.path.join(round_dir, "hugging_face")
         os.makedirs(round_dir)
         
-        full_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
+        full_model_state_dict = None
+        try: 
+            safe_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=False)
+            full_model_state_dict = get_model_state_dict(model=model, options=safe_state_dict_opts)
+        except Exception as e:
+            print(f"Warning: FSDP state dict failed: {e}. Using model.state_dict() fallback...")
+            try:
+                full_model_state_dict = model.state_dict()
+            except Exception as e2:
+                print(f"Warning: model.state_dict() also failed: {e2}. Skipping manual state dict save...")
+                full_model_state_dict = None
         
-        try: # For FSDP models
-            full_model_state_dict = get_model_state_dict(model=model, options=full_state_dict_opts)
-        except: # Fallback for non-FSDP models
-            full_model_state_dict = model.state_dict()
-        
-        if is_main_process():
+        if is_main_process() and full_model_state_dict is not None:
             torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
 
-             # Try to save as HuggingFace
             if hasattr(model, 'save_pretrained'):
                 model.save_pretrained(hf_dir)
             elif hasattr(model, 'module') and hasattr(model.module, 'save_pretrained'):
