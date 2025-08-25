@@ -31,7 +31,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         modules = []
         for path in model_paths:
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
-            state_dict = torch.load(path / "model_state_dict.pt", weights_only=True, map_location='cpu')
+            state_dict = torch.load(os.path.join(path, "model_state_dict.pt"), weights_only=True, map_location='cpu')
             model.load_state_dict(state_dict)
             model.eval()
             model.requires_grad_(False)
@@ -160,8 +160,6 @@ class EnsembleLoader:
         """Save a trained model."""
         round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
         os.makedirs(round_dir)
-        
-        breakpoint()
 
         full_model_state_dict = None
         try: 

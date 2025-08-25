@@ -107,8 +107,8 @@ def setup_exception_handling():
     # Store the original excepthook
     default_excepthook = sys.excepthook
     
-    # Register cleanup function
-    atexit.register(cleanup_and_exit)
+    # Register cleanup function for normal exit (don't force error code)
+    atexit.register(cleanup_and_exit, 0)
     
     # Set our custom exception handler
     def exception_handler(exc_type, exc_value, exc_traceback):
@@ -121,12 +121,13 @@ def setup_exception_handling():
     
     sys.excepthook = exception_handler
 
-def cleanup_and_exit():
+def cleanup_and_exit(exit_code=1):
     # Cleanup function to ensure proper resource cleanup on exit/error
     if _cleanup_once.is_set():
         return
     _cleanup_once.set()
     
+    error_occurred = False
     try:
         if is_main_process():
             main_print("\n--> Cleaning up resources...")
@@ -139,8 +140,11 @@ def cleanup_and_exit():
             dist.destroy_process_group()
     except Exception as e:
         main_print(f"Error during cleanup: {e}")
+        error_occurred = True
     finally:
-        os._exit(1)
+        # Only exit if we're called during error handling
+        if exit_code != 0 or error_occurred:
+            os._exit(exit_code)
 
 def exception_handler(exc_type, exc_value, exc_traceback):
     """Custom exception handler that ensures cleanup"""

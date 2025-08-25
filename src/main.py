@@ -425,7 +425,7 @@ def main(args):
         if is_main_process():
             main_print(f"Completed round {round_num}")
             main_print(f"Round metrics: {metrics}")
-
+        
         if ensemble_model is None:
             ensemble_model = ModelEnsemble(
                 [ensemble_dir],
