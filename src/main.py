@@ -171,7 +171,17 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         dist.barrier()
 
     # ----------------------------------
-    # Save model
+    # Collect metrics
+    # ----------------------------------
+    round_metrics = {
+        'round_num': round_num,
+        'final_loss': trainer.current_loss if hasattr(trainer, 'current_loss') else None,
+        'min_eval_loss': trainer.min_eval_loss if hasattr(trainer, 'min_eval_loss') else None,
+        'total_steps': trainer.tr_step if hasattr(trainer, 'tr_step') else None,
+    }
+
+    # ----------------------------------
+    # Save model for ensemble
     # ----------------------------------
     ensemble_dir = ensembleloader.save_model_for_ensemble(student_model, round_num)
     main_print(f"Saved ensemble model at: {ensemble_dir}")
