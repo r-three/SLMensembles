@@ -156,28 +156,16 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
 
         train_dl_iterator = iter(train_dataloader)
 
-        # Get max_train_steps from config or use a default small number for testing
-        # TODO: remove this
-        max_train_steps = getattr(config, "steps_per_round", 10)  # Use steps_per_round as default
-        
         # ----------------------------------
         # Training Loop
         # ----------------------------------
-        # for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
-        #     if args.explicit_prefetching:
-        #         trainer.model.unshard()
-        # TODO: remove this
-        for step_idx in tqdm(range(min(len(train_dataloader), max_train_steps)), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
+        for step_idx in tqdm(range(min(len(train_dataloader))), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
+            if args.explicit_prefetching: # TODO: is this correct? 
+                trainer.model.unshard()
             batch = next(train_dl_iterator)
             trainer.step(batch, eval_dataloader, epoch_num)
             if trainer.should_stop: 
                 main_print("Early stopping triggered")
-                break
-            
-            # Exit after max_train_steps
-            # TODO: remove
-            if step_idx + 1 >= max_train_steps:
-                main_print(f"Reached max training steps ({max_train_steps}) for this epoch")
                 break
 
         dist.barrier()

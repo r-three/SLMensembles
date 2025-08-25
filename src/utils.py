@@ -261,13 +261,18 @@ def build_run_identity():
     git = _git_short()
     fp = _hp_fingerprint()
 
-    run_id = f"{ts}-{git}-{fp}"
-    slug = "-".join([
+    # Create readable hyperparameter string for directory naming
+    hp_string = "-".join([
         _abbr_model(config.student_model_name),
         f"a{config.alpha}",
         f"t{config.kl_temperature}",
-        f"lr{config.learning_rate}"
+        f"lr{str(config.learning_rate).replace('.', 'p').replace('-', 'n')}",
     ])
+    
+    # Use readable hyperparameters instead of cryptic fingerprint
+    run_id = f"{ts}-{git}-{hp_string}"
+    
+    slug = hp_string
     alias = os.environ.get("RUN_ALIAS")
     if alias:
         slug = f"{alias}-{slug}"

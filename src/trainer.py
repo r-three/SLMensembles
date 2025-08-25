@@ -174,10 +174,7 @@ class Trainer(ABC):
             
             self.wandb_run.log(log_dict, step=self.tr_step)
         
-        # if self.tr_step % config.ckpt_save_steps == 0 and self.tr_step > 0 and is_main_process(): self.save_checkpoint(test_loss)
-        # Disable checkpoint saving for testing to avoid storage issues
-        # if self.tr_step % config.ckpt_save_steps == 0 and is_main_process(): self.save_checkpoint(test_loss)
-        # TODO: remove this
+        if self.tr_step % config.ckpt_save_steps == 0 and self.tr_step > 0 and is_main_process(): self.save_checkpoint(test_loss)
         if self.tr_step % 10 == 0: torch.cuda.empty_cache()
         
         self.tr_step += 1
@@ -261,11 +258,6 @@ class Trainer(ABC):
         kl_loss = torch.tensor(0.0).to(torch.cuda.current_device())
         valid_total = torch.tensor(0).to(torch.cuda.current_device())
         
-        # TODO: remove this
-        # Get max_eval_samples from config or use a default small number for testing
-        max_eval_samples = getattr(config, "max_eval_samples", 5)  # Default to 5 samples for testing
-        sample_count = 0
-        
         for _, batch in enumerate(tqdm(eval_dl,
                                   disable=self.rank != 0,
                                   file=sys.stdout,
@@ -289,13 +281,6 @@ class Trainer(ABC):
                 if kl_sum is not None:
                     kl_loss += kl_sum
                 valid_total += valid_cnt
-                
-                # Increment sample counter and check if we should exit early
-                # TODO: remove this
-                sample_count += 1
-                if sample_count >= max_eval_samples:
-                    main_print(f"Early exit from evaluation after {sample_count} samples")
-                    break
         
         # So you don't see eval loss of a few million
         gathered_eval_loss = _gather(eval_loss.reshape(1)).sum().item()
@@ -337,8 +322,7 @@ class Trainer(ABC):
         # -------- Early stopping --------
         if self.best_loss - mean_eval_loss < config.early_stop_min_delta:
             self.best_loss = mean_eval_loss
-            # self.wait = 0
-            self.wait += 1 # TODO: remove this
+            self.wait = 0
         else:
             self.wait += 1
         if self.wait >= config.early_stop_patience + 1:
