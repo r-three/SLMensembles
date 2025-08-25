@@ -56,14 +56,24 @@ def check_batch_shape(train_dataloader):
     for key, value in batch.items():
         if isinstance(value, torch.Tensor):
             print(f"  {key}: {value.shape}")
-        elif isinstance(value, list):
-            if len(value) > 0 and isinstance(value[0], torch.Tensor):
-                print(f"  {key}: list of {len(value)} tensors, first shape: {value[0].shape}")
-            else:
-                print(f"  {key}: list of {len(value)} items, type: {type(value[0]) if value else 'empty'}")
+        elif isinstance(value, list) and len(value) > 0:
+            # Check first few items and their types
+            tensor_shapes = []
+            other_types = []
+            for i, v in enumerate(value[:3]):
+                if isinstance(v, torch.Tensor):
+                    tensor_shapes.append(v.shape)
+                else:
+                    other_types.append(type(v).__name__)
+            
+            if tensor_shapes:
+                print(f"  {key}: tensor shapes {tensor_shapes}")
+            if other_types:
+                print(f"  {key}: also contains {other_types}")
+            if not tensor_shapes and not other_types:
+                print(f"  {key}: list of {len(value)} items, first type: {type(value[0]).__name__}")
         else:
-            print(f"  {key}: {type(value)}, value: {value if not isinstance(value, (list, dict)) else f'{type(value)} with {len(value)} items'}")
-
+            print(f"  {key}: {type(value).__name__}")
 
 def set_modules_to_forward_prefetch(model, num_to_forward_prefetch):
     """Set forward prefetching for model layers."""
@@ -270,7 +280,7 @@ def build_run_identity():
     ])
     
     # Use readable hyperparameters instead of cryptic fingerprint
-    run_id = f"{ts}-{git}-{hp_string}"
+    run_id = f"{config.run_name}-{ts}-{git}-{hp_string}"
     
     slug = hp_string
     alias = os.environ.get("RUN_ALIAS")
