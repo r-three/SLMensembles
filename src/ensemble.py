@@ -159,9 +159,10 @@ class EnsembleLoader:
     def save_model_for_ensemble(self, model, round_num: int):
         """Save a trained model."""
         round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
-        hf_dir = os.path.join(round_dir, "hugging_face")
         os.makedirs(round_dir)
         
+        breakpoint()
+
         full_model_state_dict = None
         try: 
             safe_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=False)
@@ -177,13 +178,14 @@ class EnsembleLoader:
         if is_main_process() and full_model_state_dict is not None:
             torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
 
-            if hasattr(model, 'save_pretrained'):
-                model.save_pretrained(hf_dir)
-            elif hasattr(model, 'module') and hasattr(model.module, 'save_pretrained'):
-                model.module.save_pretrained(hf_dir)
-            else:
-                print(f"Warning: Could not save model in HuggingFace format")
-            
+            # try:
+            #     hf_dir = os.path.join(round_dir, "hugging_face")
+            #     # Unwrap FSDP model before HF save
+            #     unwrapped_model = model.module if hasattr(model, 'module') else model
+            #     unwrapped_model.save_pretrained(hf_dir, safe_serialization=False)  # Disable safetensors
+            # except Exception as e:
+            #     print(f"Warning: HF save failed: {e} (not needed for ensemble)")
+                    
             print(f"Saved ensemble model for round {round_num} at: {round_dir}")
         
         dist.barrier()
