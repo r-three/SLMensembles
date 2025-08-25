@@ -108,12 +108,23 @@ def slurm_term_handler(signum, frame, trainer):
     if _exit_once.is_set():
         return
     _exit_once.set()
-    try:
-        main_print(f"[signal {signum}] Preemption received; saving checkpoint...")
-        trainer.save_checkpoint(None)
-        main_print("Checkpoint saved. Exiting...")
-    finally:
-        os._exit(0)
+
+    main_print(f"[signal {signum}] Preemption received; saving checkpoint...")
+    trainer.save_checkpoint(None)
+    main_print("Checkpoint saved.")
+
+    status_running = os.path.join(output_path, "STATUS.RUNNING")
+    status_done = os.path.join(output_path, "STATUS.DONE")
+    status_failed = os.path.join(output_path, "STATUS.FAILED")
+    
+    # Clean up old status files
+    for status_file in [status_failed, status_running, status_done]:
+        if os.path.exists(status_file):
+            os.remove(status_file)
+
+    open(status_failed, 'a').close()
+
+    os._exit(0)
 
 def setup_exception_handling():
     """Set up custom exception handling and cleanup on exit."""
@@ -644,34 +655,15 @@ class CustomPadCollator:
         return batch_padded
 
 def _default_collate_fn(batch):
-    """Enhanced collate function for mixed-type data."""
-    if not batch:
-        return {}
-        
+    """Simple collate function for pre-padded data."""
     keys = batch[0].keys()
     collated = {}
-    
     for key in keys:
         values = [item[key] for item in batch]
-        
-        # Skip empty values
-        if not values:
-            collated[key] = values
-            continue
-            
-        # Check if ALL values are tensors (not just the first one)
-        all_tensors = all(isinstance(v, torch.Tensor) for v in values if v is not None)
-        
-        if all_tensors and len(values) > 0:
-            try:
-                collated[key] = torch.stack(values)
-            except RuntimeError as e:
-                # If stack fails (e.g., different shapes), keep as list
-                collated[key] = values
+        if isinstance(values[0], torch.Tensor):
+            collated[key] = torch.stack(values)
         else:
-            # Keep non-tensors or mixed types as lists
             collated[key] = values
-    
     return collated
 
 def prepare_dataset(train_ds, eval_ds):

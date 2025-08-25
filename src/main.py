@@ -159,6 +159,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         # ----------------------------------
         # Training Loop
         # ----------------------------------
+        breakpoint()
+
         for step_idx in tqdm(range(min(len(train_dataloader))), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
             if args.explicit_prefetching: # TODO: is this correct? 
                 trainer.model.unshard()
@@ -313,7 +315,7 @@ def main(args):
         start_epoch = epoch + 1
         resume_info = True
     else:
-        checkpointer = Checkpointer(os.path.join(output_path, "checkpoints"))
+        checkpointer = Checkpointer(output_path)
         start_epoch = 0
         resume_info = False
 
