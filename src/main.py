@@ -199,16 +199,6 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         wandb_run.name = f"round_{round_num}_epoch_{epoch_num}"
         wandb_run.log({"epoch": epoch_num, "round": round_num}) 
 
-    # ---------------------------------------
-    # Return round metrics
-    # ---------------------------------------
-    round_metrics = {
-        'round_num': round_num,
-        'final_loss': trainer.current_loss if hasattr(trainer, 'current_loss') else None,
-        'min_eval_loss': trainer.min_eval_loss if hasattr(trainer, 'min_eval_loss') else None,
-        'total_steps': trainer.tr_step if hasattr(trainer, 'tr_step') else None,
-    }
-
     if is_main_process():
         manifest.update({
             f'round_{round_num}_final_loss': round_metrics['final_loss'],
@@ -403,8 +393,6 @@ def main(args):
     for round_num in range(start_round, config.total_rounds):
         ensembleloader.current_ensemble = ensemble_model
 
-         
-
         ensemble_dir, metrics = train_single_round(
             start_round = start_round,
             round_num=round_num,
@@ -444,20 +432,20 @@ def main(args):
         wandb_run.finish()
         main_print("--> Finished wandb run")
         
-        # Final summary
-        total_time = time.time() - overall_start_time
-        if is_main_process():
-            main_print("\n" + "="*60)
-            main_print("TRAINING COMPLETED SUCCESSFULLY")
-            main_print("="*60)
-            main_print(f"Total rounds completed: {config.total_rounds}")
-            main_print(f"Output directory: {output_path}")
-            main_print(f"Total training time: {format_time_elapsed(total_time)}")
-            main_print(f"Final manifest status: {manifest.get('status', default='UNKNOWN')}")
-            
-            # Update manifest with final status
-            manifest.finalize(success=True, wall_time_sec=total_time)
-            main_print("="*60)
+    # Final summary
+    total_time = time.time() - float(overall_start_time)
+    if is_main_process():
+        main_print("\n" + "="*60)
+        main_print("TRAINING COMPLETED SUCCESSFULLY")
+        main_print("="*60)
+        main_print(f"Total rounds completed: {config.total_rounds}")
+        main_print(f"Output directory: {output_path}")
+        main_print(f"Total training time: {format_time_elapsed(total_time)}")
+        main_print(f"Final manifest status: {manifest.get('status', default='UNKNOWN')}")
+        
+        # Update manifest with final status
+        manifest.finalize(success=True, wall_time_sec=total_time)
+        main_print("="*60)
     
     # Destroy process group
     torch.distributed.destroy_process_group()

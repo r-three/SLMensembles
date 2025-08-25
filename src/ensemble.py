@@ -62,7 +62,14 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         model = AutoModelForCausalLM.from_pretrained(self.model_type, torch_dtype=self.torch_dtype)
         model_path = Path(model_dir) / "model_state_dict.pt"
         if model_path.exists():
-            model.load_state_dict(torch.load(model_path, weights_only=True))
+            try:
+                # Always load to CPU first to avoid CUDA memory issues
+                state_dict = torch.load(model_path, weights_only=True, map_location='cpu')
+                model.load_state_dict(state_dict)
+            except Exception as e:
+                print(f"Error loading model state dict: {e}")
+                # Fallback to loading from directory
+                model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
         else:
             model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
         
@@ -162,7 +169,7 @@ class EnsembleLoader:
         except: # Fallback for non-FSDP models
             full_model_state_dict = model.state_dict()
         
-        if is_main_process() == 0:
+        if is_main_process():
             torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
 
              # Try to save as HuggingFace
