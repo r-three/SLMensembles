@@ -734,6 +734,7 @@ class DistillDataset:
             }
         return dataset
 
+    def _filter_by_ids(self):
 
 
     def _get_teacher_logprobs(self):
@@ -810,7 +811,7 @@ class DistillDataset:
             save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_rank{rank}")
             os.makedirs(save_dir, exist_ok=True)
 
-            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": []}
+            save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": [], "id": []}
             chunk_id = 0
 
             batch_size = 32  # tune this to your GPU
@@ -818,6 +819,7 @@ class DistillDataset:
                 "input_ids": [],
                 "attention_mask": [],
                 "labels": [],
+                "id": [],
             }
 
             with torch.no_grad():
@@ -826,6 +828,7 @@ class DistillDataset:
                     batch_data["input_ids"].append(sample["input_ids"])
                     batch_data["attention_mask"].append(sample["attention_mask"])
                     batch_data["labels"].append(sample["labels"])
+                    batch_data["id"].append(sample["id"])
                     
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
                         input_ids = torch.stack(batch_data["input_ids"]).to(f"cuda:{rank}")
@@ -863,7 +866,7 @@ class DistillDataset:
                                 end = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0]
                                 end_idx = end[0].item() if len(end) != 0 else len(batch_data['input_ids'][b]) - 1
                                 
-                                save_ds["id"].append(start_idx)
+                                save_ds["id"].append(batch_data["id"][b])
                                 save_ds["input_ids"].append(batch_data["input_ids"][b][:end_idx].tolist())
                                 save_ds["attention_mask"].append(batch_data["attention_mask"][b][:end_idx].tolist())
                                 save_ds["labels"].append(batch_data["labels"][b][:end_idx].tolist())
@@ -872,7 +875,7 @@ class DistillDataset:
                                 save_ds["start_idx"].append(start_idx)
                                 save_ds["end_idx"].append(end_idx)
 
-                        batch_data = {"input_ids": [], "attention_mask": [], "labels": []}
+                        batch_data = {"input_ids": [], "attention_mask": [], "labels": [], "id": []}
 
                         if (idx + 1) % 3200 < batch_size or idx == len(shard) - 1:
                             main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
@@ -890,6 +893,7 @@ class DistillDataset:
                                 "logprob_indices": [],
                                 "start_idx": [],
                                 "end_idx": [],
+                                "id": [],
                             }
                             chunk_id += 1
 
