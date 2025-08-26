@@ -734,11 +734,11 @@ class DistillDataset:
             }
         return dataset
 
-    def _filter_by_ids(self):
+    def filter_by_ids(self):
         """Subset a dataset cluster for C-BTM method"""
 
         def subsample_ids(sample):
-            """Check if the example contains the complete assistant response template."""
+            """Filter examples by ids in the cluster"""
             response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
 
             for start_idx in range(len(sample["input_ids"]) - len(response_template_ids) + 1):
@@ -752,6 +752,7 @@ class DistillDataset:
             shutil.rmtree(save_path)
         Dataset.from_dict(save_ds).save_to_disk(save_path)
 
+        # convert to DatasetDict? 
         return save_path
 
 
