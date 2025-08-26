@@ -325,7 +325,7 @@ class Trainer(ABC):
             self.wait = 0
         else:
             self.wait += 1
-        if self.wait >= config.early_stop_patience + 1:
+        if self.wait >= config.early_stop_patience:
             main_print(f"Early stopping triggered: no improvement for {self.wait} evaluations.")
             self.should_stop = True
         

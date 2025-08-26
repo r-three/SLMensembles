@@ -714,13 +714,14 @@ class DistillDataset:
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dataset = self.get_dataset()
 
-    def get_dataset(self):
+    def get_dataset(self, teacher_logprobs=False):
         """Load the base dataset."""
         if config.synthetic_data:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
+        elif teacher_logprobs:
+            dataset = self._get_teacher_logprobs()
         else:
             dataset = datasets.load_from_disk(config.dataset_path)
-
         if config.dataset_type == "single":
             return {
                 "train": dataset["train"].select([0]),
@@ -733,7 +734,7 @@ class DistillDataset:
             }
         return dataset
 
-    def get_teacher_logprobs(self):
+    def _get_teacher_logprobs(self):
         """Load or generate teacher logits dataset."""
         if not os.path.exists(os.path.join(config.logprob_cache_path, "teacher_logprobs")):
             self.cache_teacher_logprobs()

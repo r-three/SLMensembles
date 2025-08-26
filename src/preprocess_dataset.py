@@ -8,8 +8,6 @@ import torch.nn.functional as F
 # ----------------------------------
 # Helper Functions
 # ----------------------------------
-
-
 def create_response_labels(input_ids):
     if not isinstance(input_ids, torch.Tensor):
         input_ids = torch.tensor(input_ids)
@@ -35,7 +33,7 @@ def create_response_labels(input_ids):
 
 # TODO: add the ids column to this script
 # https://huggingface.co/datasets/allenai/tulu-3-sft-mixture
-# subset dataset name from Malikeh's dataset - pass as argument when loading 
+# subset dataset name from the clustered dataset - pass as argument when loading 
 # use the filter functoin that goes over the original dataset and checks if the ids are present in the subset 
 # transplant the ids into the logic cached dataset  (either do before - transplant the ids; but do some checking on the ordering and that ti's consistent
 # # or after, where the subsetting filtering would be run on the logit cached)
@@ -112,14 +110,16 @@ print(f"Test example chat_text (first 300 chars):\n{processed_dataset['test'][0]
 # Tokenize the text
 # --------------------------
 print("\n=== TOKENIZING TEXT ===")
-tokenized_dataset = processed_dataset.map(tokenize_text, remove_columns=["messages", "id", "source"], num_proc=8)
+tokenized_dataset = processed_dataset.map(tokenize_text, remove_columns=["messages", "source"], num_proc=8)
 print(f"Dataset features after tokenization: {tokenized_dataset['train'].features}")
 
 print(f"Train example input_ids shape: {torch.tensor(tokenized_dataset['train'][0]['input_ids']).shape}")
 print(f"Train example attention_mask shape: {torch.tensor(tokenized_dataset['train'][0]['attention_mask']).shape}")
+print(f"Train example id: {tokenized_dataset['train'][0]['id']}")
 
 labeled_dataset = tokenized_dataset.map(add_labels, num_proc=8)
 print(f"Dataset features after adding labels: {labeled_dataset['train'].features}")
+print(f"ID column preserved - example id: {labeled_dataset['train'][0]['id']}")
 
 # -----------------------------------------
 # Filter out samples which were truncated

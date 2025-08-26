@@ -159,9 +159,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         # ----------------------------------
         # Training Loop
         # ----------------------------------
-        breakpoint()
-
-        for step_idx in tqdm(range(min(len(train_dataloader))), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
+        for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
             if args.explicit_prefetching: # TODO: is this correct? 
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
@@ -294,7 +292,7 @@ def main(args):
     # Dataset Loading
     # ----------------------------------
     dataClass = DistillDataset()
-    dataset = dataClass.get_teacher_logprobs()
+    dataset = dataClass.teacher_logprobs()
 
     # ----------------------------------
     # Checkpoint Logic
