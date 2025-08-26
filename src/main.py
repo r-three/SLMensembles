@@ -292,7 +292,7 @@ def main(args):
     # Dataset Loading
     # ----------------------------------
     dataClass = DistillDataset()
-    dataset = dataClass.teacher_logprobs()
+    dataset = dataClass.get_dataset(teacher_logprobs=True)
 
     # ----------------------------------
     # Checkpoint Logic
