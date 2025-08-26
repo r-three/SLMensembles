@@ -137,6 +137,8 @@ print(f"Dataset size after filtering - Train: {len(final_dataset['train'])}, Tes
 print("\n=== SAVING DATASET ===")
 
 save_path = config.dataset_path
+if os.path.exists(save_path):
+    shutil.rmtree(save_path) 
 final_dataset.save_to_disk(save_path)
 print(f"Dataset saved to: {save_path}")
 print("Dataset processing complete!")

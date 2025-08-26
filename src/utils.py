@@ -718,10 +718,12 @@ class DistillDataset:
         """Load the base dataset."""
         if config.synthetic_data:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
+            return dataset
         elif teacher_logprobs:
             dataset = self._get_teacher_logprobs()
         else:
             dataset = datasets.load_from_disk(config.dataset_path)
+
         if config.dataset_type == "single":
             return {
                 "train": dataset["train"].select([0]),
@@ -732,6 +734,7 @@ class DistillDataset:
                 "train": dataset["train"].select(range(10)),
                 "test": dataset["test"].select(range(10)),
             }
+        
         return dataset
 
     def filter_by_ids(self, dataset, domain):
