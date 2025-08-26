@@ -737,6 +737,8 @@ class DistillDataset:
     def filter_by_ids(self):
         """Subset a dataset cluster for C-BTM method"""
 
+        clustered_dataset = datasets.load_dataset(config.clustered_dataset_name, split="train")
+
         def subsample_ids(sample):
             """Filter examples by ids in the cluster"""
             response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
