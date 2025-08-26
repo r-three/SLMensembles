@@ -735,6 +735,38 @@ class DistillDataset:
         return dataset
 
     def _filter_by_ids(self):
+        """Subset a dataset cluster for C-BTM method"""
+
+        def subsample_ids(sample):
+            """Check if the example contains the complete assistant response template."""
+            response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+
+            for start_idx in range(len(sample["input_ids"]) - len(response_template_ids) + 1):
+                if sample["input_ids"][start_idx : start_idx + len(response_template_ids)].tolist() == response_template_ids:
+                    return True
+            return False
+        subsampled_dataset = labeled_dataset.filter(subsample_ids, num_proc=8)
+
+        save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
+        if os.path.exists(save_path):
+            shutil.rmtree(save_path)
+        Dataset.from_dict(save_ds).save_to_disk(save_path)
+
+        return save_path
+
+
+        
+# TODO: subset the IDs 
+# 1. take tulu 3
+# 2. only keep the examples that match the ids in the clustered dataset (from Malikeh's dataset - filter the ids)
+
+# TODO: add the ids column to this script
+# https://huggingface.co/datasets/allenai/tulu-3-sft-mixture
+# subset dataset name from the clustered dataset - pass as argument when loading 
+# use the filter functoin that goes over the original dataset and checks if the ids are present in the subset 
+# transplant the ids into the logic cached dataset  (either do before - transplant the ids; but do some checking on the ordering and that ti's consistent
+# # or after, where the subsetting filtering would be run on the logit cached)
+
 
 
     def _get_teacher_logprobs(self):
@@ -770,16 +802,16 @@ class DistillDataset:
 
     def build_teacher_logprobs_dataset(self):
         """Build the final teacher logprobs dataset from chunks."""
-        dict = {}
+        data_dict = {}
 
         for split in ["train", "test"]:
             split_dirs = sorted(
                 [d for d in glob.glob(os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_*")) if os.path.isdir(d)]
             )
             split_ds = self.concatenate_logprobs_chunks(split_dirs)
-            dict[split] = split_ds
+            data_dict[split] = split_ds
 
-        dataset = DatasetDict(dict)
+        dataset = DatasetDict(data_dict)
         combined_path = os.path.join(config.logprob_cache_path, "teacher_logprobs")
         dataset.save_to_disk(combined_path)
 

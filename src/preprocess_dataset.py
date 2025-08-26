@@ -27,17 +27,6 @@ def create_response_labels(input_ids):
 
     return labels
 
-# TODO: subset the IDs 
-# 1. take tulu 3
-# 2. only keep the examples that match the ids in the clustered dataset (from Malikeh's dataset - filter the ids)
-
-# TODO: add the ids column to this script
-# https://huggingface.co/datasets/allenai/tulu-3-sft-mixture
-# subset dataset name from the clustered dataset - pass as argument when loading 
-# use the filter functoin that goes over the original dataset and checks if the ids are present in the subset 
-# transplant the ids into the logic cached dataset  (either do before - transplant the ids; but do some checking on the ordering and that ti's consistent
-# # or after, where the subsetting filtering would be run on the logit cached)
-
 def format_chat_data(sample):
     return {"chat_text": tokenizer.apply_chat_template(sample["messages"], tokenize=False)}
 
