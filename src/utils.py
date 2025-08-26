@@ -734,6 +734,8 @@ class DistillDataset:
             }
         return dataset
 
+
+
     def _get_teacher_logprobs(self):
         """Load or generate teacher logits dataset."""
         if not os.path.exists(os.path.join(config.logprob_cache_path, "teacher_logprobs")):
@@ -861,6 +863,7 @@ class DistillDataset:
                                 end = torch.where(batch_data['input_ids'][b] == tokenizer.pad_token_id)[0]
                                 end_idx = end[0].item() if len(end) != 0 else len(batch_data['input_ids'][b]) - 1
                                 
+                                save_ds["id"].append(start_idx)
                                 save_ds["input_ids"].append(batch_data["input_ids"][b][:end_idx].tolist())
                                 save_ds["attention_mask"].append(batch_data["attention_mask"][b][:end_idx].tolist())
                                 save_ds["labels"].append(batch_data["labels"][b][:end_idx].tolist())
