@@ -744,26 +744,11 @@ class DistillDataset:
             return sample["id"] in clustered_ids
 
         subsampled_dataset = dataset.filter(subsample_ids, num_proc=8)
-        
+
         save_path = os.path.join(config.dataset_path, f"clustered/{domain}")
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         subsampled_dataset.save_to_disk(save_path)
         return save_path
-
-
-        
-# TODO: subset the IDs 
-# 1. take tulu 3
-# 2. only keep the examples that match the ids in the clustered dataset (from Malikeh's dataset - filter the ids)
-
-# TODO: add the ids column to this script
-# https://huggingface.co/datasets/allenai/tulu-3-sft-mixture
-# subset dataset name from the clustered dataset - pass as argument when loading 
-# use the filter function that goes over the original dataset and checks if the ids are present in the subset 
-# transplant the ids into the logic cached dataset  (either do before - transplant the ids; but do some checking on the ordering and that it's consistent
-# # or after, where the subsetting filtering would be run on the logit cached)
-
-
 
     def _get_teacher_logprobs(self):
         """Load or generate teacher logits dataset."""
@@ -773,7 +758,6 @@ class DistillDataset:
         main_print("--> Loading Teacher Logits")
         dataset = datasets.load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
         
-        # Apply selective tensor conversion - only convert input_ids, attention_mask, labels to tensors
         def convert_to_tensors(batch):
             batch["input_ids"] = torch.tensor(batch["input_ids"])
             batch["attention_mask"] = torch.tensor(batch["attention_mask"]) 
@@ -877,6 +861,7 @@ class DistillDataset:
                             end = torch.where(batch_data['input_ids'][0] == tokenizer.pad_token_id)[0]
                             end_idx = end[0].item() if len(end) != 0 else len(batch_data['input_ids'][0]) - 1
 
+                            save_ds["id"].append(batch_data["id"][0])
                             save_ds["input_ids"].append(batch_data["input_ids"][0][:end_idx])
                             save_ds["attention_mask"].append(batch_data["attention_mask"][0][:end_idx])
                             save_ds["labels"].append(batch_data["labels"][0][:end_idx])
