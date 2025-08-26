@@ -734,27 +734,20 @@ class DistillDataset:
             }
         return dataset
 
-    def filter_by_ids(self):
+    def filter_by_ids(self, dataset, domain):
         """Subset a dataset cluster for C-BTM method"""
-
-        clustered_dataset = datasets.load_dataset(config.clustered_dataset_name, split="train")
+        clustered_dataset = datasets.load_dataset(config.clustered_dataset_name, domain, split="train")
+        clustered_ids = set(clustered_dataset["id"])
 
         def subsample_ids(sample):
-            """Filter examples by ids in the cluster"""
-            response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+            """Filter to keep only examples that are in the cluster"""
+            return sample["id"] in clustered_ids
 
-            for start_idx in range(len(sample["input_ids"]) - len(response_template_ids) + 1):
-                if sample["input_ids"][start_idx : start_idx + len(response_template_ids)].tolist() == response_template_ids:
-                    return True
-            return False
-        subsampled_dataset = labeled_dataset.filter(subsample_ids, num_proc=8)
-
-        save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
-        if os.path.exists(save_path):
-            shutil.rmtree(save_path)
-        Dataset.from_dict(save_ds).save_to_disk(save_path)
-
-        # convert to DatasetDict? 
+        subsampled_dataset = dataset.filter(subsample_ids, num_proc=8)
+        
+        save_path = os.path.join(config.dataset_path, f"clustered/{domain}")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        subsampled_dataset.save_to_disk(save_path)
         return save_path
 
 
@@ -766,8 +759,8 @@ class DistillDataset:
 # TODO: add the ids column to this script
 # https://huggingface.co/datasets/allenai/tulu-3-sft-mixture
 # subset dataset name from the clustered dataset - pass as argument when loading 
-# use the filter functoin that goes over the original dataset and checks if the ids are present in the subset 
-# transplant the ids into the logic cached dataset  (either do before - transplant the ids; but do some checking on the ordering and that ti's consistent
+# use the filter function that goes over the original dataset and checks if the ids are present in the subset 
+# transplant the ids into the logic cached dataset  (either do before - transplant the ids; but do some checking on the ordering and that it's consistent
 # # or after, where the subsetting filtering would be run on the logit cached)
 
 
