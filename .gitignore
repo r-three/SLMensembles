@@ -22,3 +22,6 @@ results.csv
 wandb/
 notes.txt
 src/og_config.py
+CSV_metrics.csv
+SLM-plotting.py
+check_vocab_sizes.ipynb
