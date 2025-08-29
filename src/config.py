@@ -63,7 +63,7 @@ early_stop_min_delta = 1e-6    # minimum absolute improvement in loss
 
 # ---------------- Training args ----------------------------
 weight_decay = 0.05
-warmup_ratio = 0.1 # "cosine"
+lr_scheduler_type = "cosine"
 warmup_steps = 50
 eval_steps = 40
 logging_steps = 40
@@ -104,6 +104,7 @@ def get_training_args(output_dir):
         report_to="wandb",
         hub_model_id=None,
         learning_rate=learning_rate,
+        lr_scheduler_type=lr_scheduler_type,
         warmup_steps=warmup_steps,
         per_device_train_batch_size=per_device_train_batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
