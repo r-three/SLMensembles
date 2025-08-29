@@ -10,7 +10,6 @@ csv_logs/
 csv_logs_prev/
 models/
 train.sh
-config.py
 DistillKit/
 distillkit_runs/
 tasks-list.txt
