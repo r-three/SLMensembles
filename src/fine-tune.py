@@ -1,32 +1,20 @@
 import os
 import torch
-from datetime import datetime
-import torch.distributed as dist
-from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
-from trl import DataCollatorForCompletionOnlyLM
-from utils import (CSVLogger, prepare_dataset, format_time_elapsed, 
-                  is_main_process, main_print, check_batch_shape, fix_seed,
-                  inspect_mixed_precision, inspect_model,
-                  set_modules_to_forward_prefetch, set_modules_to_backward_prefetch)
-from ensemble import ModelEnsemble
-from checkpoint import Checkpointer, index_checkpoints, best_checkpoint
-from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
-from tqdm.auto import tqdm
-from shard_weight import *
-from utils import fix_seed
-import atexit
+import argparse
 from pathlib import Path
-from datasets import Dataset, DatasetDict
-from utils import DistillDataset, get_round_path
-from checkpoint import Checkpoint
-from transformers import TrainingArguments, Trainer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
+from trl import DataCollatorForCompletionOnlyLM
+from utils import main_print
 import datasets
 import wandb
 import config
-import glob
 
 def main():
-    print("Loading ...")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--resume_from_checkpoint', action='store_true', help='Resume training from checkpoint')
+    parser.add_argument('--checkpoint_dir', type=str, help='Path to checkpoint directory')
+    args = parser.parse_args()
+
     dataset = datasets.load_from_disk(config.dataset_path)
 
     tokenizer = AutoTokenizer.from_pretrained(config.teacher_model_name)
@@ -35,36 +23,18 @@ def main():
 
     teacher_output_dir = os.path.join(config.base_output_dir, "Qwen-7B-fine-tuned")
     checkpoint_dir = os.path.join(teacher_output_dir, "checkpoints")
-    os.makedirs(checkpoint_dir, exist_ok=True, parents=True)
+    Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
     
     start_step = 0
     start_epoch = 0
     
-    if args.resume_from_checkpoint and os.path.exists(args.resume_from_checkpoint):
-        print(f"Resuming from checkpoint: {args.resume_from_checkpoint}")
+    if args.resume_from_checkpoint:        
         teacher_model = AutoModelForCausalLM.from_pretrained(
-            config.teacher_model_name,
+            args.checkpoint_dir,
             torch_dtype=torch.bfloat16,
             device_map="auto",
         )
-        
-        # Load checkpoint state using HuggingFace format for teacher model
-        try:
-            if os.path.isdir(args.resume_from_checkpoint):
-                # HuggingFace checkpoint format
-                print("Loading from HuggingFace checkpoint format")
-                teacher_model = AutoModelForCausalLM.from_pretrained(
-                    args.resume_from_checkpoint,
-                    torch_dtype=torch.bfloat16,
-                    device_map="auto",
-                )
-            else:
-                print("Invalid checkpoint path")
-        except Exception as e:
-            print(f"Failed to load checkpoint: {e}")
-            print("Starting from pretrained model instead")
     else:
-        print("Starting from pretrained model")
         teacher_model = AutoModelForCausalLM.from_pretrained(
             config.teacher_model_name,
             torch_dtype=torch.bfloat16,
@@ -94,7 +64,7 @@ def main():
     main_print(f"--> Initialized wandb run: {wandb_run.name}")
 
     print("Initializing trainer...")
-    resume_from_checkpoint = args.resume_from_checkpoint if args.resume_from_checkpoint else None
+    resume_from_checkpoint = args.checkpoint_dir if args.resume_from_checkpoint and args.checkpoint_dir else False
 
     training_args = TrainingArguments(
         output_dir=checkpoint_dir,
@@ -144,7 +114,7 @@ def main():
         trainer.save_model(os.path.join(checkpoint_dir, "error_checkpoint"))
         raise
 
-    teacher_model.save_pretrained(teacher_output_dir)
+    teacher_model.save_pretrained(os.path.join(teacher_output_dir, "final_model"))
     teacher_model.save_pretrained(teacher_output_dir)
     tokenizer.save_pretrained(teacher_output_dir)
     
