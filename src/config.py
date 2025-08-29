@@ -43,7 +43,9 @@ run_name = "alpha0"
 ddp = False
 steps_per_round = -1
 num_train_epochs = 4
-learning_rate = 1.5e-5 # 5e-5 for constant
+learning_rate = 7.5e-6 # 5e-5 for constant
+# If loss spikes in first 50–200 steps: drop to 5e-6.
+# If loss is stable but barely decreasing: raise to 1.0e-5.
 kl_temperature = 1
 alpha = 0
 
