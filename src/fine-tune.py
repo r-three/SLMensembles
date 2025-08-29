@@ -33,15 +33,10 @@ def main():
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    # Setup output directories with checkpoint structure
     teacher_output_dir = os.path.join(config.base_output_dir, "Qwen-7B-fine-tuned")
     checkpoint_dir = os.path.join(teacher_output_dir, "checkpoints")
-    os.makedirs(checkpoint_dir, exist_ok=True)
+    os.makedirs(checkpoint_dir, exist_ok=True, parents=True)
     
-    # Initialize checkpointer
-    checkpointer = Checkpointer(teacher_output_dir)
-    
-    # Load model (either from checkpoint or pretrained)
     start_step = 0
     start_epoch = 0
     
@@ -120,11 +115,9 @@ def main():
         eval_on_start=False,
         logging_strategy="steps",
         logging_steps=config.logging_steps,
-        # Enable periodic checkpointing
         save_strategy="steps",
-        save_steps=getattr(config, 'ckpt_save_steps', 500),
-        save_total_limit=3,  # Keep only 3 most recent checkpoints
-        resume_from_checkpoint=resume_from_checkpoint,
+        save_steps=config.ckpt_save_steps,
+        save_total_limit=3,
     )
 
     trainer = Trainer(
@@ -143,23 +136,19 @@ def main():
     except KeyboardInterrupt:
         print("\nTraining interrupted by user")
         print("Saving checkpoint before exit...")
-        trainer.save_model(os.path.join(teacher_output_dir, "interrupted_checkpoint"))
+        trainer.save_model(os.path.join(checkpoint_dir, "interrupted_checkpoint"))
         raise
     except Exception as e:
         print(f"\nTraining failed with error: {e}")
         print("Saving checkpoint before exit...")
-        trainer.save_model(os.path.join(teacher_output_dir, "error_checkpoint"))
+        trainer.save_model(os.path.join(checkpoint_dir, "error_checkpoint"))
         raise
 
-    # Save final model
-    final_model_path = os.path.join(teacher_output_dir, "final_model")
-    teacher_model.save_pretrained(final_model_path)
-    tokenizer.save_pretrained(final_model_path)
-    
-    print(f"Final teacher model saved to: {final_model_path}")
-    
-    # Also save in the old format for compatibility
     teacher_model.save_pretrained(teacher_output_dir)
+    teacher_model.save_pretrained(teacher_output_dir)
+    tokenizer.save_pretrained(teacher_output_dir)
+    
+    print(f"Final teacher model saved to: {teacher_output_dir}")
 
     if wandb_run is not None:
         wandb.finish()

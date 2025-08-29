@@ -823,44 +823,10 @@ class DistillDataset:
 
         torch.cuda.set_device(rank)
 
-# World size: 1
-# config.json: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████| 663/663 [00:00<00:00, 2.16MB/s]
-# model.safetensors.index.json: 27.8kB [00:00, 49.4MB/s]
-# model-00001-of-00004.safetensors:  16%|█████████████▎                                                                     | 630M/3.95G [01:17<06:48, 8.11MB/s]
-# Fetching 4 files:   0%|                                                                                                                 | 0/4 [01:18<?, ?it/s]
-# model-00003-of-00004.safetensors:  44%|███████████████████████████████████▉                                              | 1.69G/3.86G [01:19<01:41, 21.4MB/s]
-# model-00002-of-00004.safetensors:  44%|████████████████████████████████████                                              | 1.70G/3.86G [01:21<01:43, 20.9MB/s]
-# model-00004-of-00004.safetensors:  37%|██████████████████████████████▍                                                   | 1.32G/3.56G [01:26<02:25, 15.3MB/s]
-# Traceback (most recent call last): 44%|████████████████████████████████████                                              | 1.70G/3.86G [01:20<01:56, 18.7MB/s]
-#   File "/project/6104653/klambert/SLMensembles/src/utils.py", line 950, in <module>
-#     teacher_logits = dataClass.cache_teacher_logprobs()
-#                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/project/6104653/klambert/SLMensembles/src/utils.py", line 826, in cache_teacher_logprobs
-#     teacher_model = AutoModelForCausalLM.from_pretrained(
-#                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/project/6104653/klambert/SLMensembles/.venv/lib/python3.11/site-packages/transformers/models/auto/auto_factory.py", line 571, in from_pretrained
-#     return model_class.from_pretrained(
-#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/project/6104653/klambert/SLMensembles/.venv/lib/python3.11/site-packages/transformers/modeling_utils.py", line 279, in _wrapper
-#     return func(*args, **kwargs)
-#            ^^^^^^^^^^^^^^^^^^^^^
-#   File "/project/6104653/klambert/SLMensembles/.venv/lib/python3.11/site-packages/transformers/modeling_utils.py", line 4260, in from_pretrained
-#     checkpoint_files, sharded_metadata = _get_resolved_checkpoint_files(
-#                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/project/6104653/klambert/SLMensembles/.venv/lib/python3.11/site-packages/transformers/modeling_utils.py", line 1152, in _get_resolved_checkpoint_files
-#     checkpoint_files, sharded_metadata = get_checkpoint_shard_files(
-#                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/project/6104653/klambert/SLMensembles/.venv/lib/python3.11/site-packages/transformers/utils/hub.py", line 1115, in get_checkpoint_shard_files
-#     cached_filenames = cached_files(
-#                        ^^^^^^^^^^^^^
-#   File "/project/6104653/klambert/SLMensembles/.venv/lib/python3.11/site-packages/transformers/utils/hub.py", line 517, in cached_files
-#     raise EnvironmentError(
-# OSError: Qwen/Qwen2.5-7B-Instruct does not appear to have files named ('model-00001-of-00004.safetensors', 'model-00002-of-00004.safetensors', 'model-00003-of-00004.safetensors', 'model-00004-of-00004.safetensors'). Checkout 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct/tree/main'for available files.
-
-
         teacher_model = AutoModelForCausalLM.from_pretrained(
             config.teacher_model_name,
             torch_dtype=torch.bfloat16,
+            # force_download=True,
         ).to(f"cuda:{rank}")
         teacher_model.resize_token_embeddings(new_num_tokens=config.student_vocab_size)
         teacher_model.requires_grad_(False)
