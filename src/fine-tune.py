@@ -62,7 +62,7 @@ def main():
 
     print("Initializing trainer...")
     training_args = TrainingArguments(
-        output_dir=config.get_directory(config.base_output_dir),
+        output_dir=config.base_output_dir,
         overwrite_output_dir=False,
         per_device_train_batch_size=config.per_device_train_batch_size,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
@@ -95,7 +95,7 @@ def main():
     trainer.train()
     print("Done training")
 
-    teacher_model.save_pretrained(os.path.join(config.get_directory(config.base_output_dir), "fine-tuned-teacher"))
+    teacher_model.save_pretrained(os.path.join(config.base_output_dir, "Qwen-7B-fine-tuned"))
 
     if wandb_run is not None:
         wandb.finish()
