@@ -850,11 +850,11 @@ class DistillDataset:
             }
 
             with torch.no_grad():
-                tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+                tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name)
                 for idx, sample in tqdm(enumerate(shard), total=len(shard)):
-                    batch_data["input_ids"].append(sample["input_ids"])
-                    batch_data["attention_mask"].append(sample["attention_mask"])
-                    batch_data["labels"].append(sample["labels"])
+                    batch_data["input_ids"].append(torch.tensor(sample["input_ids"]))
+                    batch_data["attention_mask"].append(torch.tensor(sample["attention_mask"]))
+                    batch_data["labels"].append(torch.tensor(sample["labels"]))
                     batch_data["id"].append(sample["id"])
                     
                     if len(batch_data["input_ids"]) == batch_size or idx == len(shard) - 1:
