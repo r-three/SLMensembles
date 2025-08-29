@@ -62,6 +62,16 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
             cfg = AutoConfig.from_pretrained(config.student_model_name)
             student_model = Qwen2ForCausalLM(cfg).to('cuda')
         
+        # TODO: tmeporary
+        # Ensure vocab size in config matches model embedding size
+        try:
+            emb_size = student_model.get_input_embeddings().weight.shape[0]
+            if getattr(config, "student_vocab_size", None) is not None and config.student_vocab_size != emb_size:
+                main_print(f"[VocabCheck] student_vocab_size mismatch: config={config.student_vocab_size}, model_emb={emb_size}. Overriding config.student_vocab_size.")
+                config.student_vocab_size = int(emb_size)
+        except Exception as e:
+            main_print(f"[VocabCheck] Warning: failed to verify vocab size due to: {e}")
+
         # ----------------------------------
         # Mixed precision setup
         # ----------------------------------

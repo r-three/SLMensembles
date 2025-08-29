@@ -6,7 +6,7 @@ from transformers import TrainerCallback
 from trl import SFTTrainer
 import config
 from abc import ABC, abstractmethod
-import csv
+import csv 
 import sys
 import torch.distributed as dist
 from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
@@ -471,6 +471,43 @@ class DistillTrainer(Trainer):
         teacher_logprob_values = torch.cat(teacher_values_list, dim=0)
         teacher_logprob_indices = torch.cat(teacher_indices_list, dim=0)
         
+        # ---- Safety checks & alignment ----
+        embedding_size = student_logits.size(-1)
+        # Ensure dtype
+        if teacher_logprob_indices.dtype != torch.long:
+            teacher_logprob_indices = teacher_logprob_indices.long()
+
+        # Align number of rows between student and teacher
+        num_rows_student = student_masked_probs.size(0)
+        num_rows_teacher = teacher_logprob_indices.size(0)
+        if num_rows_student != num_rows_teacher:
+            min_len = min(num_rows_student, num_rows_teacher)
+            if self.rank == 0:
+                main_print(f"[KL] Row mismatch student={num_rows_student}, teacher={num_rows_teacher}. Truncating to {min_len}.")
+            student_masked_probs = student_masked_probs[:min_len]
+            teacher_logprob_indices = teacher_logprob_indices[:min_len]
+            teacher_logprob_values = teacher_logprob_values[:min_len]
+
+        # Range diagnostics and filtering for out-of-range indices
+        if teacher_logprob_indices.numel() == 0 or student_masked_probs.numel() == 0:
+            # Nothing to compute
+            return torch.tensor(0.0, device=device)
+
+        max_idx = int(teacher_logprob_indices.max().item())
+        min_idx = int(teacher_logprob_indices.min().item())
+        if max_idx >= embedding_size or min_idx < 0:
+            if self.rank == 0:
+                main_print(f"[KL] Index out of range: min={min_idx}, max={max_idx}, vocab={embedding_size}. Filtering invalid rows.")
+            valid_row_mask = (teacher_logprob_indices >= 0) & (teacher_logprob_indices < embedding_size)
+            valid_row_mask = valid_row_mask.all(dim=-1)
+            if valid_row_mask.sum().item() == 0:
+                if self.rank == 0:
+                    main_print("[KL] No valid rows remain after filtering; skipping KL for this batch.")
+                return torch.tensor(0.0, device=device)
+            teacher_logprob_indices = teacher_logprob_indices[valid_row_mask]
+            teacher_logprob_values = teacher_logprob_values[valid_row_mask]
+            student_masked_probs = student_masked_probs[valid_row_mask]
+        # ---- Safety Checks End ---- 
         student_selected_probs = student_masked_probs.gather(dim=-1, index=teacher_logprob_indices)
         kl_loss = F.kl_div(student_selected_probs, teacher_logprob_values, log_target=True, reduction="none").sum()
         
