@@ -23,6 +23,7 @@ from transformers import TrainingArguments, Trainer
 import datasets
 import wandb
 import config
+import glob
 
 def main():
     print("Loading ...")
@@ -32,11 +33,48 @@ def main():
     response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    teacher_model = AutoModelForCausalLM.from_pretrained(
-        config.teacher_model_name,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-    )
+    # Setup output directories with checkpoint structure
+    teacher_output_dir = os.path.join(config.base_output_dir, "Qwen-7B-fine-tuned")
+    checkpoint_dir = os.path.join(teacher_output_dir, "checkpoints")
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    
+    # Initialize checkpointer
+    checkpointer = Checkpointer(teacher_output_dir)
+    
+    # Load model (either from checkpoint or pretrained)
+    start_step = 0
+    start_epoch = 0
+    
+    if args.resume_from_checkpoint and os.path.exists(args.resume_from_checkpoint):
+        print(f"Resuming from checkpoint: {args.resume_from_checkpoint}")
+        teacher_model = AutoModelForCausalLM.from_pretrained(
+            config.teacher_model_name,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        
+        # Load checkpoint state using HuggingFace format for teacher model
+        try:
+            if os.path.isdir(args.resume_from_checkpoint):
+                # HuggingFace checkpoint format
+                print("Loading from HuggingFace checkpoint format")
+                teacher_model = AutoModelForCausalLM.from_pretrained(
+                    args.resume_from_checkpoint,
+                    torch_dtype=torch.bfloat16,
+                    device_map="auto",
+                )
+            else:
+                print("Invalid checkpoint path")
+        except Exception as e:
+            print(f"Failed to load checkpoint: {e}")
+            print("Starting from pretrained model instead")
+    else:
+        print("Starting from pretrained model")
+        teacher_model = AutoModelForCausalLM.from_pretrained(
+            config.teacher_model_name,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
 
     wandb_run = wandb.init(
         project="slm-ensembles",
@@ -61,8 +99,10 @@ def main():
     main_print(f"--> Initialized wandb run: {wandb_run.name}")
 
     print("Initializing trainer...")
+    resume_from_checkpoint = args.resume_from_checkpoint if args.resume_from_checkpoint else None
+
     training_args = TrainingArguments(
-        output_dir=config.base_output_dir,
+        output_dir=checkpoint_dir,
         overwrite_output_dir=False,
         per_device_train_batch_size=config.per_device_train_batch_size,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
@@ -80,7 +120,11 @@ def main():
         eval_on_start=False,
         logging_strategy="steps",
         logging_steps=config.logging_steps,
-        save_strategy="no",
+        # Enable periodic checkpointing
+        save_strategy="steps",
+        save_steps=getattr(config, 'ckpt_save_steps', 500),
+        save_total_limit=3,  # Keep only 3 most recent checkpoints
+        resume_from_checkpoint=resume_from_checkpoint,
     )
 
     trainer = Trainer(
@@ -91,11 +135,31 @@ def main():
         tokenizer=tokenizer,
         data_collator=collator,
     )
+    
     print("Training...")
-    trainer.train()
-    print("Done training")
+    try:
+        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        print("Done training")
+    except KeyboardInterrupt:
+        print("\nTraining interrupted by user")
+        print("Saving checkpoint before exit...")
+        trainer.save_model(os.path.join(teacher_output_dir, "interrupted_checkpoint"))
+        raise
+    except Exception as e:
+        print(f"\nTraining failed with error: {e}")
+        print("Saving checkpoint before exit...")
+        trainer.save_model(os.path.join(teacher_output_dir, "error_checkpoint"))
+        raise
 
-    teacher_model.save_pretrained(os.path.join(config.base_output_dir, "Qwen-7B-fine-tuned"))
+    # Save final model
+    final_model_path = os.path.join(teacher_output_dir, "final_model")
+    teacher_model.save_pretrained(final_model_path)
+    tokenizer.save_pretrained(final_model_path)
+    
+    print(f"Final teacher model saved to: {final_model_path}")
+    
+    # Also save in the old format for compatibility
+    teacher_model.save_pretrained(teacher_output_dir)
 
     if wandb_run is not None:
         wandb.finish()
