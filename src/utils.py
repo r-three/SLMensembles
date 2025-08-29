@@ -103,7 +103,7 @@ def set_modules_to_backward_prefetch(model, num_to_backward_prefetch):
 _exit_once = threading.Event()
 _cleanup_once = threading.Event()
 
-def slurm_term_handler(signum, frame, trainer):
+def slurm_term_handler(signum, frame, trainer, output_path=None, manifest=None):
     """Handle SLURM termination signals."""
     if _exit_once.is_set():
         return
@@ -113,16 +113,27 @@ def slurm_term_handler(signum, frame, trainer):
     trainer.save_checkpoint(None)
     main_print("Checkpoint saved.")
 
-    status_running = os.path.join(output_path, "STATUS.RUNNING")
-    status_done = os.path.join(output_path, "STATUS.DONE")
-    status_failed = os.path.join(output_path, "STATUS.FAILED")
-    
-    # Clean up old status files
-    for status_file in [status_failed, status_running, status_done]:
-        if os.path.exists(status_file):
-            os.remove(status_file)
+    # Update manifest status if available
+    if manifest and is_main_process():
+        try:
+            manifest.set_status('FAILED')
+            main_print("Manifest status updated to FAILED.")
+        except Exception as e:
+            main_print(f"Warning: Failed to update manifest: {e}")
 
-    open(status_failed, 'a').close()
+    # Update status files if output_path available
+    if output_path:
+        status_running = os.path.join(output_path, "STATUS.RUNNING")
+        status_done = os.path.join(output_path, "STATUS.DONE")
+        status_failed = os.path.join(output_path, "STATUS.FAILED")
+        
+        # Clean up old status files
+        for status_file in [status_failed, status_running, status_done]:
+            if os.path.exists(status_file):
+                os.remove(status_file)
+
+        open(status_failed, 'a').close()
+        main_print("Status files updated to FAILED.")
 
     os._exit(0)
 
