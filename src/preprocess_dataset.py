@@ -42,10 +42,9 @@ def tokenize_text(sample):
         return_tensors="pt",
     )
 
-    return {
-        "input_ids": tokenized["input_ids"].squeeze(0),
-        "attention_mask": tokenized["attention_mask"].squeeze(0),
-    }
+    sample["input_ids"] = tokenized["input_ids"].squeeze(0)
+    sample["attention_mask"] = tokenized["attention_mask"].squeeze(0)
+    return sample
 
 
 def add_labels(sample):
@@ -117,7 +116,7 @@ print(f"ID column preserved - example id: {labeled_dataset['train'][0]['id']}")
 # -----------------------------------------
 print("\n=== FILTERING EXAMPLES ===")
 
-labeled_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+labeled_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels", "id"])
 num_train_before = len(labeled_dataset["train"])
 train_keep_count = sum(
     1
