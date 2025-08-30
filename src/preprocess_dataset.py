@@ -142,4 +142,14 @@ if os.path.exists(save_path):
     shutil.rmtree(save_path) 
 final_dataset.save_to_disk(save_path)
 print(f"Dataset saved to: {save_path}")
+
+# ------ Save a clean version with only required columns for training ------
+clean_dataset = final_dataset.remove_columns(['chat_text'])  # Keep id for potential future use
+clean_save_path = save_path + "_clean"
+if os.path.exists(clean_save_path):
+    shutil.rmtree(clean_save_path)
+clean_dataset.save_to_disk(clean_save_path)
+print(f"Clean dataset (no chat_text) saved to: {clean_save_path}")
+# ------- End saving code ------------
+
 print("Dataset processing complete!")
