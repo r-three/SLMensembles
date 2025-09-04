@@ -816,7 +816,7 @@ class DistillDataset:
             dist.init_process_group("nccl")
             main_print(f"Using {torch.distributed.get_backend()} backend")
 
-        rank = dist.get_rank() if config.ddp else 0
+        rank = int(os.environ["LOCAL_RANK"]) if config.ddp else 0
         world_size = dist.get_world_size() if config.ddp else 1
         print(f"Rank: {rank}")
         print(f"World size: {world_size}")
