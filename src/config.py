@@ -4,21 +4,22 @@ from datetime import datetime
 import glob
 
 # Model and dataset setup
-seed = 42 # 16, 20, 32, 36, 40 default: 42
-teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
-student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-student_vocab_size = 151936 # 152064
-tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
+seed = 42
+teacher_model_name = "allenai/OLMo-2-1124-7B-SFT"
+student_model_name = "allenai/OLMo-2-0425-1B-SFT"
+student_vocab_size = 100278 # 152064
+tokenizer_name = "allenai/OLMo-2-1124-7B-SFT"
 
 teacher_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 student_device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 teacher_eval = (0.7968094515065487, 2.218451499938965)
 
+
 # ---------------- Output paths -------------
-base_output_dir = "/scratch/klambert/model_log/single_logs"
-logprob_cache_path = "/home/klambert/projects/aip-craffel/klambert/SLMensembles/teacher_logits2"
-dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized"
+base_output_dir = "/scratch/lfy/slm_ensembles/single_logs"
+logprob_cache_path = "/scratch/lfy/slm_ensembles/teacher_logits"
+dataset_path = "/scratch/lfy/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 synthetic_dataset_path = "/scratch/klambert/dataset/synthetic_dataset"
 
 # ---------------- Data --------------------
@@ -39,8 +40,8 @@ domains = {
 }
 
 # ---------------- Run and hyper parameters - to change during every run -----------------
-run_name = "alpha0"
-ddp = False
+run_name = "OLMo2 SFT logit cache"
+ddp = True
 steps_per_round = -1
 num_train_epochs = 4
 learning_rate = 7.5e-6 # 5e-5 for constant
@@ -120,4 +121,3 @@ def get_training_args(output_dir):
         logging_steps=logging_steps,
         save_strategy="no",
     )
-

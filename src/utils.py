@@ -730,8 +730,6 @@ class DistillDataset:
         if config.synthetic_data:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
             return dataset
-        # elif teacher_logprobs:
-        #     dataset = self._get_teacher_logprobs()
         else:
             dataset = datasets.load_from_disk(config.dataset_path)
 
@@ -764,7 +762,7 @@ class DistillDataset:
         subsampled_dataset.save_to_disk(save_path)
         return save_path
 
-    def _get_teacher_logprobs(self):
+    def get_teacher_logprobs(self):
         """Load or generate teacher logits dataset."""
         if not os.path.exists(os.path.join(config.logprob_cache_path, "teacher_logprobs")):
             self.cache_teacher_logprobs()
@@ -841,7 +839,7 @@ class DistillDataset:
             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": [], "id": []}
             chunk_id = 0
 
-            batch_size = 32  # tune this to your GPU
+            batch_size = 6  # tune this to your GPU
             batch_data = {
                 "input_ids": [],
                 "attention_mask": [],
