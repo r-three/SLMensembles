@@ -29,10 +29,10 @@ def main():
     # Load only required columns to save memory
     required_columns = ['input_ids', 'attention_mask', 'labels']
     dataset = dataset.remove_columns([col for col in dataset['train'].column_names if col not in required_columns])
-    teacher_output_dir = os.path.join(config.base_output_dir, "Qwen-7B-fine-tuned")
+    teacher_output_dir = os.path.join(config.base_output_dir, "teacher-model-fine-tuned")
 
     tokenizer = AutoTokenizer.from_pretrained(config.teacher_model_name)
-    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+    response_template_ids = tokenizer("<|assistant|>\n")["input_ids"]
     collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     teacher_model = AutoModelForCausalLM.from_pretrained(

@@ -284,7 +284,15 @@ def _abbr_model(name: str) -> str:
     base = name.split("/")[-1].lower()
     m = re.search(r"(\d+(?:\.\d+)?)\s*b", base)
     size = (m.group(1) + "b") if m else ""
-    family = "qwen" if "qwen" in base else base.split("-")[0]
+    
+    # Detect model family
+    if "qwen" in base:
+        family = "qwen"
+    elif "olmo" in base:
+        family = "olmo"
+    else:
+        family = base.split("-")[0]
+    
     return f"{family}{size.replace('.','p')}"
 
 def build_run_identity():

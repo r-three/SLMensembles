@@ -15,7 +15,7 @@ def create_response_labels(input_ids):
         input_ids = torch.tensor(input_ids)
 
     labels = input_ids.clone()
-    response_ids = tokenizer("<|im_start|>assistant\n")["input_ids"]
+    response_ids = tokenizer("<|assistant|>\n")["input_ids"]
     labels.fill_(-100)
 
     start_pos = -1
@@ -54,7 +54,7 @@ def add_labels(sample):
 
 def contains_complete_response_template(sample):
     """Check if the example contains the complete assistant response template."""
-    response_template_ids = tokenizer("<|im_start|>assistant\n")["input_ids"] # TODO: Change based on the models
+    response_template_ids = tokenizer("<|assistant|>\n")["input_ids"] # TODO: Change based on the models
 
     for start_idx in range(len(sample["input_ids"]) - len(response_template_ids) + 1):
         if sample["input_ids"][start_idx : start_idx + len(response_template_ids)].tolist() == response_template_ids:

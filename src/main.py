@@ -5,7 +5,7 @@ import time
 import torch
 from datetime import datetime
 import torch.distributed as dist
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, Qwen2ForCausalLM, get_cosine_schedule_with_warmup
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, get_cosine_schedule_with_warmup
 from trl import DataCollatorForCompletionOnlyLM
 
 from datasets import load_dataset
@@ -60,7 +60,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         else:
             # Initialize from scratch
             cfg = AutoConfig.from_pretrained(config.student_model_name)
-            student_model = Qwen2ForCausalLM(cfg).to('cuda')
+            student_model = Olmo2ForCausalLM(cfg).to('cuda')
     
         # ----------------------------------
         # Mixed precision setup
