@@ -285,14 +285,18 @@ def main(args):
         wandb_name = None
         slug = None
     else:
-        run_id, slug, wandb_name, wandb_id = build_run_identity()
-        output_path = get_directory(run_id)
+        if torch.distributed.get_rank() == 0:
+            run_id, slug, wandb_name, wandb_id = build_run_identity()
+            output_path = get_directory(run_id)
+        else:
+            run_id, slug, wandb_name, wandb_id = build_run_identity()
+            output_path = os.path.join(config.base_output_dir, run_id)
 
     # ----------------------------------
     # Dataset Loading
     # ----------------------------------
     dataClass = DistillDataset()
-    dataset = dataClass.get_dataset(teacher_logprobs=True)
+    dataset = dataClass.get_dataset()
 
     # ----------------------------------
     # Checkpoint Logic

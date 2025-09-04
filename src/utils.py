@@ -725,15 +725,13 @@ class DistillDataset:
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dataset = self.get_dataset()
 
-    def get_dataset(self, teacher_logprobs=False):
+    def get_dataset(self):
         """Load the base dataset."""
         if config.synthetic_data:
             dataset = datasets.load_from_disk(config.synthetic_dataset_path)
             return dataset
-        # elif teacher_logprobs:
-        #     dataset = self._get_teacher_logprobs()
         else:
-            dataset = datasets.load_from_disk(config.dataset_path)
+            dataset = self._get_teacher_logprobs()
 
         if config.dataset_type == "single":
             return {
@@ -816,7 +814,7 @@ class DistillDataset:
             dist.init_process_group("nccl")
             main_print(f"Using {torch.distributed.get_backend()} backend")
 
-        rank = dist.get_rank() if config.ddp else 0
+        rank = int(os.environ["LOCAL_RANK"]) if config.ddp else 0
         world_size = dist.get_world_size() if config.ddp else 1
         print(f"Rank: {rank}")
         print(f"World size: {world_size}")
@@ -841,7 +839,7 @@ class DistillDataset:
             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": [], "id": []}
             chunk_id = 0
 
-            batch_size = 8  # tune this to your GPU
+            batch_size = 6  # tune this to your GPU
             batch_data = {
                 "input_ids": [],
                 "attention_mask": [],

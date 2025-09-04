@@ -5,10 +5,15 @@ import glob
 
 # Model and dataset setup
 seed = 42 # 16, 20, 32, 36, 40 default: 42
-teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
-student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-student_vocab_size = 151936 # 152064
-tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
+# teacher_model_name = "Qwen/Qwen2.5-7B-Instruct"
+# student_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+# student_vocab_size = 151936 # 152064
+# tokenizer_name = "Qwen/Qwen2.5-0.5B-Instruct"
+
+teacher_model_name = "allenai/OLMo-2-1124-7B-SFT"
+student_model_name = "allenai/OLMo-2-0425-1B-SFT"
+student_vocab_size = 100278 # 152064
+tokenizer_name = "allenai/OLMo-2-1124-7B-SFT"
 
 teacher_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 student_device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -39,8 +44,8 @@ domains = {
 }
 
 # ---------------- Run and hyper parameters - to change during every run -----------------
-run_name = "alpha0"
-ddp = False
+run_name = "OLMo2 SFT"
+ddp = True
 steps_per_round = -1
 num_train_epochs = 4
 learning_rate = 7.5e-6 # 5e-5 for constant
