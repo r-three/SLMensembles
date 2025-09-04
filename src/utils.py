@@ -841,7 +841,7 @@ class DistillDataset:
             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": [], "id": []}
             chunk_id = 0
 
-            batch_size = 32  # tune this to your GPU
+            batch_size = 8  # tune this to your GPU
             batch_data = {
                 "input_ids": [],
                 "attention_mask": [],
