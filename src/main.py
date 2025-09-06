@@ -111,6 +111,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     # Checkpoint Loading (Only First Round)
     # ----------------------------------
+    if not checkpointer:
+        checkpointer = Checkpointer(output_path)
     if round_num == start_round and config.resume_from_checkpoint:
         main_print(f"Loading checkpoint for round {round_num}")
         try:
@@ -311,11 +313,6 @@ def main(args):
     # ----------------------------------
     dataClass = DistillDataset()
     dataset = dataClass.get_dataset()
-
-    # ----------------------------------
-    # Checkpoint Logic
-    # ----------------------------------
-    checkpointer = Checkpointer(output_path)
 
     # ----------------------------------
     # Logging and WandB config
