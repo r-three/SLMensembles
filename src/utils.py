@@ -840,8 +840,8 @@ class DistillDataset:
         main_print("\n--> Generating Teacher Logits")
         for split in ["train", "test"]:
 
-            shard = self.dataset[split].shard(num_shards=world_size, index=rank)
-            save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_rank{rank}")
+            shard = self.dataset[split].shard(num_shards=world_size, index=dist.get_rank())
+            save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_rank{dist.get_rank()}")
             os.makedirs(save_dir, exist_ok=True)
 
             save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "start_idx": [], "end_idx": [], "id": []}
