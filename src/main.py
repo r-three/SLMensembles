@@ -51,20 +51,20 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     # Load and Shard Student Model
     # ----------------------------------
+    if not config.ensemble_random_init:
+        student_model = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name,
+            torch_dtype=torch.bfloat16,
+        ).to('cuda')
+    else:
+        # Initialize from scratch
+        cfg = AutoConfig.from_pretrained(config.student_model_name)
+        student_model = AutoModelForCausalLM.from_config(cfg).to('cuda')
+
+    # ----------------------------------
+    # Mixed precision setup
+    # ----------------------------------
     if not (round_num == start_round and config.resume_from_checkpoint):
-        if not config.ensemble_random_init:
-            student_model = AutoModelForCausalLM.from_pretrained(
-                config.student_model_name,
-                torch_dtype=torch.bfloat16,
-            ).to('cuda')
-        else:
-            # Initialize from scratch
-            cfg = AutoConfig.from_pretrained(config.student_model_name)
-            student_model = Olmo2ForCausalLM(cfg).to('cuda')
-    
-        # ----------------------------------
-        # Mixed precision setup
-        # ----------------------------------
         fsdp_kwargs = {}
         if args.mixed_precision:
             fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
@@ -88,7 +88,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         if args.mixed_precision: inspect_mixed_precision(student_model)
 
     # ----------------------------------
-    # Load or Update Ensemble Models
+    # Load or Update Ensemble Models  
     # ----------------------------------
     if hasattr(ensembleloader, 'current_ensemble'):
         ensemble = ensembleloader.current_ensemble
@@ -102,12 +102,27 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     train_dataloader, _ = prepare_dataset(dataset['train'], dataset['test'])
     num_training_steps = len(train_dataloader) * config.num_train_epochs
     num_warmup_steps = config.warmup_steps
-    if not lr_scheduler:
-        lr_scheduler = get_cosine_schedule_with_warmup(
-            optim,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=num_training_steps
-        )
+    lr_scheduler = get_cosine_schedule_with_warmup(
+        optim,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps
+    )
+
+    # ----------------------------------
+    # Checkpoint Loading (Only First Round)
+    # ----------------------------------
+    if round_num == start_round and config.resume_from_checkpoint:
+        main_print(f"Loading checkpoint for round {round_num}")
+        try:
+            state = checkpointer.load(student_model, optim)
+            if state.get("lr_scheduler_state"): lr_scheduler.load_state_dict(state["lr_scheduler_state"])
+            global_step = int(state.get("global_step", state.get("step", 0)))
+            epoch = int(state.get("epoch", 0))
+            start_epoch = epoch + 1
+            main_print(f"Successfully loaded checkpoint state")
+        except Exception as e:
+            main_print(f"Warning: Could not load checkpoint state: {e}")
+            main_print(f"Continuing with fresh optimizer/scheduler")
 
     # ----------------------------------
     # Initialize trainer
@@ -256,7 +271,6 @@ def main(args):
     # ----------------------------------
     # DDP Setup
     # ----------------------------------
-
     rank = int(os.environ["LOCAL_RANK"])
     device = torch.device(f"cuda:{rank}")
     torch.cuda.set_device(device)
@@ -301,25 +315,7 @@ def main(args):
     # ----------------------------------
     # Checkpoint Logic
     # ----------------------------------
-    if config.resume_from_checkpoint:
-        checkpointer = Checkpointer(output_path) # output path is the path from prev checkpoint
-
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-        ).to('cuda')
-
-        state = checkpointer.load(student_model, optimizer)
-
-        if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
-        global_step = int(state.get("global_step", state.get("step", 0)))
-        epoch = int(state.get("epoch", 0))
-        start_epoch = epoch + 1
-        resume_info = True
-    else:
-        checkpointer = Checkpointer(output_path)
-        start_epoch = 0
-        resume_info = False
+    checkpointer = Checkpointer(output_path)
 
     # ----------------------------------
     # Logging and WandB config
@@ -341,6 +337,7 @@ def main(args):
         manifest = ManifestManager(manifest_path)
         start_round = manifest.get('round', section='train', default=0)
         start_round = start_round + 1 if start_round > 0 else 0
+        start_epoch = 0
     else:
         if is_main_process():
             manifest = create_manifest(output_path, start_time_str=overall_start_datetime, 
@@ -349,6 +346,7 @@ def main(args):
             manifest_path = os.path.join(output_path, "manifest.txt")
             manifest = ManifestManager(manifest_path)
         start_round = 0
+        start_epoch = 0
 
     # ----------------------------------
     # Ensemble Loader
@@ -411,7 +409,7 @@ def main(args):
             checkpointer=checkpointer,
             args=args,
             manifest=manifest,
-            lr_scheduler=lr_scheduler if (round_num == start_round and config.resume_from_checkpoint) else None,
+            lr_scheduler=None,  # Always None - will be created fresh in train_single_round
         )
         
         if is_main_process():
