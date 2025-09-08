@@ -45,7 +45,9 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         wandb_run.name = f"{config.run_name}_round_{round_num}"
         wandb_run.log({"round": round_num})
     
+    # -------------------------------------
     # Update manifest with current round
+    # -------------------------------------
     if is_main_process():
         manifest.update('round', round_num, section='train')
         manifest.set_status('TRAINING')
@@ -53,41 +55,63 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     # Load and Shard Student Model
     # ----------------------------------
-    if not (round_num == start_round and config.resume_from_checkpoint):
-        if not config.ensemble_random_init:
-            student_model = AutoModelForCausalLM.from_pretrained(
-                config.student_model_name,
-                torch_dtype=torch.bfloat16,
-            ).to('cuda')
-        else:
-            # Initialize from scratch
-            cfg = AutoConfig.from_pretrained(config.student_model_name)
-            student_model = Qwen2ForCausalLM(cfg).to('cuda')
-    
-        # ----------------------------------
-        # Mixed precision setup
-        # ----------------------------------
-        fsdp_kwargs = {}
-        if args.mixed_precision:
-            fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
-                param_dtype=torch.bfloat16,  # 16-bit precision for model parameters
-                reduce_dtype=torch.float32,  # 32-bit precision for reduction operations
-            )
-        # TODO: Track the ids for the loss and the loss values, then filter the dataset by ids and the highest loss
-        # ----------------------------------
-        # Shard Model
-        # ----------------------------------
-        for layer in student_model.model.layers:
-            fully_shard(layer, **fsdp_kwargs)
-        fully_shard(student_model, **fsdp_kwargs)
+    if not config.ensemble_random_init:
+        student_model = AutoModelForCausalLM.from_pretrained(
+            config.student_model_name,
+            torch_dtype=torch.bfloat16,
+        ).to('cuda')
+    else:
+        cfg = AutoConfig.from_pretrained(config.student_model_name)
+        student_model = Qwen2ForCausalLM(cfg).to('cuda')
 
-        if args.explicit_prefetching:
-            set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
-            set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
-
-        inspect_model(student_model)
+    # ----------------------------------
+    # Create optimizer
+    # ----------------------------------
+    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)=
     
-        if args.mixed_precision: inspect_mixed_precision(student_model)
+    # ----------------------------------
+    # Checkpoint Loading
+    # ----------------------------------
+    lr_scheduler_loaded = None
+    if round_num == start_round and config.resume_from_checkpoint:
+        main_print(f"Loading checkpoint for round {round_num}")
+        try:
+            state = checkpointer.load(student_model, optim)
+            if state.get("lr_scheduler_state"): 
+                lr_scheduler_loaded = state["lr_scheduler_state"]
+            global_step = int(state.get("global_step", state.get("step", 0))) 
+            epoch = int(state.get("epoch", 0))
+            start_epoch = epoch + 1
+            main_print(f"Successfully loaded checkpoint state")
+        except Exception as e:
+            main_print(f"Warning: Could not load checkpoint state: {e}")
+            main_print(f"Continuing with fresh optimizer/scheduler")
+    
+    # ----------------------------------
+    # Mixed precision setup
+    # ----------------------------------
+    fsdp_kwargs = {}
+    if args.mixed_precision:
+        fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
+            param_dtype=torch.bfloat16,  # 16-bit precision for model parameters
+            reduce_dtype=torch.float32,  # 32-bit precision for reduction operations
+        )
+    # TODO: Track the ids for the loss and the loss values, then filter the dataset by ids and the highest loss
+    
+    # ----------------------------------
+    # Shard Model
+    # ----------------------------------
+    for layer in student_model.model.layers:
+        fully_shard(layer, **fsdp_kwargs)
+    fully_shard(student_model, **fsdp_kwargs)
+
+    if args.explicit_prefetching:
+        set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
+        set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
+
+    inspect_model(student_model)
+
+    if args.mixed_precision: inspect_mixed_precision(student_model)
 
     # ----------------------------------
     # Load or Update Ensemble Models
@@ -98,21 +122,27 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         ensemble = ensembleloader.load_or_update_ensemble(None, device="cuda")
 
     # ----------------------------------
-    # Set Up Optimizer and LR Scheduler
+    # Create LR Scheduler
     # ----------------------------------
-    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
-    train_dataloader, _ = prepare_dataset(dataset['train'], dataset['test'])
+    train_dataloader, _ = prepare_dataset(
+        dataset['train'],
+        dataset['test'],
+    )
+    
     num_training_steps = len(train_dataloader) * config.num_train_epochs
     num_warmup_steps = config.warmup_steps
-    if not lr_scheduler:
-        lr_scheduler = get_cosine_schedule_with_warmup(
-            optim,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=num_training_steps
-        )
-
+    lr_scheduler = get_cosine_schedule_with_warmup(
+        optim,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps
+    )
+    
+    if lr_scheduler_loaded and round_num == start_round and config.resume_from_checkpoint:
+        lr_scheduler.load_state_dict(lr_scheduler_loaded)
+        main_print("Loaded LR scheduler state from checkpoint")
+        
     # ----------------------------------
-    # Initialize trainer
+    # Initialize trainer 
     # ----------------------------------
     trainer = DistillTrainer(
         student_model, 
@@ -133,7 +163,6 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     handler = functools.partial(slurm_term_handler, trainer=trainer, output_path=output_path, manifest=manifest)
     signal.signal(signal.SIGTERM, handler)
     signal.signal(signal.SIGINT, handler)
-    # Needs to exit cleanly and save the very latest model checkpoint
 
     # ----------------------------------
     # Epoch Loop
@@ -145,12 +174,13 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         main_print(f"{'='*50}")
         
         # ----------------------------------
-        # Prepare dataset
+        # Load dataset for this epoch
         # ----------------------------------
         train_dataloader, eval_dataloader = prepare_dataset(
             dataset['train'],
             dataset['test'],
         )
+        
         if hasattr(train_dataloader, "sampler") and hasattr(train_dataloader.sampler, "set_epoch"):
             train_dataloader.sampler.set_epoch(epoch_num)
         if is_main_process():
@@ -300,27 +330,9 @@ def main(args):
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
     # ----------------------------------
-    # Checkpoint Logic
+    # Create Checkpointer Instance
     # ----------------------------------
-    if config.resume_from_checkpoint:
-        checkpointer = Checkpointer(output_path) # output path is the path from prev checkpoint
-
-        student_model = AutoModelForCausalLM.from_pretrained(
-            config.student_model_name,
-            torch_dtype=torch.bfloat16,
-        ).to('cuda')
-
-        state = checkpointer.load(student_model, optimizer)
-
-        if state.get("lr_scheduler_state") and lr_scheduler: lr_scheduler.load_state_dict(state["lr_scheduler_state"])
-        global_step = int(state.get("global_step", state.get("step", 0)))
-        epoch = int(state.get("epoch", 0))
-        start_epoch = epoch + 1
-        resume_info = True
-    else:
-        checkpointer = Checkpointer(output_path)
-        start_epoch = 0
-        resume_info = False
+    checkpointer = Checkpointer(output_path)
 
     # ----------------------------------
     # Logging and WandB config
