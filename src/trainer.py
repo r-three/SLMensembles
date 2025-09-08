@@ -260,12 +260,9 @@ class Trainer(ABC):
                                   mininterval=1.0,
                                   ncols=100)):
             with torch.no_grad():
-                if isinstance(batch["input_ids"], list):
-                    batch["input_ids"] = torch.tensor(batch["input_ids"])
-                if isinstance(batch["attention_mask"], list):
-                    batch["attention_mask"] = torch.tensor(batch["attention_mask"])
-                if isinstance(batch["labels"], list):
-                    batch["labels"] = torch.tensor(batch["labels"])
+                batch["input_ids"] = torch.tensor(batch["input_ids"])
+                batch["attention_mask"] = torch.tensor(batch["attention_mask"])
+                batch["labels"] = torch.tensor(batch["labels"])
                 
                 batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
                 batch["labels"] = batch["labels"].type(torch.LongTensor)

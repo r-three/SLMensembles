@@ -680,6 +680,8 @@ def _default_collate_fn(batch):
 def prepare_dataset(train_ds, eval_ds):
     """Prepare datasets with distributed samplers for FSDP2 training."""
 
+    custom_collator = CustomPadCollator(1024)
+
     train_sampler = DistributedSampler(
         train_ds,
         dist.get_world_size(),
@@ -701,7 +703,7 @@ def prepare_dataset(train_ds, eval_ds):
         batch_size=config.per_device_train_batch_size,
         sampler=train_sampler,
         shuffle=False,
-        collate_fn=_default_collate_fn,
+        collate_fn=custom_collator,
         num_workers=0,
         persistent_workers=False,
         pin_memory=True
@@ -711,7 +713,7 @@ def prepare_dataset(train_ds, eval_ds):
         batch_size=config.eval_batch_size,
         sampler=test_sampler,
         shuffle=False,
-        collate_fn=_default_collate_fn,
+        collate_fn=custom_collator,
         num_workers=0,
         persistent_workers=False,
         pin_memory=True

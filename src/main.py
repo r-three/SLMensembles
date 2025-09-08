@@ -269,7 +269,7 @@ def main(args):
     # ----------------------------------
     # Exception Handling
     # ----------------------------------
-    from utils import setup_exception_handling
+    # from utils import setup_exception_handling
     # setup_exception_handling()
 
     # ----------------------------------
