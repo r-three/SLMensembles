@@ -44,10 +44,10 @@ domains = {
 }
 
 # ---------------- Run and hyper parameters - to change during every run -----------------
-run_name = "OLMo2 SFT"
+run_name = "OLMo2 SFT 7B Teacher"
 ddp = True
 steps_per_round = -1
-num_train_epochs = 4
+num_train_epochs = 1
 learning_rate = 7.5e-6 # 5e-5 for constant
 # If loss spikes in first 50–200 steps: drop to 5e-6.
 # If loss is stable but barely decreasing: raise to 1.0e-5.
@@ -125,4 +125,3 @@ def get_training_args(output_dir):
         logging_steps=logging_steps,
         save_strategy="no",
     )
-

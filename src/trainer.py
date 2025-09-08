@@ -180,9 +180,9 @@ class Trainer(ABC):
     
     def train_step(self, batch, epoch):
         self.model.train()
-        batch["input_ids"] = torch.tensor(batch["input_ids"])
-        batch["attention_mask"] = torch.tensor(batch["attention_mask"])
-        batch["labels"] = torch.tensor(batch["labels"])
+        # batch["input_ids"] = torch.tensor(batch["input_ids"])
+        # batch["attention_mask"] = torch.tensor(batch["attention_mask"])
+        # batch["labels"] = torch.tensor(batch["labels"])
             
         batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
         batch["attention_mask"] = batch["attention_mask"].type(torch.LongTensor)
@@ -259,9 +259,9 @@ class Trainer(ABC):
                                   mininterval=1.0,
                                   ncols=100)):
             with torch.no_grad():
-                batch["input_ids"] = torch.tensor(batch["input_ids"])
-                batch["attention_mask"] = torch.tensor(batch["attention_mask"])
-                batch["labels"] = torch.tensor(batch["labels"])
+                # batch["input_ids"] = batch["input_ids"].clone().detach()
+                # batch["attention_mask"] = batch["attention_mask"].clone().detach()
+                # batch["labels"] = batch["labels"].clone().detach()
                 
                 batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
                 batch["labels"] = batch["labels"].type(torch.LongTensor)

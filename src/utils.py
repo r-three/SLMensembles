@@ -680,7 +680,7 @@ def _default_collate_fn(batch):
 def prepare_dataset(train_ds, eval_ds):
     """Prepare datasets with distributed samplers for FSDP2 training."""
 
-    custom_collator = CustomPadCollator(1024)
+    custom_collator = CustomPadCollator(1024, pad_token_id=100277) # pad_token_id for OLmo2
 
     train_sampler = DistributedSampler(
         train_ds,
