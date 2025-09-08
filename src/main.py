@@ -9,7 +9,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, Qwen2F
 from trl import DataCollatorForCompletionOnlyLM
 
 from datasets import load_dataset
-import config
+from config_loader import get_config_from_args
+
+config = get_config_from_args()
 from trainer import Trainer, DistillTrainer
 from utils import (CSVLogger, prepare_dataset, format_time_elapsed, 
                   is_main_process, main_print, check_batch_shape, fix_seed,
