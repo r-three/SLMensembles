@@ -204,7 +204,6 @@ class Trainer(ABC):
             self.model.set_requires_gradient_sync(True)
         else:
             # next forward / backward pass will be synced
-            # breakpoint()
             self.model.set_requires_gradient_sync(True)
             dist.barrier()
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)

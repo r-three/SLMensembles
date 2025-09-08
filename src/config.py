@@ -52,7 +52,7 @@ learning_rate = 7.5e-6 # 5e-5 for constant
 # If loss spikes in first 50–200 steps: drop to 5e-6.
 # If loss is stable but barely decreasing: raise to 1.0e-5.
 kl_temperature = 1
-alpha = 0
+alpha = 0.5
 
 resume_from_checkpoint = False
 checkpointed_dir = None # <output_path> of the directory which stores the checkpoints from which to resume from 
@@ -60,7 +60,7 @@ checkpointed_dir = None # <output_path> of the directory which stores the checkp
 # Ensembles
 ensemble_random_init = False
 ensemble_path = [] # ["/scratch/klambert/model_log/26-07-2025/run_2_alpha07_hyperparameters/round_0/checkpoint-14000"]  # Full path of ensemble models which we want to load (ex. ~/models/run2/round_1/checkpoint-18000)
-total_rounds = 8 # number of ensemble models (how many are loaded + how many we want trained)
+total_rounds = 1 # number of ensemble models (how many are loaded + how many we want trained)
 
 # ---------------- Early stopping parameters ---------------- 
 early_stop_patience = 20        # number of evaluations with no improvement
@@ -69,7 +69,7 @@ early_stop_min_delta = 1e-6    # minimum absolute improvement in loss
 # ---------------- Training args ----------------------------
 weight_decay = 0.05
 lr_scheduler_type = "cosine"
-warmup_steps = 50
+warmup_steps = 1000
 eval_steps = 40
 logging_steps = 40
 ckpt_save_steps = 500
