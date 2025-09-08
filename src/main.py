@@ -210,7 +210,6 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
 
 
 def main(args):
-
     # ----------------------------------
     # Pipeline
     # ----------------------------------

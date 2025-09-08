@@ -125,7 +125,6 @@ class Trainer(ABC):
 
         Return the valid count (num of valid tokens), which is the ratio between mean and sum for each batch.
         '''
-
         embedding_size = self.model.get_input_embeddings().weight.shape[0]
         labels = batch.pop('labels')
         outputs = self.model(**batch)
@@ -175,20 +174,15 @@ class Trainer(ABC):
             self.wandb_run.log(log_dict, step=self.tr_step)
         
         if self.tr_step % config.ckpt_save_steps == 0 and self.tr_step > 0 and is_main_process(): self.save_checkpoint(test_loss if test_loss is not None else (train_loss if train_loss is not None else 0.0))
-        if self.tr_step % 10 == 0: torch.cuda.empty_cache()
         
         self.tr_step += 1
-        dist.barrier()
         return train_loss, test_loss
     
     def train_step(self, batch, epoch):
         self.model.train()
-        if isinstance(batch["input_ids"], list):
-            batch["input_ids"] = torch.tensor(batch["input_ids"])
-        if isinstance(batch["attention_mask"], list):
-            batch["attention_mask"] = torch.tensor(batch["attention_mask"])
-        if isinstance(batch["labels"], list):
-            batch["labels"] = torch.tensor(batch["labels"])
+        batch["input_ids"] = torch.tensor(batch["input_ids"])
+        batch["attention_mask"] = torch.tensor(batch["attention_mask"])
+        batch["labels"] = torch.tensor(batch["labels"])
             
         batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
         batch["attention_mask"] = batch["attention_mask"].type(torch.LongTensor)
@@ -198,17 +192,19 @@ class Trainer(ABC):
         self.processed_id += 1
 
         grad_norm = None
+        torch.cuda.empty_cache()
         # Compute loss and backpropagate (supporting grad accumulation)
         if (self.tr_step + 1) % self.gas != self.gas - 1:
             # no need to sync while accumulating gradients
+            # if self.tr_step >= 15:
+                # breakpoint()
             self.model.set_requires_gradient_sync(False)  # with (grad = False):
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
             (tr_step_loss / self.gas).backward()
-            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
-            grad_norm = float(grad_norm)
             self.model.set_requires_gradient_sync(True)
         else:
             # next forward / backward pass will be synced
+            # breakpoint()
             self.model.set_requires_gradient_sync(True)
             dist.barrier()
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
@@ -425,10 +421,10 @@ class DistillTrainer(Trainer):
         # Compute Loss
         # -------------------------
         alpha = config.alpha if not config.synthetic_data else 1
-        kl_loss = 0
+        kl_loss = torch.tensor(0.0, device=logits.device)
         if (labels != -100).sum == 0:
             print(labels)
-        if not config.synthetic_data:
+        if not config.synthetic_data and alpha < 0:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
             
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
