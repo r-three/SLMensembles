@@ -192,7 +192,8 @@ class Trainer(ABC):
         self.processed_id += 1
 
         grad_norm = None
-        torch.cuda.empty_cache()
+        if self.tr_step % 100 == 0:
+            torch.cuda.empty_cache()
         # Compute loss and backpropagate (supporting grad accumulation)
         if (self.tr_step + 1) % self.gas != self.gas - 1:
             # no need to sync while accumulating gradients
@@ -288,7 +289,7 @@ class Trainer(ABC):
 
         main_print(f"Step: {self.tr_step}, eval loss: {mean_eval_loss}")
 
-        if is_main_process:
+        if is_main_process():
             if self.logger is not None:
                 self.logger.log(
                     function="eval_step",
@@ -420,7 +421,7 @@ class DistillTrainer(Trainer):
         kl_loss = torch.tensor(0.0, device=logits.device)
         if (labels != -100).sum == 0:
             print(labels)
-        if not config.synthetic_data and alpha < 0:
+        if not config.synthetic_data and alpha > 0:
             kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
             
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
