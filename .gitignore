@@ -26,3 +26,5 @@ SLM-plotting.py
 check_vocab_sizes.ipynb
 compare_dataset_sizes.ipynb
 src/my_config2.py
+configs/*
+scripts/*
