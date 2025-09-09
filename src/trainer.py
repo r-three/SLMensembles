@@ -152,7 +152,9 @@ class Trainer(ABC):
 
         test_loss = None
         if self.tr_step % config.logging_steps == 0:
+            dist.barrier() 
             test_loss = self.eval_step(eval_dl, epoch)
+            dist.barrier() 
 
         if self.wandb_run is not None and is_main_process():
             log_dict = {
@@ -193,7 +195,9 @@ class Trainer(ABC):
 
         grad_norm = None
         if self.tr_step % 100 == 0:
+            dist.barrier() 
             torch.cuda.empty_cache()
+            dist.barrier() 
         # Compute loss and backpropagate (supporting grad accumulation)
         if (self.tr_step + 1) % self.gas != self.gas - 1:
             # no need to sync while accumulating gradients
