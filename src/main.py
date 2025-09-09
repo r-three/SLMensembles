@@ -67,7 +67,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     # Create optimizer
     # ----------------------------------
-    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)=
+    optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
     
     # ----------------------------------
     # Checkpoint Loading
