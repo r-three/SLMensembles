@@ -183,6 +183,10 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         
         if hasattr(train_dataloader, "sampler") and hasattr(train_dataloader.sampler, "set_epoch"):
             train_dataloader.sampler.set_epoch(epoch_num)
+
+        if hasattr(eval_dataloader, "sampler") and hasattr(eval_dataloader.sampler, "set_epoch"):
+            eval_dataloader.sampler.set_epoch(epoch_num)   # <--- add this
+
         if is_main_process():
             check_batch_shape(train_dataloader)
 

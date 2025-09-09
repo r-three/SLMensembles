@@ -688,30 +688,40 @@ def prepare_dataset(train_ds, eval_ds):
         dist.get_rank(),
         shuffle=True,
         seed=config.seed,
+        drop_last=True, 
     )
     test_sampler = DistributedSampler(
         eval_ds,
         dist.get_world_size(),
         dist.get_rank(),
         shuffle=False,
+        drop_last=True, 
+    )
+
+    train_batch_sampler = BatchSampler(
+        train_sampler,
+        batch_size=config.per_device_train_batch_size,
+        drop_last=True,              # <--- guarantees equal batch count per rank
+    )
+    eval_batch_sampler = BatchSampler(
+        eval_sampler,
+        batch_size=config.eval_batch_size,
+        drop_last=True,              # <--- same for eval
     )
 
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    # TODO: verify correctness of collator
     train_dataloader = DataLoader(
         train_ds,
-        batch_size=config.per_device_train_batch_size,
-        sampler=train_sampler,
+        sampler=train_batch_sampler,
         shuffle=False,
         collate_fn=custom_collator,
         num_workers=0,
         persistent_workers=False,
         pin_memory=True
-    )
+    )   
     eval_dataloader = DataLoader(
         eval_ds,
-        batch_size=config.eval_batch_size,
-        sampler=test_sampler,
+        sampler=eval_batch_sampler,
         shuffle=False,
         collate_fn=custom_collator,
         num_workers=0,
