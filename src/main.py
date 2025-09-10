@@ -69,8 +69,6 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
     
-    breakpoint() # test the NCCL error
-
     # ----------------------------------
     # Checkpoint Loading
     # ----------------------------------
@@ -122,9 +120,7 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         ensemble = ensembleloader.current_ensemble
     else:
         ensemble = ensembleloader.load_or_update_ensemble(None, device="cuda")
-
-    breakpoint() # test the NCCL error
-
+    
     # ----------------------------------
     # Create LR Scheduler
     # ----------------------------------
@@ -200,17 +196,12 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
 
         # ----------------------------------
         # Training Loop
-        # ----------------------------------
-        counter = 0
-        breakpoint() 
+        # ---------------------------------- 
         for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
             if args.explicit_prefetching: # TODO: is this correct? 
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
             trainer.step(batch, eval_dataloader, epoch_num)
-            if counter >= 20: # TODO: remove this. 
-                break
-            counter += 1
             if trainer.should_stop: 
                 main_print("Early stopping triggered")
                 break

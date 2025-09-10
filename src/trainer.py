@@ -300,9 +300,9 @@ class Trainer(ABC):
                         loss=batch_loss
                     )
                 # TODO: Use only for quick tests
-                if counter == 10:
-                    break
-                counter += 1
+                # if counter == 10:
+                #     break
+                # counter += 1
         
         # So you don't see eval loss of a few million
         gathered_eval_loss = _gather(eval_loss.reshape(1)).sum().item()

@@ -60,7 +60,7 @@ checkpointed_dir = None # <output_path> of the directory which stores the checkp
 # Ensembles
 ensemble_random_init = False
 ensemble_path = [] # ["/scratch/klambert/model_log/26-07-2025/run_2_alpha07_hyperparameters/round_0/checkpoint-14000"]  # Full path of ensemble models which we want to load (ex. ~/models/run2/round_1/checkpoint-18000)
-total_rounds = 3 # number of ensemble models (how many are loaded + how many we want trained)
+total_rounds = 1 # number of ensemble models (how many are loaded + how many we want trained)
 
 # ---------------- Early stopping parameters ---------------- 
 early_stop_patience = 20        # number of evaluations with no improvement
@@ -70,8 +70,8 @@ early_stop_min_delta = 1e-6    # minimum absolute improvement in loss
 weight_decay = 0.05
 lr_scheduler_type = "cosine"
 warmup_steps = 1000
-eval_steps = 40
-logging_steps = 40
+eval_steps = 10
+logging_steps = 10
 ckpt_save_steps = 500
 save_total_limit = 2
 per_device_train_batch_size = 1
@@ -79,10 +79,6 @@ eval_batch_size = 1
 gradient_accumulation_steps = 16
 max_grad_norm = 1.0
 ignore_index = -100
-
-# ---------------- Quick eval parameters -------------------
-quick_eval_steps = 5          # Run quick eval every N training steps
-quick_eval_batches = 3        # Number of batches to evaluate in quick eval
 
 # ---------------- Logging columns -------------------------- 
 CSV_COLUMNS = [

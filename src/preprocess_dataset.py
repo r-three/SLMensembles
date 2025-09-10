@@ -128,7 +128,6 @@ train_keep_count = sum(
 print(
     f"Estimated percentage of train examples to keep: {train_keep_count/min(1000, num_train_before)*100:.2f}% (based on 1000 samples)"
 )
-breakpoint()
 final_dataset = labeled_dataset.filter(contains_complete_response_template, num_proc=32)
 print(f"Dataset size after filtering - Train: {len(final_dataset['train'])}, Test: {len(final_dataset['test'])}")
 
