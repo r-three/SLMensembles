@@ -698,35 +698,26 @@ def prepare_dataset(train_ds, eval_ds):
         drop_last=True, 
     )
 
-    train_batch_sampler = BatchSampler(
-        train_sampler,
-        batch_size=config.per_device_train_batch_size,
-        drop_last=True,              # <--- guarantees equal batch count per rank
-    )
-    eval_batch_sampler = BatchSampler(
-        test_sampler,
-        batch_size=config.eval_batch_size,
-        drop_last=True,              # <--- same for eval
-    )
-
     tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     train_dataloader = DataLoader(
         train_ds,
-        sampler=train_batch_sampler,
+        batch_size=config.per_device_train_batch_size,
+        sampler=train_sampler,
         shuffle=False,
         collate_fn=custom_collator,
         num_workers=0,
         persistent_workers=False,
-        pin_memory=True
+        drop_last=True
     )   
     eval_dataloader = DataLoader(
         eval_ds,
-        sampler=eval_batch_sampler,
+        batch_size=config.eval_batch_size,
+        sampler=test_sampler,
         shuffle=False,
         collate_fn=custom_collator,
         num_workers=0,
         persistent_workers=False,
-        pin_memory=True
+        drop_last=True  
     )
 
     dist.barrier()

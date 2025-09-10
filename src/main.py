@@ -69,6 +69,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     optim = torch.optim.Adam(student_model.parameters(), lr=config.learning_rate)
     
+    breakpoint() # test the NCCL error
+
     # ----------------------------------
     # Checkpoint Loading
     # ----------------------------------
@@ -86,32 +88,32 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         except Exception as e:
             main_print(f"Warning: Could not load checkpoint state: {e}")
             main_print(f"Continuing with fresh optimizer/scheduler")
-    
-    # ----------------------------------
-    # Mixed precision setup
-    # ----------------------------------
-    fsdp_kwargs = {}
-    if args.mixed_precision:
-        fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
-            param_dtype=torch.bfloat16,  # 16-bit precision for model parameters
-            reduce_dtype=torch.float32,  # 32-bit precision for reduction operations
-        )
-    # TODO: Track the ids for the loss and the loss values, then filter the dataset by ids and the highest loss
-    
-    # ----------------------------------
-    # Shard Model
-    # ----------------------------------
-    for layer in student_model.model.layers:
-        fully_shard(layer, **fsdp_kwargs)
-    fully_shard(student_model, **fsdp_kwargs)
+    else:
+        # ----------------------------------
+        # Mixed precision setup
+        # ----------------------------------
+        fsdp_kwargs = {}
+        if args.mixed_precision:
+            fsdp_kwargs["mp_policy"] = MixedPrecisionPolicy(
+                param_dtype=torch.bfloat16,  # 16-bit precision for model parameters
+                reduce_dtype=torch.float32,  # 32-bit precision for reduction operations
+            )
+        # TODO: Track the ids for the loss and the loss values, then filter the dataset by ids and the highest loss
+        
+        # ----------------------------------
+        # Shard Model
+        # ----------------------------------
+        for layer in student_model.model.layers:
+            fully_shard(layer, **fsdp_kwargs)
+        fully_shard(student_model, **fsdp_kwargs)
 
-    if args.explicit_prefetching:
-        set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
-        set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
+        if args.explicit_prefetching:
+            set_modules_to_forward_prefetch(student_model, num_to_forward_prefetch=2)
+            set_modules_to_backward_prefetch(student_model, num_to_backward_prefetch=2)
 
-    inspect_model(student_model)
+        inspect_model(student_model)
 
-    if args.mixed_precision: inspect_mixed_precision(student_model)
+        if args.mixed_precision: inspect_mixed_precision(student_model)
 
     # ----------------------------------
     # Load or Update Ensemble Models
@@ -120,6 +122,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         ensemble = ensembleloader.current_ensemble
     else:
         ensemble = ensembleloader.load_or_update_ensemble(None, device="cuda")
+
+    breakpoint() # test the NCCL error
 
     # ----------------------------------
     # Create LR Scheduler
@@ -197,11 +201,16 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         # ----------------------------------
         # Training Loop
         # ----------------------------------
+        counter = 0
+        breakpoint() 
         for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
             if args.explicit_prefetching: # TODO: is this correct? 
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
             trainer.step(batch, eval_dataloader, epoch_num)
+            if counter >= 20: # TODO: remove this. 
+                break
+            counter += 1
             if trainer.should_stop: 
                 main_print("Early stopping triggered")
                 break

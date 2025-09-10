@@ -29,7 +29,7 @@ synthetic_dataset_path = "/scratch/klambert/dataset/synthetic_dataset"
 # ---------------- Data --------------------
 dataset_name = "allenai/tulu-3-sft-mixture"
 clustered_dataset_name = "Malikeh1375/clustered_tulu_3_8"
-dataset_type = "batch"
+dataset_type = "full"  # "single" or "batch" or "full"
 synthetic_data = False
 
 domains = {
@@ -44,10 +44,10 @@ domains = {
 }
 
 # ---------------- Run and hyper parameters - to change during every run -----------------
-run_name = "OLMo2 SFT Test Run"
+run_name = "OLMo2 SFT 7B Teacher"
 ddp = True
-steps_per_round = 50
-num_train_epochs = 2
+steps_per_round = -1
+num_train_epochs = 1
 learning_rate = 7.5e-6 # 5e-5 for constant
 # If loss spikes in first 50–200 steps: drop to 5e-6.
 # If loss is stable but barely decreasing: raise to 1.0e-5.
@@ -60,7 +60,7 @@ checkpointed_dir = None # <output_path> of the directory which stores the checkp
 # Ensembles
 ensemble_random_init = False
 ensemble_path = [] # ["/scratch/klambert/model_log/26-07-2025/run_2_alpha07_hyperparameters/round_0/checkpoint-14000"]  # Full path of ensemble models which we want to load (ex. ~/models/run2/round_1/checkpoint-18000)
-total_rounds = 3
+total_rounds = 3 # number of ensemble models (how many are loaded + how many we want trained)
 
 # ---------------- Early stopping parameters ---------------- 
 early_stop_patience = 20        # number of evaluations with no improvement
@@ -69,16 +69,20 @@ early_stop_min_delta = 1e-6    # minimum absolute improvement in loss
 # ---------------- Training args ----------------------------
 weight_decay = 0.05
 lr_scheduler_type = "cosine"
-warmup_steps = 5  # Minimal warmup for testing  
-eval_steps = 5   # Evaluate every 5 steps for testing
-logging_steps = 5  # Log frequently for test monitoring
-ckpt_save_steps = 25  # Save checkpoint more frequently for testing
+warmup_steps = 1000
+eval_steps = 40
+logging_steps = 40
+ckpt_save_steps = 500
 save_total_limit = 2
 per_device_train_batch_size = 1
 eval_batch_size = 1
 gradient_accumulation_steps = 16
 max_grad_norm = 1.0
 ignore_index = -100
+
+# ---------------- Quick eval parameters -------------------
+quick_eval_steps = 5          # Run quick eval every N training steps
+quick_eval_batches = 3        # Number of batches to evaluate in quick eval
 
 # ---------------- Logging columns -------------------------- 
 CSV_COLUMNS = [

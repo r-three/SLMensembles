@@ -95,7 +95,7 @@ class Checkpointer:
         
         self.load_model(model)
         self.load_optim(model, optim)
-        state = checkpointer.load_training_state()
+        state = self.load_training_state()
 
         return state
 

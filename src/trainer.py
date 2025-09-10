@@ -260,6 +260,8 @@ class Trainer(ABC):
         kl_loss = torch.tensor(0.0).to(torch.cuda.current_device())
         valid_total = torch.tensor(0).to(torch.cuda.current_device())
         
+        counter = 0
+
         for _, batch in enumerate(tqdm(eval_dl,
                                   disable=self.rank != 0,
                                   file=sys.stdout,
@@ -297,6 +299,10 @@ class Trainer(ABC):
                         control=None, 
                         loss=batch_loss
                     )
+                # TODO: Use only for quick tests
+                if counter == 10:
+                    break
+                counter += 1
         
         # So you don't see eval loss of a few million
         gathered_eval_loss = _gather(eval_loss.reshape(1)).sum().item()
