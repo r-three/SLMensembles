@@ -704,7 +704,7 @@ def prepare_dataset(train_ds, eval_ds):
         drop_last=True,              # <--- guarantees equal batch count per rank
     )
     eval_batch_sampler = BatchSampler(
-        eval_sampler,
+        test_sampler,
         batch_size=config.eval_batch_size,
         drop_last=True,              # <--- same for eval
     )
