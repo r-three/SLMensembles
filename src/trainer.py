@@ -95,6 +95,8 @@ class Trainer(ABC):
         self.wait = 0
         self.should_stop = False
         self.epoch = 0
+        # Initialize callback for prediction step logging
+        self.callback = LoggingCallback(logger, round_num, overall_start_time) if logger else None
 
     def prepare_train(self):
         self.model.train()
@@ -240,10 +242,10 @@ class Trainer(ABC):
                 phase="train",
                 role="student",
                 step=self.tr_step,
-                train_loss=loss_sum,
-                train_next_token_loss=nt_sum,
-                train_kl_loss=kl_sum,
-                grad_norm=grad_norm,
+                train_loss=float(loss_sum) if loss_sum is not None else None,
+                train_next_token_loss=float(nt_sum) if nt_sum is not None else None,
+                train_kl_loss=float(kl_sum) if kl_sum is not None else None,
+                grad_norm=float(grad_norm) if grad_norm is not None else None,
                 learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
                 alpha=config.alpha,
             )
@@ -278,6 +280,23 @@ class Trainer(ABC):
                 if kl_sum is not None:
                     kl_loss += kl_sum
                 valid_total += valid_cnt
+                
+                # Call prediction step callback for batch-level logging
+                if self.callback and self.rank == 0:
+                    # Create a simple state object with global_step
+                    class SimpleState:
+                        def __init__(self, global_step):
+                            self.global_step = global_step
+                    
+                    state = SimpleState(self.tr_step)
+                    # Pass the individual batch loss for logging
+                    batch_loss = loss_sum / valid_cnt if valid_cnt > 0 else loss_sum
+                    self.callback.on_prediction_step_end(
+                        args=None, 
+                        state=state, 
+                        control=None, 
+                        loss=batch_loss
+                    )
         
         # So you don't see eval loss of a few million
         gathered_eval_loss = _gather(eval_loss.reshape(1)).sum().item()
@@ -302,9 +321,9 @@ class Trainer(ABC):
                     phase="eval",
                     role="student",
                     step=self.tr_step,
-                    eval_loss=mean_eval_loss,
-                    eval_next_token_loss=mean_nk_loss,
-                    eval_kl_loss=mean_kl_loss,
+                    eval_loss=float(mean_eval_loss) if mean_eval_loss is not None else None,
+                    eval_next_token_loss=float(mean_nk_loss) if mean_nk_loss is not None else None,
+                    eval_kl_loss=float(mean_kl_loss) if mean_kl_loss is not None else None,
                     learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
                     alpha=config.alpha,
                 )
@@ -430,20 +449,7 @@ class DistillTrainer(Trainer):
             
         hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
-        if self.logger is not None:
-            self.logger.log(
-                function="train_step",
-                round_num=self.round_num,
-                epoch_num=getattr(self, "epoch", 0),
-                phase="train",
-                role="student",
-                step=self.tr_step,
-                train_loss=hybrid_loss,
-                train_next_token_loss=next_token_loss,
-                train_kl_loss=kl_loss,
-                learning_rate=self.lr_scheduler.get_last_lr()[0] if hasattr(self.lr_scheduler, 'get_last_lr') else None,
-                alpha=config.alpha,
-            )
+        # Remove excessive per-batch logging - already handled in train_step method
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
 

@@ -180,6 +180,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
             dataset['train'],
             dataset['test'],
         )
+
+        # TODO: ADD WANDB LOGGING
         
         if hasattr(train_dataloader, "sampler") and hasattr(train_dataloader.sampler, "set_epoch"):
             train_dataloader.sampler.set_epoch(epoch_num)
