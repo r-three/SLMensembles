@@ -159,7 +159,7 @@ class EnsembleLoader:
     def save_model_for_ensemble(self, model, round_num: int):
         """Save a trained model."""
         round_dir = os.path.join(self.ensemble_dir, f"round_{round_num}")
-        os.makedirs(round_dir)
+        if is_main_process(): os.makedirs(round_dir)
 
         full_model_state_dict = None
         try: 
