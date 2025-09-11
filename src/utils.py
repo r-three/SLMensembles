@@ -15,6 +15,9 @@ import random
 import numpy as np
 import subprocess, json, re
 from hashlib import blake2s
+from pathlib import Path
+from typing import Dict, Any, List, Tuple
+import math
 
 # ---------------------- Training and FSDP2-specific functions ----------------------
 try:
@@ -935,6 +938,74 @@ class DistillDataset:
         
         main_print("\n--> Generation Done")
         dist.barrier() if config.ddp else None
+
+def load_loss_jsonls(example_path: str) -> Tuple[Dict[Any, dict], List[dict]]:
+    """
+    Given a path to one JSONL file (e.g., ".../loss_log_0.jsonl"),
+    load all sibling files whose names end with "_<number>.jsonl",
+    parse all lines, and return:
+      - by_id: dict mapping `id` -> latest row (by 't' if present, else last seen)
+      - all_rows: list of every parsed row (in filename order, then line order)
+    """
+    p = Path(example_path)
+    logs_dir = p.parent
+
+    # Build a prefix like "loss_log" from "loss_log_0.jsonl"
+    stem = p.name
+    if "_" not in stem:
+        raise ValueError(f"Expected an underscore before numeric suffix in filename: {p.name}")
+    base_prefix = stem.rsplit("_", 1)[0]  # "loss_log"
+
+    # Find files matching base_prefix_*.jsonl with numeric suffix
+    suffix_rx = re.compile(rf"^{re.escape(base_prefix)}_(\d+)\.jsonl$")
+    candidates = [f for f in logs_dir.glob(f"{base_prefix}_*.jsonl") if suffix_rx.match(f.name)]
+
+    # Sort by numeric suffix so we have a deterministic read order
+    def _suffix_num(f: Path) -> int:
+        return int(suffix_rx.match(f.name).group(1))
+    files = sorted(candidates, key=_suffix_num)
+
+    by_id: Dict[Any, dict] = {}
+    all_rows: List[dict] = []
+
+    for f in files:
+        with f.open("r", encoding="utf-8") as fh:
+            for lineno, line in enumerate(fh, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError as e:
+                    # Skip malformed lines but keep going
+                    print(f"Skipping bad JSON in {f.name}:{lineno} -> {e}")
+                    continue
+
+                all_rows.append(row)
+                k = row.get("id")
+                if k is None:
+                    # If there's no 'id', we just keep it in all_rows.
+                    continue
+
+                # Merge policy: keep the row with the latest 't' (timestamp) if available;
+                # otherwise, last one wins.
+                if k not in by_id:
+                    by_id[k] = row
+                else:
+                    new_t = row.get("t")
+                    old_t = by_id[k].get("t")
+                    if new_t is None or old_t is None:
+                        by_id[k] = row  # fall back to last-seen wins
+                    elif new_t >= old_t:
+                        by_id[k] = row
+
+    return by_id, all_rows
+
+def top_k_percent_ids_sorted(stats, k_percent):
+    n = len(stats)
+    top_n = max(1, math.ceil(n * k_percent / 100.0)) if n else 0
+    return [k for k, _ in sorted(stats.items(), key=lambda kv: (-float(kv[1]["tr"]), kv[0]))][:top_n]
+
 
 # ---------------------- Main execution for testing ----------------------
 if __name__ == "__main__":
