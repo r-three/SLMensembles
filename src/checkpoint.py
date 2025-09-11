@@ -173,7 +173,6 @@ class Checkpointer:
         self.last_checkpoint_path = ckpt_dir
         print(f"Saved DCP checkpoint: {ckpt_dir}")
 
-        dist.barrier()
         self.rotate_checkpoints(os.path.join(self.checkpoint_dir, str(round_num)))
     
     def save_rng_states(self):

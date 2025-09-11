@@ -178,7 +178,8 @@ class Trainer(ABC):
             self.wandb_run.log(log_dict, step=self.tr_step)
         
         if self.tr_step % config.ckpt_save_steps == 0 and self.tr_step > 0 and is_main_process(): self.save_checkpoint(test_loss if test_loss is not None else (train_loss if train_loss is not None else 0.0))
-        
+        dist.barrier()
+
         self.tr_step += 1
         return train_loss, test_loss
     
