@@ -63,6 +63,144 @@ def _gather(x: torch.Tensor) -> torch.Tensor:
     dist.all_gather(output_tensors, x)
     return torch.cat(output_tensors, dim=0)
 
+
+# async_loss_logger.py
+import os, json, time, threading, queue, tempfile
+from typing import Any, Dict, Iterable
+
+def _to_scalar(x: Any):
+    # Works for Python numbers, PyTorch tensors, numpy scalars
+    try:
+        import torch
+        if isinstance(x, torch.Tensor):
+            if x.numel() == 1:
+                return x.detach().float().item()
+            raise ValueError("Tensor must be scalar")
+    except Exception:
+        pass
+    try:
+        import numpy as np
+        if isinstance(x, (np.generic,)):
+            return float(x)
+    except Exception:
+        pass
+    # Python int/float/bool
+    if isinstance(x, (int, float, bool)):
+        return float(x)
+    # Last resort
+    return float(x)
+
+class AsyncLossLogger:
+    """
+    Append-only JSONL writer with batching and periodic atomic snapshots.
+    Designed to keep training non-blocking.
+    """
+    def __init__(self, log_path: str, snapshot_path: str = None,
+                 flush_interval_s: float = 1.0, snapshot_interval_s: float = 60.0,
+                 max_queue: int = 100_000):
+        self.log_path = log_path
+        self.snapshot_path = snapshot_path or (os.path.splitext(log_path)[0] + ".snapshot.json")
+        self.flush_interval_s = flush_interval_s
+        self.snapshot_interval_s = snapshot_interval_s
+
+        os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+        self._q: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=max_queue)
+        self._stop = threading.Event()
+        self._lock = threading.Lock()   # protects self.loss_dict during snapshot
+        self.loss_dict: Dict[Any, Any] = {}  # live view for your code
+
+        self._writer = threading.Thread(target=self._writer_loop, daemon=True)
+        self._writer.start()
+
+    def write(self, record: Dict[str, Any]):
+        """Non-blocking enqueue; drops if queue is full to avoid stalling."""
+        try:
+            self._q.put_nowait(record)
+        except queue.Full:
+            # If you want to block instead, use self._q.put(record)
+            pass
+
+    def update_and_write_many(self, ids, tr_step_loss, next_token_loss, kl_loss, valid_count):
+        ids_list = list(ids)
+
+        # Convert elementwise (each item can be a Python number, 0-d torch tensor, numpy scalar, etc.)
+        tr_list = [_to_scalar(x) for x in tr_step_loss]
+        nt_list = [_to_scalar(x) for x in next_token_loss]
+        kl_list = [_to_scalar(x) for x in kl_loss]
+        vc_list = [int(_to_scalar(x)) for x in valid_count]
+
+        # --- Option A: strict length check (fail fast) ---
+        if not (len(ids_list) == len(tr_list) == len(nt_list) == len(kl_list) == len(vc_list)):
+            raise ValueError(
+                f"Length mismatch: ids={len(ids_list)}, tr={len(tr_list)}, "
+                f"nt={len(nt_list)}, kl={len(kl_list)}, vc={len(vc_list)}"
+            )
+
+        now = time.time()
+        with self._lock:
+            for id_, tr, nt, kl, vc in zip(ids_list, tr_list, nt_list, kl_list, vc_list):
+                self.loss_dict[id_] = [tr, nt, kl, vc]
+                self.write({"id": id_, "tr": tr, "nt": nt, "kl": kl, "vc": vc, "t": now})
+
+
+    def close(self, timeout: float = 10.0):
+        self._stop.set()
+        self._writer.join(timeout=timeout)
+        # Final snapshot on close
+        self._save_snapshot()
+
+    # ---- internals ----
+    def _writer_loop(self):
+        buf = []
+        last_flush = time.time()
+        last_snapshot = time.time()
+
+        # Open once; let OS page cache buffer writes
+        f = open(self.log_path, "a", buffering=1)  # line-buffered
+        try:
+            while not self._stop.is_set() or not self._q.empty():
+                try:
+                    item = self._q.get(timeout=self.flush_interval_s)
+                    buf.append(item)
+                except queue.Empty:
+                    pass
+
+                now = time.time()
+                if buf and (now - last_flush >= self.flush_interval_s or len(buf) >= 2048):
+                    for rec in buf:
+                        f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+                    f.flush()  # do not fsync; keeps it fast
+                    buf.clear()
+                    last_flush = now
+
+                if now - last_snapshot >= self.snapshot_interval_s:
+                    # atomic snapshot of in-memory dict
+                    self._save_snapshot()
+                    last_snapshot = now
+        finally:
+            if buf:
+                for rec in buf:
+                    f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+                f.flush()
+            f.close()
+
+    def _save_snapshot(self):
+        try:
+            with self._lock:
+                tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=os.path.dirname(self.snapshot_path) or ".")
+                json.dump(self.loss_dict, tmp)
+                tmp.flush()
+                os.fsync(tmp.fileno())  # ensure durability of snapshot only
+                tmp_path = tmp.name
+                tmp.close()
+            os.replace(tmp_path, self.snapshot_path)  # atomic
+        except Exception as e:
+            # Don't crash training if snapshot fails
+            print(f"[AsyncLossLogger] snapshot failed: {e}")
+
+
+
+
 class Trainer(ABC):
     def __init__(
         self,
@@ -97,6 +235,7 @@ class Trainer(ABC):
         self.epoch = 0
         # Initialize callback for prediction step logging
         self.callback = LoggingCallback(logger, round_num, overall_start_time) if logger else None
+        self.loss_logger = AsyncLossLogger(log_path="/home/lfy/projects/aip-craffel/lfy/SLMensembles/logs/loss_log_{rank}.jsonl".format(rank=dist.get_rank()), flush_interval_s=1.0, snapshot_interval_s=60.0)
 
     def prepare_train(self):
         self.model.train()
@@ -177,12 +316,17 @@ class Trainer(ABC):
             
             self.wandb_run.log(log_dict, step=self.tr_step)
         
-        if self.tr_step % config.ckpt_save_steps == 0 and self.tr_step > 0 and is_main_process(): self.save_checkpoint(test_loss if test_loss is not None else (train_loss if train_loss is not None else 0.0))
-        dist.barrier()
+        if self.tr_step % config.ckpt_save_steps == 0 and self.tr_step > 0 and is_main_process(): 
+            self.save_checkpoint(test_loss if test_loss is not None else (train_loss if train_loss is not None else 0.0))
+            dist.barrier()
 
         self.tr_step += 1
         return train_loss, test_loss
     
+    def log_id_loss(self, tr_step_loss, next_token_loss, kl_loss, valid_count, ids):
+        # updates in-memory dict and enqueues to the writer thread
+        self.loss_logger.update_and_write_many(ids, tr_step_loss, next_token_loss, kl_loss, valid_count)
+
     def train_step(self, batch, epoch):
         self.model.train()
         # batch["input_ids"] = torch.tensor(batch["input_ids"])
@@ -208,6 +352,12 @@ class Trainer(ABC):
                 # breakpoint()
             self.model.set_requires_gradient_sync(False)  # with (grad = False):
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
+            self.log_id_loss(tr_step_loss, next_token_loss, kl_loss, valid_count, batch['id'])
+            if isinstance(tr_step_loss, list):
+                tr_step_loss = torch.stack(tr_step_loss).sum()
+                next_token_loss = torch.stack(next_token_loss).sum()
+                kl_loss = torch.stack(kl_loss).sum()
+                valid_count = torch.stack(valid_count).sum()
             (tr_step_loss / self.gas).backward()
             self.model.set_requires_gradient_sync(True)
         else:
@@ -215,6 +365,12 @@ class Trainer(ABC):
             self.model.set_requires_gradient_sync(True)
             dist.barrier()
             tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
+            self.log_id_loss(tr_step_loss, next_token_loss, kl_loss, valid_count, batch['id'])
+            if isinstance(tr_step_loss, list):
+                tr_step_loss = torch.stack(tr_step_loss).sum()
+                next_token_loss = torch.stack(next_token_loss).sum()
+                kl_loss = torch.stack(kl_loss).sum()
+                valid_count = torch.stack(valid_count).sum()
             (tr_step_loss / self.gas).backward()
             grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
             grad_norm = float(grad_norm)
@@ -276,13 +432,20 @@ class Trainer(ABC):
                 batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
                 batch["labels"] = batch["labels"].type(torch.LongTensor)
 
-                loss_sum, next_token_sum, kl_sum, valid_cnt = self.compute_loss(batch)
-                eval_loss += loss_sum
-                if next_token_sum is not None:
-                    nxt_token_loss += next_token_sum
-                if kl_sum is not None:
-                    kl_loss += kl_sum
-                valid_total += valid_cnt
+                tr_step_loss, next_token_loss, kl_loss, valid_count = self.compute_loss(batch)
+                # self.log_id_loss(tr_step_loss, next_token_loss, kl_loss, valid_count, batch['id'])
+                # Don't log for eval for now.
+                if isinstance(tr_step_loss, list):
+                    tr_step_loss = torch.stack(tr_step_loss).sum()
+                    next_token_loss = torch.stack(next_token_loss).sum()
+                    kl_loss = torch.stack(kl_loss).sum()
+                    valid_count = torch.stack(valid_count).sum()
+                eval_loss += tr_step_loss
+                if next_token_loss is not None:
+                    nxt_token_loss += next_token_loss
+                if kl_loss is not None:
+                    kl_loss += kl_loss
+                valid_total += valid_count
                 
                 # Call prediction step callback for batch-level logging
                 if self.callback and self.rank == 0:
@@ -293,7 +456,7 @@ class Trainer(ABC):
                     
                     state = SimpleState(self.tr_step)
                     # Pass the individual batch loss for logging
-                    batch_loss = loss_sum / valid_cnt if valid_cnt > 0 else loss_sum
+                    batch_loss = tr_step_loss / valid_count if valid_count > 0 else tr_step_loss
                     self.callback.on_prediction_step_end(
                         args=None, 
                         state=state, 
@@ -431,36 +594,43 @@ class DistillTrainer(Trainer):
         # Shift so that tokens < n predict n
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
-        # Flatten the tokens
-        loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
-        shift_logits = shift_logits.view(-1, embedding_size)
-        shift_labels = shift_labels.view(-1)
-        # Enable model parallelism
-        shift_labels = shift_labels.to(shift_logits.device)
-        next_token_loss = loss_fct(shift_logits, shift_labels)
+        shift_labels = shift_labels.to(shift_logits.device)      # model parallelism
+
         ignore_index = getattr(config, "ignore_index", -100)
-        valid_mask = shift_labels.ne(ignore_index)
-        valid_count = valid_mask.sum()
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='sum', ignore_index=ignore_index)
+        alpha = config.alpha if not config.synthetic_data else 1
+
+        next_token_loss = []   # list of 0-D tensors (sum loss per sequence)
+        valid_count = []       # list of 0-D tensors (token count per sequence)
+        hybrid_loss = []
+        kl_loss = []
+
+        for i in range(shift_logits.size(0)):
+            # sum over valid tokens in sequence i; invalid ones (-100) are ignored by loss_fct
+            seq_loss = loss_fct(shift_logits[i], shift_labels[i])          # scalar tensor
+            next_token_loss.append(seq_loss)
+
+            seq_valid = shift_labels[i].ne(ignore_index).sum()             # scalar tensor
+            valid_count.append(seq_valid)
+
+            if (labels != -100).sum == 0:
+                print(labels)
+            if not config.synthetic_data and alpha > 0:
+                kl_loss.append(self.compute_kl_loss(logits[i], mask=labels[i] != -100, logprob_values=[batch['logprob_values'][i]], logprob_indices=[batch['logprob_indices'][i]]))
+            else:
+                kl_loss.append(torch.tensor(0.0, devce=logits.device))
+        
+        for i in range(shift_logits.size(0)):
+            hybrid_loss.append((1 - alpha) * kl_loss[i] + alpha * next_token_loss[i])
+        
         # Only calculate loss for those that are not chat template / question and not padded. 
         # valid_count = batch['attention_mask'].sum() + batch['start_index'].sum()
-        
-        # -------------------------
-        # Compute Loss
-        # -------------------------
-        alpha = config.alpha if not config.synthetic_data else 1
-        kl_loss = torch.tensor(0.0, device=logits.device)
-        if (labels != -100).sum == 0:
-            print(labels)
-        if not config.synthetic_data and alpha > 0:
-            kl_loss = self.compute_kl_loss(logits, mask=labels != -100, inputs=batch)
-            
-        hybrid_loss = (1 - alpha) * kl_loss + alpha * next_token_loss
 
         # Remove excessive per-batch logging - already handled in train_step method
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
 
-    def compute_kl_loss(self, student_logits, mask, inputs):
+    def compute_kl_loss(self, student_logits, mask, logprob_values, logprob_indices):
         # -----------------------
         # Compute KL Loss
         # -----------------------
@@ -471,10 +641,10 @@ class DistillTrainer(Trainer):
         
         teacher_values_list = []
         teacher_indices_list = []
-        
-        for i in range(len(inputs['logprob_values'])):
-            values = torch.tensor(inputs['logprob_values'][i], device=device, dtype=torch.float32)
-            indices = torch.tensor(inputs['logprob_indices'][i], device=device, dtype=torch.int64)
+
+        for i in range(len(logprob_values)):
+            values = torch.tensor(logprob_values[i], device=device, dtype=torch.float32)
+            indices = torch.tensor(logprob_indices[i], device=device, dtype=torch.int64)
             teacher_values_list.append(values)
             teacher_indices_list.append(indices)
         

@@ -21,9 +21,9 @@ student_device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 teacher_eval = (0.7968094515065487, 2.218451499938965)
 
 # ---------------- Output paths -------------
-base_output_dir = "/scratch/klambert/model_log/single_logs"
-logprob_cache_path = "/home/klambert/projects/aip-craffel/shared/slm_ensemble/"
-dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized"
+base_output_dir = "/scratch/lfy/slm_ensembles/single_logs"
+logprob_cache_path = "/home/lfy/projects/aip-craffel/shared/slm_ensemble/"
+dataset_path = "/scratch/lfy/slm_ensembles/tulu-3-sft-mixture-pretokenized"
 synthetic_dataset_path = "/scratch/klambert/dataset/synthetic_dataset"
 
 # ---------------- Data --------------------
@@ -74,8 +74,8 @@ eval_steps = 10
 logging_steps = 10
 ckpt_save_steps = 500
 save_total_limit = 2
-per_device_train_batch_size = 1
-eval_batch_size = 1
+per_device_train_batch_size = 2
+eval_batch_size = 2
 gradient_accumulation_steps = 16
 max_grad_norm = 1.0
 ignore_index = -100

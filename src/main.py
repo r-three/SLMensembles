@@ -19,7 +19,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, 
                   ManifestManager, DistillDataset, get_round_path, cleanup_and_exit, 
-                  exception_handler)
+                  exception_handler, load_loss_jsonls, top_k_percent_ids_sorted)
 from ensemble import ModelEnsemble, EnsembleLoader
 from checkpoint import Checkpointer
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -334,6 +334,10 @@ def main(args):
     # ----------------------------------
     dataClass = DistillDataset()
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
+
+    by_id, all_rows = load_loss_jsonls('/home/lfy/projects/aip-craffel/lfy/SLMensembles/logs/loss_log_0.jsonl')
+    top_ids = top_k_percent_ids_sorted(by_id, 50)
+    dataset = dataset.filter(lambda ex: ex['id'] in top_ids, num_proc=32)
 
     # ----------------------------------
     # Create Checkpointer Instance
