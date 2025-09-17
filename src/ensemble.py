@@ -99,16 +99,17 @@ class EnsembleLoader:
         """Get list of completed rounds by scanning ensemble model directory."""
         completed_rounds = []
         
-        if not self.ensemble_dir.exists():
+        ensemble_path = Path(self.ensemble_dir) if isinstance(self.ensemble_dir, str) else self.ensemble_dir
+        
+        if not ensemble_path.exists():
             return completed_rounds
             
-        for path in self.ensemble_dir.iterdir():
-            if path.name.startswith('round_'):
+        for path in ensemble_path.iterdir():
+            if path.name.startswith('round_') and path.is_dir():
                 try:
-                    round_dir = os.path.join(self.ensemble_dir, path)
-                    model_file = os.path.join(round_dir, "model_state_dict.pt")
-                    if os.path.isfile(model_file):
-                        completed_rounds.append(model_file)
+                    model_file = path / "model_state_dict.pt"
+                    if model_file.exists() and model_file.is_file():
+                        completed_rounds.append(str(path))  # Return directory path, not file path
                 except (ValueError, IndexError):
                     continue
         
@@ -163,15 +164,24 @@ class EnsembleLoader:
 
         full_model_state_dict = None
         try: 
-            safe_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=False)
+            # Use the same options that work in checkpoint.py - avoid allgather_into_tensor_coalesced
+            safe_state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
             full_model_state_dict = get_model_state_dict(model=model, options=safe_state_dict_opts)
         except Exception as e:
-            print(f"Warning: FSDP state dict failed: {e}. Using model.state_dict() fallback...")
+            # If FSDP state dict fails, try with different options
             try:
-                full_model_state_dict = model.state_dict()
+                fallback_opts = StateDictOptions(full_state_dict=False, cpu_offload=False)
+                fsdp_state_dict = get_model_state_dict(model=model, options=fallback_opts)
+                # Convert to full state dict manually if needed
+                if is_main_process():
+                    full_model_state_dict = fsdp_state_dict
             except Exception as e2:
-                print(f"Warning: model.state_dict() also failed: {e2}. Skipping manual state dict save...")
-                full_model_state_dict = None
+                print(f"Warning: FSDP state dict failed: {e}. Using model.state_dict() fallback...")
+                try:
+                    full_model_state_dict = model.state_dict()
+                except Exception as e3:
+                    print(f"Warning: model.state_dict() also failed: {e3}. Skipping manual state dict save...")
+                    full_model_state_dict = None
         
         if is_main_process() and full_model_state_dict is not None:
             torch.save(full_model_state_dict, os.path.join(round_dir, "model_state_dict.pt"))
