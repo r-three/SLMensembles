@@ -19,7 +19,7 @@ from utils import (CSVLogger, prepare_dataset, format_time_elapsed,
                   set_modules_to_forward_prefetch, set_modules_to_backward_prefetch,
                   create_manifest, build_run_identity, get_directory, init_wandb_run, slurm_term_handler, 
                   ManifestManager, DistillDataset, get_round_path, cleanup_and_exit, 
-                  exception_handler)
+                  exception_handler, load_loss_jsonls, top_k_percent_ids_sorted)
 from ensemble import ModelEnsemble, EnsembleLoader
 from checkpoint import Checkpointer
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -116,9 +116,10 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
     # ----------------------------------
     # Load or Update Ensemble Models
     # ----------------------------------
+    ensemble = None
     if hasattr(ensembleloader, 'current_ensemble'):
         ensemble = ensembleloader.current_ensemble
-    else:
+    elif round_num > 0:
         ensemble = ensembleloader.load_or_update_ensemble(None, device="cuda")
     
     # ----------------------------------
@@ -336,6 +337,13 @@ def main(args):
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
 
     # ----------------------------------
+    # ID Tracking 
+    # ----------------------------------
+    by_id, all_rows = load_loss_jsonls('/home/lfy/projects/aip-craffel/lfy/SLMensembles/logs/loss_log_0.jsonl')
+    top_ids = top_k_percent_ids_sorted(by_id, 50)
+    dataset = dataset.filter(lambda ex: ex['id'] in top_ids, num_proc=32)
+
+    # ----------------------------------
     # Create Checkpointer Instance
     # ----------------------------------
     checkpointer = Checkpointer(output_path)
@@ -450,26 +458,47 @@ def main(args):
     # ----------------------------------
     # Cleanup and Final Summary
     # ----------------------------------
-    dist.barrier()
-    if is_main_process() and wandb_run is not None:
-        wandb_run.finish()
-        main_print("--> Finished wandb run")
+    try:
+        # Final barrier to ensure all processes are synchronized before cleanup
+        dist.barrier()
         
-    # Final summary
-    total_time = time.time() - float(overall_start_time)
-    if is_main_process():
-        manifest.finalize(success=True, wall_time_sec=total_time)
-        main_print("\n" + "="*60)
-        main_print("TRAINING COMPLETED SUCCESSFULLY")
-        main_print("="*60)
-        main_print(f"Total rounds completed: {config.total_rounds}")
-        main_print(f"Output directory: {output_path}")
-        main_print(f"Total training time: {format_time_elapsed(total_time)}")
-        main_print(f"Final manifest status: {manifest.get('status', default='UNKNOWN')}")
-        main_print("="*60)
+        if is_main_process() and wandb_run is not None:
+            wandb_run.finish()
+            main_print("--> Finished wandb run")
+            
+        # Final summary
+        total_time = time.time() - float(overall_start_time)
+        if is_main_process():
+            manifest.finalize(success=True, wall_time_sec=total_time)
+            main_print("\n" + "="*60)
+            main_print("TRAINING COMPLETED SUCCESSFULLY")
+            main_print("="*60)
+            main_print(f"Total rounds completed: {config.total_rounds}")
+            main_print(f"Output directory: {output_path}")
+            main_print(f"Total training time: {format_time_elapsed(total_time)}")
+            main_print(f"Final manifest status: {manifest.get('status', default='UNKNOWN')}")
+            main_print("="*60)
+        
+        # Clear CUDA cache before destroying process group
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        
+        # Final barrier before cleanup
+        dist.barrier()
+        
+    except Exception as e:
+        if is_main_process():
+            print(f"Warning during cleanup: {e}")
     
-    # Destroy process group
-    dist.destroy_process_group()
+    finally:
+        # Destroy process group with error handling
+        try:
+            if dist.is_initialized():
+                dist.destroy_process_group()
+        except Exception as e:
+            if is_main_process():
+                print(f"Warning during process group cleanup: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch FSDP2 example")
