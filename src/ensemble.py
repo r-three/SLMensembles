@@ -8,6 +8,7 @@ from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, Gene
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from utils import is_main_process
 import config
+from shard_weight import load_original_weights_fsdp2
 
 
 class ModelEnsemble(PreTrainedModel, GenerationMixin):
@@ -32,7 +33,15 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         for path in model_paths:
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
             state_dict = torch.load(os.path.join(path, "model_state_dict.pt"), weights_only=True, map_location='cpu')
-            model.load_state_dict(state_dict)
+            
+            try:
+                model.load_state_dict(state_dict)
+            except RuntimeError as e:
+                if "DTensor" in str(e) or "mixed torch.Tensor and DTensor" in str(e):
+                    load_original_weights_fsdp2(model, state_dict, use_dcp_api=True, strict=False)
+                else:
+                    raise e
+            
             model.eval()
             model.requires_grad_(False)
             modules.append(model)
@@ -63,12 +72,16 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         model_path = Path(model_dir) / "model_state_dict.pt"
         if model_path.exists():
             try:
-                # Always load to CPU first to avoid CUDA memory issues
                 state_dict = torch.load(model_path, weights_only=True, map_location='cpu')
-                model.load_state_dict(state_dict)
+                try:
+                    model.load_state_dict(state_dict)
+                except RuntimeError as e:
+                    if "DTensor" in str(e) or "mixed torch.Tensor and DTensor" in str(e):
+                        load_original_weights_fsdp2(model, state_dict, use_dcp_api=True, strict=False)
+                    else:
+                        raise e
             except Exception as e:
                 print(f"Error loading model state dict: {e}")
-                # Fallback to loading from directory
                 model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
         else:
             model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
