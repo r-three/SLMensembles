@@ -270,6 +270,182 @@ def get_round_path(output_path, round_num):
     """Get the path for a specific training round."""
     return os.path.join(output_path, f"round_{round_num}")
 
+# ---------------------- ID Tracking ----------------------
+class AsyncLossLogger:
+    """
+    Append-only JSONL writer with batching and periodic atomic snapshots.
+    Designed to keep training non-blocking.
+    """
+    def __init__(self, log_path: str, snapshot_path: str = None,
+                 flush_interval_s: float = 1.0, snapshot_interval_s: float = 60.0,
+                 max_queue: int = 100_000):
+        self.log_path = log_path
+        self.snapshot_path = snapshot_path or (os.path.splitext(log_path)[0] + ".snapshot.json")
+        self.flush_interval_s = flush_interval_s
+        self.snapshot_interval_s = snapshot_interval_s
+
+        os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+        self._q: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=max_queue)
+        self._stop = threading.Event()
+        self._lock = threading.Lock()   # protects self.loss_dict during snapshot
+        self.loss_dict: Dict[Any, Any] = {}  # live view for your code
+
+        self._writer = threading.Thread(target=self._writer_loop, daemon=True)
+        self._writer.start()
+
+    def write(self, record: Dict[str, Any]):
+        """Non-blocking enqueue; drops if queue is full to avoid stalling."""
+        try:
+            self._q.put_nowait(record)
+        except queue.Full:
+            # If you want to block instead, use self._q.put(record)
+            pass
+
+    def update_and_write_many(self, ids, tr_step_loss, next_token_loss, kl_loss, valid_count):
+        ids_list = list(ids)
+
+        # Convert elementwise (each item can be a Python number, 0-d torch tensor, numpy scalar, etc.)
+        tr_list = [_to_scalar(x) for x in tr_step_loss]
+        nt_list = [_to_scalar(x) for x in next_token_loss]
+        kl_list = [_to_scalar(x) for x in kl_loss]
+        vc_list = [int(_to_scalar(x)) for x in valid_count]
+
+        # --- Option A: strict length check (fail fast) ---
+        if not (len(ids_list) == len(tr_list) == len(nt_list) == len(kl_list) == len(vc_list)):
+            raise ValueError(
+                f"Length mismatch: ids={len(ids_list)}, tr={len(tr_list)}, "
+                f"nt={len(nt_list)}, kl={len(kl_list)}, vc={len(vc_list)}"
+            )
+
+        now = time.time()
+        with self._lock:
+            for id_, tr, nt, kl, vc in zip(ids_list, tr_list, nt_list, kl_list, vc_list):
+                self.loss_dict[id_] = [tr, nt, kl, vc]
+                self.write({"id": id_, "tr": tr, "nt": nt, "kl": kl, "vc": vc, "t": now})
+
+
+    def close(self, timeout: float = 10.0):
+        self._stop.set()
+        self._writer.join(timeout=timeout)
+        # Final snapshot on close
+        self._save_snapshot()
+
+    # ---- internals ----
+    def _writer_loop(self):
+        buf = []
+        last_flush = time.time()
+        last_snapshot = time.time()
+
+        # Open once; let OS page cache buffer writes
+        f = open(self.log_path, "a", buffering=1)  # line-buffered
+        try:
+            while not self._stop.is_set() or not self._q.empty():
+                try:
+                    item = self._q.get(timeout=self.flush_interval_s)
+                    buf.append(item)
+                except queue.Empty:
+                    pass
+
+                now = time.time()
+                if buf and (now - last_flush >= self.flush_interval_s or len(buf) >= 2048):
+                    for rec in buf:
+                        f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+                    f.flush()  # do not fsync; keeps it fast
+                    buf.clear()
+                    last_flush = now
+
+                if now - last_snapshot >= self.snapshot_interval_s:
+                    # atomic snapshot of in-memory dict
+                    self._save_snapshot()
+                    last_snapshot = now
+        finally:
+            if buf:
+                for rec in buf:
+                    f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+                f.flush()
+            f.close()
+
+    def _save_snapshot(self):
+        try:
+            with self._lock:
+                tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=os.path.dirname(self.snapshot_path) or ".")
+                json.dump(self.loss_dict, tmp)
+                tmp.flush()
+                os.fsync(tmp.fileno())  # ensure durability of snapshot only
+                tmp_path = tmp.name
+                tmp.close()
+            os.replace(tmp_path, self.snapshot_path)  # atomic
+        except Exception as e:
+            # Don't crash training if snapshot fails
+            print(f"[AsyncLossLogger] snapshot failed: {e}")
+
+
+def load_loss_jsonls(example_path: str) -> Tuple[Dict[Any, dict], List[dict]]:
+    """
+    Given a path to one JSONL file (e.g., ".../loss_log_0.jsonl"),
+    load all sibling files whose names end with "_<number>.jsonl",
+    parse all lines, and return:
+      - by_id: dict mapping `id` -> latest row (by 't' if present, else last seen)
+      - all_rows: list of every parsed row (in filename order, then line order)
+    """
+    p = Path(example_path)
+    logs_dir = p.parent
+
+    # Build a prefix like "loss_log" from "loss_log_0.jsonl"
+    stem = p.name
+    if "_" not in stem:
+        raise ValueError(f"Expected an underscore before numeric suffix in filename: {p.name}")
+    base_prefix = stem.rsplit("_", 1)[0]  # "loss_log"
+
+    # Find files matching base_prefix_*.jsonl with numeric suffix
+    suffix_rx = re.compile(rf"^{re.escape(base_prefix)}_(\d+)\.jsonl$")
+    candidates = [f for f in logs_dir.glob(f"{base_prefix}_*.jsonl") if suffix_rx.match(f.name)]
+
+    # Sort by numeric suffix so we have a deterministic read order
+    def _suffix_num(f: Path) -> int:
+        return int(suffix_rx.match(f.name).group(1))
+    files = sorted(candidates, key=_suffix_num)
+
+    by_id: Dict[Any, dict] = {}
+    all_rows: List[dict] = []
+
+    for f in files:
+        with f.open("r", encoding="utf-8") as fh:
+            for lineno, line in enumerate(fh, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError as e:
+                    # Skip malformed lines but keep going
+                    print(f"Skipping bad JSON in {f.name}:{lineno} -> {e}")
+                    continue
+
+                all_rows.append(row)
+                k = row.get("id")
+                if k is None:
+                    # If there's no 'id', we just keep it in all_rows.
+                    continue
+
+                # Merge policy: keep the row with the latest 't' (timestamp) if available;
+                # otherwise, last one wins.
+                if k not in by_id:
+                    by_id[k] = row
+                else:
+                    new_t = row.get("t")
+                    old_t = by_id[k].get("t")
+                    if new_t is None or old_t is None:
+                        by_id[k] = row  # fall back to last-seen wins
+                    elif new_t >= old_t:
+                        by_id[k] = row
+
+    return by_id, all_rows
+
+def top_k_percent_ids_sorted(stats, k_percent):
+    n = len(stats)
+    top_n = max(1, math.ceil(n * k_percent / 100.0)) if n else 0
+    return [k for k, _ in sorted(stats.items(), key=lambda kv: (-float(kv[1]["tr"]), kv[0]))][:top_n]
 
 # ---------------------- Run ID and Directory Config Functions ----------------------
 
