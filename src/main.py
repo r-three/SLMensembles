@@ -335,7 +335,7 @@ def main(args):
     # ----------------------------------
     dataClass = DistillDataset()
     dataset = dataClass.get_dataset() if config.synthetic_data else dataClass.get_teacher_logprobs()
-
+    
     # ----------------------------------
     # ID Tracking 
     # ----------------------------------
@@ -352,7 +352,6 @@ def main(args):
     # Logging and WandB config
     # ----------------------------------
     logger = None
-
     if is_main_process():
         logger = CSVLogger(output_path, fieldnames=config.CSV_COLUMNS, overall_start_time=overall_start_time)
         atexit.register(logger.flush)
