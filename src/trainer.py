@@ -145,8 +145,6 @@ class Trainer(ABC):
         self.epoch = 0
         # Initialize callback for prediction step logging
         self.callback = LoggingCallback(logger, round_num, overall_start_time) if logger else None
-        # Create logs directory if it doesn't exist
-        os.makedirs(config.logs_dir, exist_ok=True)
         log_path = os.path.join(config.logs_dir, f"loss_log_{dist.get_rank()}.jsonl")
         self.loss_logger = AsyncLossLogger(log_path=log_path, flush_interval_s=1.0, snapshot_interval_s=60.0)
 

@@ -18,6 +18,35 @@ from hashlib import blake2s
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import math
+import tempfile
+import queue
+import wandb
+
+# ---------------------- Helper functions ----------------------
+
+def _to_scalar(x: Any):
+    """Convert various types to Python scalar."""
+    # Works for Python numbers, PyTorch tensors, numpy scalars
+    try:
+        import torch
+        if isinstance(x, torch.Tensor):
+            if x.numel() == 1:
+                return x.detach().float().item()
+            raise ValueError("Tensor must be scalar")
+    except Exception:
+        pass
+    try:
+        import numpy as np
+        if isinstance(x, np.number):
+            return float(x)
+    except Exception:
+        pass
+    try:
+        return float(x)
+    except Exception:
+        pass
+    # Last resort
+    return float(x)
 
 # ---------------------- Training and FSDP2-specific functions ----------------------
 try:
@@ -171,9 +200,11 @@ def cleanup_and_exit(exit_code=1):
             main_print("\n--> Cleaning up resources...")
             # Add any additional cleanup here
             if 'WANDB_RUN_ID' in os.environ:
-                import wandb
-                if wandb.run is not None:
-                    wandb.finish()
+                try:
+                    if wandb.run is not None:
+                        wandb.finish()
+                except ImportError:
+                    pass  # wandb not available
         if dist.is_initialized():
             dist.destroy_process_group()
     except Exception as e:
@@ -189,24 +220,40 @@ def exception_handler(exc_type, exc_value, exc_traceback):
     main_print(f"Exception occurred: {exc_type.__name__}: {exc_value}")
     cleanup_and_exit()
     # Call original exception handler
-    default_excepthook(exc_type, exc_value, exc_traceback)
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
     
 
 def init_wandb_run():
+    """Initialize wandb run. Note: This function should be called after run_id is set."""
     try:
+        import wandb
+        # Get run_id from global scope or build it
+        try:
+            # Try to get from global
+            run_id_local = globals().get('run_id')
+            if run_id_local is None:
+                # Build a temporary one
+                run_id_local, _, _, wandb_id = build_run_identity()
+            else:
+                _, _, _, wandb_id = build_run_identity()
+        except:
+            # Fallback
+            run_id_local = f"run_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            wandb_id = run_id_local
+            
         wandb_run = wandb.init(
             project="slm-ensembles",
-            id=run_id,   
-            name=run_id,
+            id=wandb_id,   
+            name=run_id_local,
             config={
                 "model_name": config.student_model_name,
                 "teacher_model": config.teacher_model_name,
                 "learning_rate": config.learning_rate,
-                "batch_size": config.per_device_train_batch_size * torch.distributed.get_world_size(),
+                "batch_size": config.per_device_train_batch_size * (torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1),
                 "max_length": 1024,
                 "alpha": config.alpha,
                 "seed": config.seed,
-                "description": config.description,
+                "description": getattr(config, 'description', 'SLM ensemble training'),
                 "dataset_name": config.dataset_name,
                 "dataset_type": config.dataset_type,
                 "total_rounds": config.total_rounds,
@@ -284,7 +331,11 @@ class AsyncLossLogger:
         self.flush_interval_s = flush_interval_s
         self.snapshot_interval_s = snapshot_interval_s
 
-        os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+        # Only main process creates the directory to avoid race conditions
+        if is_main_process():
+            os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+        dist.barrier()
+            
         self._q: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=max_queue)
         self._stop = threading.Event()
         self._lock = threading.Lock()   # protects self.loss_dict during snapshot
@@ -941,8 +992,10 @@ class DistillDataset:
         subsampled_dataset = dataset.filter(subsample_ids, num_proc=8)
 
         save_path = os.path.join(config.dataset_path, f"clustered/{domain}")
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        subsampled_dataset.save_to_disk(save_path)
+        if is_main_process():
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            subsampled_dataset.save_to_disk(save_path)
+        dist.barrier()
         return save_path
 
     def get_teacher_logprobs(self):

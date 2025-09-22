@@ -62,6 +62,5 @@ for batch in tqdm(dataloader):
 dset = datasets.Dataset.from_dict(ds)
 dset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
-if not os.path.exists(config.synthetic_dataset_path):
-    os.makedirs(config.synthetic_dataset_path)
+os.makedirs(config.synthetic_dataset_path, exist_ok=True)
 dset.save_to_disk(config.synthetic_dataset_path)

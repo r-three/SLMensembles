@@ -351,10 +351,12 @@ def main(args):
         else:
             main_print("No loss data found in logs, proceeding with full dataset")
     else:
-        # First run: use full dataset
         main_print("No loss logs found, proceeding with full dataset for first run")
-        # Ensure logs directory exists
-        os.makedirs(config.logs_dir, exist_ok=True)
+        if is_main_process():
+            os.makedirs(config.logs_dir, exist_ok=True)
+    
+    # Ensure all processes are synchronized after dataset filtering and directory creation
+    dist.barrier()
 
     # ----------------------------------
     # Create Checkpointer Instance
