@@ -10,7 +10,7 @@ import csv
 import sys
 import torch.distributed as dist
 from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
-from utils import main_print, is_main_process
+from utils import main_print, is_main_process, AsyncLossLogger
 from tqdm.auto import tqdm
 from datetime import datetime
 import math
@@ -145,7 +145,10 @@ class Trainer(ABC):
         self.epoch = 0
         # Initialize callback for prediction step logging
         self.callback = LoggingCallback(logger, round_num, overall_start_time) if logger else None
-        self.loss_logger = AsyncLossLogger(log_path="/home/lfy/projects/aip-craffel/lfy/SLMensembles/logs/loss_log_{rank}.jsonl".format(rank=dist.get_rank()), flush_interval_s=1.0, snapshot_interval_s=60.0)
+        # Create logs directory if it doesn't exist
+        os.makedirs(config.logs_dir, exist_ok=True)
+        log_path = os.path.join(config.logs_dir, f"loss_log_{dist.get_rank()}.jsonl")
+        self.loss_logger = AsyncLossLogger(log_path=log_path, flush_interval_s=1.0, snapshot_interval_s=60.0)
 
 
     def prepare_train(self):

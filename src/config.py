@@ -25,6 +25,7 @@ base_output_dir = "/scratch/klambert/model_log/single_logs"
 logprob_cache_path = "/home/klambert/projects/aip-craffel/shared/slm_ensemble/"
 dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized"
 synthetic_dataset_path = "/scratch/klambert/dataset/synthetic_dataset"
+logs_dir = "/home/klambert/projects/aip-craffel/klambert/SLMensembles/logs"  # Directory for loss logs
 
 # ---------------- Data --------------------
 dataset_name = "allenai/tulu-3-sft-mixture"
@@ -49,10 +50,9 @@ ddp = True
 steps_per_round = -1
 num_train_epochs = 1
 learning_rate = 7.5e-6 # 5e-5 for constant
-# If loss spikes in first 50–200 steps: drop to 5e-6.
-# If loss is stable but barely decreasing: raise to 1.0e-5.
 kl_temperature = 1
 alpha = 0.5
+difficulty_filter_percentage = 25 
 
 resume_from_checkpoint = False
 checkpointed_dir = None # <output_path> of the directory which stores the checkpoints from which to resume from 

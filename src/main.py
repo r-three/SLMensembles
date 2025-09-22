@@ -339,9 +339,22 @@ def main(args):
     # ----------------------------------
     # ID Tracking 
     # ----------------------------------
-    by_id, all_rows = load_loss_jsonls('/home/lfy/projects/aip-craffel/lfy/SLMensembles/logs/loss_log_0.jsonl')
-    top_ids = top_k_percent_ids_sorted(by_id, 50)
-    dataset = dataset.filter(lambda ex: ex['id'] in top_ids, num_proc=32)
+    loss_log_path = os.path.join(config.logs_dir, 'loss_log_0.jsonl')
+    if os.path.exists(loss_log_path) and os.path.getsize(loss_log_path) > 0:
+        # Second+ run: filter by most difficult examples
+        main_print(f"Found existing loss logs, filtering to top {config.difficulty_filter_percentage}% most difficult examples")
+        by_id, all_rows = load_loss_jsonls(loss_log_path)
+        if len(by_id) > 0:  # Only filter if we have loss data
+            top_ids = top_k_percent_ids_sorted(by_id, config.difficulty_filter_percentage)
+            dataset = dataset.filter(lambda ex: ex['id'] in top_ids, num_proc=32)
+            main_print(f"Filtered dataset to {len(top_ids)} most difficult examples ({config.difficulty_filter_percentage}% of {len(by_id)})")
+        else:
+            main_print("No loss data found in logs, proceeding with full dataset")
+    else:
+        # First run: use full dataset
+        main_print("No loss logs found, proceeding with full dataset for first run")
+        # Ensure logs directory exists
+        os.makedirs(config.logs_dir, exist_ok=True)
 
     # ----------------------------------
     # Create Checkpointer Instance
@@ -417,6 +430,7 @@ def main(args):
     # Outer Training Loop
     # ----------------------------------
     ensemble_model = None
+    lr_scheduler = None  # Will be loaded from checkpoint if resuming
     if config.resume_from_checkpoint:
         ensemble_model = ensembleloader.load_or_update_ensemble(None, device="cuda")
         
