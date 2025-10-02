@@ -53,6 +53,7 @@ learning_rate = 7.5e-6 # 5e-5 for constant
 kl_temperature = 1
 alpha = 0.5
 difficulty_filter_percentage = 25 
+enable_id_tracking = False  # Toggle for ID tracking and loss logging
 
 resume_from_checkpoint = False
 checkpointed_dir = None # <output_path> of the directory which stores the checkpoints from which to resume from 
@@ -60,7 +61,7 @@ checkpointed_dir = None # <output_path> of the directory which stores the checkp
 # Ensembles
 ensemble_random_init = False
 ensemble_path = [] # ["/scratch/klambert/model_log/26-07-2025/run_2_alpha07_hyperparameters/round_0/checkpoint-14000"]  # Full path of ensemble models which we want to load (ex. ~/models/run2/round_1/checkpoint-18000)
-total_rounds = 1 # number of ensemble models (how many are loaded + how many we want trained)
+total_rounds = 3 # number of ensemble models (how many are loaded + how many we want trained)
 
 # ---------------- Early stopping parameters ---------------- 
 early_stop_patience = 20        # number of evaluations with no improvement

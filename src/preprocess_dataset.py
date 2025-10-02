@@ -24,6 +24,15 @@ def create_response_labels(input_ids):
             start_pos = i + len(response_ids)
             break
 
+# check shapes
+# check pad tokens of the model that I'm using
+# KL loss calluation might be wrong
+# try endpoint experiments
+# scale of the KL loss is wrong
+# labels, what I"m dividing by and how i'm summing it
+# compare with ntp loss
+# print _gather functions and see what it's doing
+
     if start_pos != -1:
         labels[start_pos:] = input_ids[start_pos:]
 

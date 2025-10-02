@@ -145,8 +145,12 @@ class Trainer(ABC):
         self.epoch = 0
         # Initialize callback for prediction step logging
         self.callback = LoggingCallback(logger, round_num, overall_start_time) if logger else None
-        log_path = os.path.join(config.logs_dir, f"loss_log_{dist.get_rank()}.jsonl")
-        self.loss_logger = AsyncLossLogger(log_path=log_path, flush_interval_s=1.0, snapshot_interval_s=60.0)
+        
+        # Initialize loss logger only if ID tracking is enabled
+        self.loss_logger = None
+        if getattr(config, 'enable_id_tracking', True):
+            log_path = os.path.join(config.logs_dir, f"loss_log_{dist.get_rank()}.jsonl")
+            self.loss_logger = AsyncLossLogger(log_path=log_path, flush_interval_s=1.0, snapshot_interval_s=60.0)
 
 
     def prepare_train(self):
@@ -236,7 +240,8 @@ class Trainer(ABC):
 
 
     def log_id_loss(self, tr_step_loss, next_token_loss, kl_loss, valid_count, ids):
-        self.loss_logger.update_and_write_many(ids, tr_step_loss, next_token_loss, kl_loss, valid_count)
+        if self.loss_logger is not None:
+            self.loss_logger.update_and_write_many(ids, tr_step_loss, next_token_loss, kl_loss, valid_count)
 
     
     def train_step(self, batch, epoch):
@@ -378,9 +383,9 @@ class Trainer(ABC):
                         loss=batch_loss
                     )
                 # TODO: Use only for quick tests
-                # if counter == 10:
-                #     break
-                # counter += 1
+                if counter == 10:
+                    break
+                counter += 1
         
         # So you don't see eval loss of a few million
         gathered_eval_loss = _gather(eval_loss.reshape(1)).sum().item()

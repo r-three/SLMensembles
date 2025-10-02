@@ -198,6 +198,8 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
         # ----------------------------------
         # Training Loop
         # ---------------------------------- 
+        # TODO: Toggle for quick tests
+        count = 0
         for step_idx in tqdm(range(len(train_dataloader)), disable=rank != 0, file=sys.stdout, mininterval=1.0, ncols=100):
             if args.explicit_prefetching: # TODO: is this correct? 
                 trainer.model.unshard()
@@ -206,6 +208,10 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
             if trainer.should_stop: 
                 main_print("Early stopping triggered")
                 break
+            # TODO: Toggle for quick tests
+            if count == 10:
+                break
+            count += 1
 
         dist.barrier()
 
@@ -339,21 +345,24 @@ def main(args):
     # ----------------------------------
     # ID Tracking 
     # ----------------------------------
-    loss_log_path = os.path.join(config.logs_dir, 'loss_log_0.jsonl')
-    if os.path.exists(loss_log_path) and os.path.getsize(loss_log_path) > 0:
-        # Second+ run: filter by most difficult examples
-        main_print(f"Found existing loss logs, filtering to top {config.difficulty_filter_percentage}% most difficult examples")
-        by_id, all_rows = load_loss_jsonls(loss_log_path)
-        if len(by_id) > 0:  # Only filter if we have loss data
-            top_ids = top_k_percent_ids_sorted(by_id, config.difficulty_filter_percentage)
-            dataset = dataset.filter(lambda ex: ex['id'] in top_ids, num_proc=32)
-            main_print(f"Filtered dataset to {len(top_ids)} most difficult examples ({config.difficulty_filter_percentage}% of {len(by_id)})")
+    if getattr(config, 'enable_id_tracking', True):
+        loss_log_path = os.path.join(config.logs_dir, 'loss_log_0.jsonl')
+        if os.path.exists(loss_log_path) and os.path.getsize(loss_log_path) > 0:
+            # Second+ run: filter by most difficult examples
+            main_print(f"Found existing loss logs, filtering to top {config.difficulty_filter_percentage}% most difficult examples")
+            by_id, all_rows = load_loss_jsonls(loss_log_path)
+            if len(by_id) > 0:  # Only filter if we have loss data
+                top_ids = top_k_percent_ids_sorted(by_id, config.difficulty_filter_percentage)
+                dataset = dataset.filter(lambda ex: ex['id'] in top_ids, num_proc=32)
+                main_print(f"Filtered dataset to {len(top_ids)} most difficult examples ({config.difficulty_filter_percentage}% of {len(by_id)})")
+            else:
+                main_print("No loss data found in logs, proceeding with full dataset")
         else:
-            main_print("No loss data found in logs, proceeding with full dataset")
+            main_print("No loss logs found, proceeding with full dataset for first run")
+            if is_main_process():
+                os.makedirs(config.logs_dir, exist_ok=True)
     else:
-        main_print("No loss logs found, proceeding with full dataset for first run")
-        if is_main_process():
-            os.makedirs(config.logs_dir, exist_ok=True)
+        main_print("ID tracking disabled, proceeding with full dataset")
     
     # Ensure all processes are synchronized after dataset filtering and directory creation
     dist.barrier()
@@ -361,7 +370,7 @@ def main(args):
     # ----------------------------------
     # Create Checkpointer Instance
     # ----------------------------------
-    checkpointer = Checkpointer(output_path)
+    checkpointer = Checkpointer(output_path) 
 
     # ----------------------------------
     # Logging and WandB config
