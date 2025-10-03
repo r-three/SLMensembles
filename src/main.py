@@ -209,9 +209,9 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
                 main_print("Early stopping triggered")
                 break
             # TODO: Toggle for quick tests
-            if count == 10:
-                break
-            count += 1
+            # if count == 10:
+            #     break
+            # count += 1
 
         dist.barrier()
 
