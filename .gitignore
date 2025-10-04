@@ -19,7 +19,6 @@ teacher_logits/
 teacher_logits2/
 results.csv
 wandb/
-notes.txt
 src/og_config.py
 CSV_metrics.csv
 SLM-plotting.py
