@@ -92,7 +92,7 @@ print(dataset[random.randint(0, len(dataset) - 1)]["messages"])
 # ----------------------------------
 dataset = dataset.shuffle(config.seed)
 dataset = dataset.select(range(200_000))
-dataset = dataset.train_test_split(test_size=10000)
+dataset = dataset.train_test_split(test_size=2000)
 print(f"\nAfter sampling - Train size: {len(dataset['train'])}, Test size: {len(dataset['test'])}")
 
 # ------------------------------------------
