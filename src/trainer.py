@@ -276,7 +276,7 @@ class Trainer(ABC):
                 next_token_loss = torch.stack(next_token_loss).sum()
                 kl_loss = torch.stack(kl_loss).sum()
                 valid_count = torch.stack(valid_count).sum()
-
+            # TODO: add averaging here (tr_step_loss, next_toke_loss, kl_loss / valid_count)
             (tr_step_loss / self.gas).backward()
             self.model.set_requires_gradient_sync(True)
         else:
@@ -292,6 +292,8 @@ class Trainer(ABC):
                 kl_loss = torch.stack(kl_loss).sum()
                 valid_count = torch.stack(valid_count).sum()
 
+            # TODO: average loss here (kl_loss / valid_count)
+            # average all lossses (training)
             (tr_step_loss / self.gas).backward()
             grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=config.max_grad_norm)
             grad_norm = float(grad_norm)
@@ -313,6 +315,7 @@ class Trainer(ABC):
             and self.rank == 0
             and (self.tr_step % getattr(config, "logging_steps", 1) == 0)
         ):
+        # TODO: add averaging
             self.logger.log(
                 function="train_step",
                 round_num=self.round_num,
@@ -489,6 +492,7 @@ class DistillTrainer(Trainer):
         '''
         Compute loss with both next token perdiction and kl div with teacher logits.
         '''
+        breakpoint()
         # ----------------------------
         # Compute Ensemble Predictions
         # ----------------------------
@@ -535,12 +539,23 @@ class DistillTrainer(Trainer):
             if (labels != -100).sum == 0:
                 print(labels)
             if not config.synthetic_data and alpha > 0:
-                kl_loss.append(self.compute_kl_loss(logits[i], mask=labels[i] != -100, logprob_values=[batch['logprob_values'][i]], logprob_indices=[batch['logprob_indices'][i]]))
+                kl_loss.append(self.compute_kl_loss(
+                    logits[i],
+                    mask=labels[i] != -100,
+                    logprob_values=[batch['logprob_values'][i]],
+                    logprob_indices=[batch['logprob_indices'][i]],
+                ))
             else:
-                kl_loss.append(torch.tensor(0.0, devce=logits.device))
+                kl_loss.append(torch.tensor(0.0, device=logits.device))
         
         for i in range(shift_logits.size(0)):
-            hybrid_loss.append((1 - alpha) * kl_loss[i] + alpha * next_token_loss[i])
+            # hybrid_loss.append((1 - alpha) * kl_loss[i] + alpha * next_token_loss[i])
+            # You’re computing losses per sequence, then mixing them into hybrid_loss = (1 - alpha) * KL + alpha * CE.
+            # Each sequence can have a different number of valid tokens (after masking -100). If you don’t normalize, longer sequences contribute much larger magnitudes (especially KL which was summed), skewing the KL/CE balance and the gradient scale.
+            # Normalize KL by valid token count to avoid scale explosion
+            # Normalizing inside compute_loss ensures every sequence’s KL (and optionally CE) is on the same per-token scale before mixing with alpha. That keeps the ratio stable and independent of sequence length
+            normalized_kl = kl_loss[i] / valid_count[i].clamp(min=1)
+            hybrid_loss.append((1 - alpha) * normalized_kl + alpha * next_token_loss[i])
 
         return hybrid_loss, next_token_loss, kl_loss, valid_count
 
