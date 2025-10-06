@@ -205,9 +205,9 @@ def train_single_round(start_round, round_num, dataset, output_path, logger, wan
                 trainer.model.unshard()
             batch = next(train_dl_iterator)
             trainer.step(batch, eval_dataloader, epoch_num)
-            if trainer.should_stop: 
-                main_print("Early stopping triggered")
-                break
+            # if trainer.should_stop: 
+            #     main_print("Early stopping triggered")
+            #     break
             # TODO: Toggle for quick tests
             # if count == 10:
             #     break
