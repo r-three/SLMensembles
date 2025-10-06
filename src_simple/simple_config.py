@@ -33,6 +33,10 @@ class DistillationConfig:
     eval_steps: int = 100
     resume_from_checkpoint: bool = False
     
+    # Early stopping (optional)
+    early_stop_patience: int = None  # Set to int to enable early stopping
+    early_stop_min_delta: float = 0.0  # Minimum improvement to reset patience
+    
     # System
     seed: int = 42
     

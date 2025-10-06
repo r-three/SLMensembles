@@ -1,0 +1,285 @@
+import torch
+import torch.nn.functional as F
+import torch.distributed as dist
+from tqdm.auto import tqdm
+import sys
+
+from simple_config import config
+from simple_utils import is_main_process, main_print
+
+
+def _gather(x: torch.Tensor) -> torch.Tensor:
+    """Safely gather tensors across all processes with proper device and shape handling."""
+    if not dist.is_initialized() or dist.get_world_size() == 1:
+        return x
+    
+    device = torch.cuda.current_device()
+    x = x.to(device)
+    
+    original_shape = x.shape
+    x_flat = x.flatten()
+    output_tensors = [torch.zeros_like(x_flat) for _ in range(dist.get_world_size())]
+    
+    try:
+        dist.all_gather(output_tensors, x_flat)
+        output_tensors = [t.reshape(original_shape) for t in output_tensors]
+        return torch.cat(output_tensors, dim=0)
+    except Exception as e:
+        print(f"Warning: _gather failed with error {e}, returning original tensor")
+        return x
+
+
+class Trainer:
+    """Trainer for teacher-student distillation."""
+    
+    def __init__(
+        self,
+        student_model,
+        teacher_model,
+        optimizer,
+        lr_scheduler,
+        checkpointer=None,
+    ):
+        self.student_model = student_model
+        self.teacher_model = teacher_model
+        self.model = student_model  # For compatibility with checkpoint saving
+        self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
+        self.checkpointer = checkpointer
+        self.global_step = 0
+        self.epoch = 0
+        self.rank = dist.get_rank() if dist.is_initialized() else 0
+        
+        # Gradient accumulation
+        self.gad = 0  # gradient accumulated steps counter
+        self.gas = getattr(config, 'gradient_accumulation_steps', 1)
+        
+        # Early stopping state
+        self.best_loss = float('inf')
+        self.wait = 0
+        self.should_stop = False
+        self.min_eval_loss = float('inf')
+        self.current_eval_loss = float('inf')
+    
+    def compute_loss(self, batch):
+        """
+        Compute hybrid distillation loss combining:
+        1. Cross-entropy loss on true labels
+        2. KL divergence between student and teacher distributions
+        
+        Returns: (total_loss, valid_count, ce_loss, kl_loss)
+        All losses use reduction='sum' for proper gradient accumulation.
+        """
+        # Move batch to GPU
+        input_ids = batch["input_ids"].to(torch.cuda.current_device())
+        attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
+        labels = batch["labels"].to(torch.cuda.current_device())
+        
+        # Teacher forward pass (no grad)
+        with torch.no_grad():
+            teacher_outputs = self.teacher_model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            )
+            teacher_logits = teacher_outputs.logits
+        
+        # Student forward pass
+        student_outputs = self.student_model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+        )
+        student_logits = student_outputs.logits
+        
+        # Shift for next-token prediction
+        vocab_size = student_logits.size(-1)
+        shift_student_logits = student_logits[..., :-1, :].contiguous()
+        shift_teacher_logits = teacher_logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+        
+        # Flatten
+        shift_student_logits = shift_student_logits.view(-1, vocab_size)
+        shift_teacher_logits = shift_teacher_logits.view(-1, vocab_size)
+        shift_labels = shift_labels.view(-1)
+        shift_labels = shift_labels.to(shift_student_logits.device)
+        
+        # Create mask for valid positions (not padding)
+        ignore_index = -100
+        mask = shift_labels != ignore_index
+        valid_count = mask.sum()
+        
+        # Cross-Entropy Loss (sum reduction)
+        ce_loss = F.cross_entropy(
+            shift_student_logits, 
+            shift_labels, 
+            ignore_index=ignore_index, 
+            reduction='sum'
+        )
+        
+        # KL Divergence Loss (sum reduction)
+        if mask.sum() > 0:
+            student_log_probs = F.log_softmax(
+                shift_student_logits[mask] / config.temperature, 
+                dim=-1
+            )
+            teacher_probs = F.softmax(
+                shift_teacher_logits[mask] / config.temperature, 
+                dim=-1
+            )
+            kl_loss = F.kl_div(
+                student_log_probs, 
+                teacher_probs, 
+                reduction='sum'
+            )
+            # Scale KL loss by temperature squared (standard practice)
+            kl_loss = kl_loss * (config.temperature ** 2)
+        else:
+            kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
+        
+        # Combine losses with alpha weighting
+        total_loss = config.alpha * ce_loss + (1 - config.alpha) * kl_loss
+        
+        return total_loss, valid_count, ce_loss, kl_loss
+    
+    def train_step(self, batch):
+        """Single training step with gradient accumulation support."""
+        self.model.train()
+        
+        # Ensure batch tensors are LongTensor
+        batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
+        batch["attention_mask"] = batch["attention_mask"].type(torch.LongTensor)
+        batch["labels"] = batch["labels"].type(torch.LongTensor)
+        
+        self.gad += 1
+        
+        # Periodic memory cleanup
+        if self.global_step % 100 == 0:
+            dist.barrier()
+            torch.cuda.empty_cache()
+            dist.barrier()
+        
+        # Compute loss
+        tr_step_loss, valid_count, ce_loss, kl_loss = self.compute_loss(batch)
+        
+        # Handle gradient accumulation
+        is_accumulating = (self.global_step + 1) % self.gas != 0
+        
+        if is_accumulating:
+            # No need to sync while accumulating gradients
+            if hasattr(self.model, 'set_requires_gradient_sync'):
+                self.model.set_requires_gradient_sync(False)
+            
+            # Normalize and backward
+            normalized_loss = tr_step_loss / self.gas
+            normalized_loss.backward()
+            
+            if hasattr(self.model, 'set_requires_gradient_sync'):
+                self.model.set_requires_gradient_sync(True)
+        else:
+            # Final accumulation step - sync gradients
+            if hasattr(self.model, 'set_requires_gradient_sync'):
+                self.model.set_requires_gradient_sync(True)
+            dist.barrier()
+            
+            # Normalize and backward
+            normalized_loss = tr_step_loss / self.gas
+            normalized_loss.backward()
+            
+            # Gradient clipping and optimizer step
+            grad_norm = torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), 
+                max_norm=config.max_grad_norm
+            )
+            
+            self.optimizer.step()
+            self.lr_scheduler.step()
+            self.optimizer.zero_grad()
+        
+        # Gather losses across GPUs for logging
+        loss_sum = _gather(tr_step_loss.reshape(1)).sum().item()
+        valid_sum = _gather(valid_count.float().reshape(1)).sum().item()
+        
+        # Return average loss per token
+        avg_loss = loss_sum / valid_sum if valid_sum > 0 else 0.0
+        
+        self.global_step += 1
+        
+        return avg_loss
+    
+    def eval_step(self, eval_dataloader):
+        """Evaluate the model."""
+        main_print("Evaluating...")
+        self.model.eval()
+        
+        total_loss = torch.tensor(0.0, device=torch.cuda.current_device())
+        total_ce_loss = torch.tensor(0.0, device=torch.cuda.current_device())
+        total_kl_loss = torch.tensor(0.0, device=torch.cuda.current_device())
+        total_valid_tokens = torch.tensor(0, device=torch.cuda.current_device())
+        
+        with torch.no_grad():
+            for batch in tqdm(eval_dataloader, 
+                            desc="Evaluating", 
+                            disable=self.rank != 0,
+                            file=sys.stdout):
+                
+                # Ensure batch tensors are LongTensor
+                batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
+                batch["attention_mask"] = batch["attention_mask"].type(torch.LongTensor)
+                batch["labels"] = batch["labels"].type(torch.LongTensor)
+                
+                # Compute loss
+                tr_step_loss, valid_count, ce_loss, kl_loss = self.compute_loss(batch)
+                
+                total_loss += tr_step_loss
+                total_valid_tokens += valid_count
+                if ce_loss is not None:
+                    total_ce_loss += ce_loss
+                if kl_loss is not None:
+                    total_kl_loss += kl_loss
+        
+        # Gather across GPUs
+        gathered_loss = _gather(total_loss.reshape(1)).sum().item()
+        gathered_tokens = _gather(total_valid_tokens.reshape(1)).sum().item()
+        
+        # Average loss per token
+        avg_loss = gathered_loss / gathered_tokens if gathered_tokens > 0 else 0.0
+        
+        main_print(f"Step: {self.global_step}, Eval Loss: {avg_loss:.4f}")
+        
+        # Update tracking
+        self.min_eval_loss = min(avg_loss, self.min_eval_loss)
+        self.current_eval_loss = avg_loss
+        
+        # Early stopping logic
+        early_stop_patience = getattr(config, 'early_stop_patience', None)
+        early_stop_min_delta = getattr(config, 'early_stop_min_delta', 0.0)
+        
+        if early_stop_patience is not None:
+            if self.best_loss - avg_loss > early_stop_min_delta:
+                self.best_loss = avg_loss
+                self.wait = 0
+            else:
+                self.wait += 1
+            
+            if self.wait >= early_stop_patience:
+                main_print(f"Early stopping triggered: no improvement for {self.wait} evaluations.")
+                self.should_stop = True
+        
+        self.model.train()
+        
+        # Cleanup
+        del total_loss, total_ce_loss, total_kl_loss, total_valid_tokens
+        torch.cuda.empty_cache()
+        
+        return avg_loss
+    
+    def save_checkpoint(self, loss: float = None):
+        """Save checkpoint via checkpointer."""
+        if self.checkpointer is not None and is_main_process():
+            self.checkpointer.save(
+                self.model,
+                self.optimizer,
+                self.lr_scheduler,
+                epoch=self.epoch,
+                global_step=self.global_step,
+                loss=loss if loss is not None else self.current_eval_loss
+            )

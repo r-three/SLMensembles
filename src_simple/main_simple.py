@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 import sys
 
 from simple_config import config
-from simple_trainer import DistillTrainer
+from simple_trainer import Trainer
 from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed
 from simple_checkpoint import SimpleCheckpointer
 
@@ -117,13 +117,17 @@ def main(args):
     # ----------------------------------
     # Initialize Trainer
     # ----------------------------------
-    trainer = DistillTrainer(
+    trainer = Trainer(
         student_model=student_model,
         teacher_model=teacher_model,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
         checkpointer=checkpointer,
     )
+    
+    # Sync trainer state with loaded checkpoint
+    trainer.global_step = global_step
+    trainer.epoch = start_epoch
     
     # ----------------------------------
     # Training Loop
@@ -133,6 +137,7 @@ def main(args):
     main_print("="*50)
     
     for epoch in range(start_epoch, config.num_epochs):
+        trainer.epoch = epoch
         main_print(f"\nEpoch {epoch}/{config.num_epochs-1}")
         
         # Set epoch for distributed sampler
@@ -143,51 +148,52 @@ def main(args):
         epoch_train_loss = 0.0
         num_train_steps = 0
         
-        progress_bar = tqdm(train_dataloader, disable=rank != 0, desc=f"Training Epoch {epoch}")
+        progress_bar = tqdm(train_dataloader, disable=rank != 0, file=sys.stdout, desc=f"Training Epoch {epoch}")
         for batch_idx, batch in enumerate(progress_bar):
+            # Train step (handles gradient accumulation internally)
             loss = trainer.train_step(batch)
             epoch_train_loss += loss
             num_train_steps += 1
-            global_step += 1
             
             # Update progress bar
             if rank == 0:
-                progress_bar.set_postfix({'loss': f'{loss:.4f}'})
+                progress_bar.set_postfix({
+                    'loss': f'{loss:.4f}',
+                    'step': trainer.global_step
+                })
             
             # Periodic evaluation
-            if global_step % config.eval_steps == 0:
-                eval_loss = trainer.evaluate(eval_dataloader)
-                main_print(f"Step {global_step}: eval_loss = {eval_loss:.4f}")
+            if trainer.global_step % config.eval_steps == 0:
+                eval_loss = trainer.eval_step(eval_dataloader)
+                main_print(f"Step {trainer.global_step}: eval_loss = {eval_loss:.4f}")
+                
+                # Check early stopping
+                if trainer.should_stop:
+                    main_print("Early stopping triggered, ending training.")
+                    break
                 
             # Periodic checkpointing
-            if global_step % config.save_steps == 0 and is_main_process():
-                checkpointer.save(
-                    student_model, 
-                    optimizer, 
-                    lr_scheduler,
-                    epoch=epoch,
-                    global_step=global_step,
-                    loss=epoch_train_loss / num_train_steps
-                )
+            if trainer.global_step % config.save_steps == 0:
+                dist.barrier()
+                trainer.save_checkpoint(loss=None)
+                dist.barrier()
+        
+        # Check if early stopping was triggered
+        if trainer.should_stop:
+            break
         
         # End of epoch evaluation
-        avg_train_loss = epoch_train_loss / num_train_steps
-        eval_loss = trainer.evaluate(eval_dataloader)
+        avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
+        eval_loss = trainer.eval_step(eval_dataloader)
         
         main_print(f"Epoch {epoch} Summary:")
         main_print(f"  Average Train Loss: {avg_train_loss:.4f}")
         main_print(f"  Eval Loss: {eval_loss:.4f}")
         
         # Save checkpoint at end of epoch
-        if is_main_process():
-            checkpointer.save(
-                student_model,
-                optimizer,
-                lr_scheduler,
-                epoch=epoch,
-                global_step=global_step,
-                loss=eval_loss
-            )
+        dist.barrier()
+        trainer.save_checkpoint(loss=eval_loss)
+        dist.barrier()
     
     # ----------------------------------
     # Final Model Save
