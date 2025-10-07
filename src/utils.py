@@ -896,17 +896,6 @@ class CustomPadCollator:
 
         return batch_padded
 
-def _default_collate_fn(batch):
-    """Simple collate function for pre-padded data."""
-    keys = batch[0].keys()
-    collated = {}
-    for key in keys:
-        values = [item[key] for item in batch]
-        if isinstance(values[0], torch.Tensor):
-            collated[key] = torch.stack(values)
-        else:
-            collated[key] = values
-    return collated
 
 def prepare_dataset(train_ds, eval_ds):
     """Prepare datasets with distributed samplers for FSDP2 training."""
