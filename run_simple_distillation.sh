@@ -2,13 +2,36 @@
 
 # Simple single-node multi-GPU training script for teacher-student distillation
 
-# Set environment variables
-export CUDA_VISIBLE_DEVICES=0,1,2,3  # Adjust based on your GPU availability
-export WORLD_SIZE=4  # Number of GPUs
+echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
+echo "Running on node: $(hostname)"
+echo "Job ID: $SLURM_JOB_ID"
+echo "GPU resources: $CUDA_VISIBLE_DEVICES" 
+
+# Auto-detect number of GPUs
+# Try SLURM variable first, fallback to counting CUDA_VISIBLE_DEVICES
+if [ -n "$SLURM_GPUS_ON_NODE" ]; then
+    export WORLD_SIZE=$SLURM_GPUS_ON_NODE
+elif [ -n "$CUDA_VISIBLE_DEVICES" ]; then
+    # Count GPUs from CUDA_VISIBLE_DEVICES (comma-separated)
+    export WORLD_SIZE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
+else
+    # Fallback: use nvidia-smi to count GPUs
+    export WORLD_SIZE=$(nvidia-smi --list-gpus | wc -l)
+fi
+
+echo "Detected $WORLD_SIZE GPU(s) for training"
+
+# Memory optimization settings
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export CUDA_LAUNCH_BLOCKING=1  
+
+# Load modules
+module load gcc arrow/18.1.0
+source /home/klambert/projects/aip-craffel/shared/slm_ensemble/prj/bin/activate
 
 # Run training
 torchrun \
     --nproc_per_node=$WORLD_SIZE \
     --master_port=29500 \
-    src/main_simple.py \
+    src_simple/main_simple.py \
     --mixed-precision
