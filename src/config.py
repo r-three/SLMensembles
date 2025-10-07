@@ -23,7 +23,7 @@ teacher_eval = (0.7968094515065487, 2.218451499938965)
 # ---------------- Output paths -------------
 base_output_dir = "/scratch/klambert/model_log/single_logs"
 logprob_cache_path = "/home/klambert/projects/aip-craffel/shared/slm_ensemble/"
-dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-pretokenized"
+dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
 synthetic_dataset_path = "/scratch/klambert/dataset/synthetic_dataset"
 logs_dir = "/home/klambert/projects/aip-craffel/klambert/SLMensembles/logs"  # Directory for loss logs
 

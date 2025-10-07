@@ -91,6 +91,8 @@ class Trainer:
                 attention_mask=attention_mask,
             )
             teacher_logits = teacher_outputs.logits
+            # Free teacher outputs to save memory
+            del teacher_outputs
         
         # Student forward pass
         student_outputs = self.student_model(
@@ -98,12 +100,17 @@ class Trainer:
             attention_mask=attention_mask,
         )
         student_logits = student_outputs.logits
+        # Free student outputs to save memory
+        del student_outputs
         
         # Shift for next-token prediction
         vocab_size = student_logits.size(-1)
         shift_student_logits = student_logits[..., :-1, :].contiguous()
         shift_teacher_logits = teacher_logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
+        
+        # Free unshifted logits to save memory
+        del teacher_logits, student_logits
         
         # Flatten
         shift_student_logits = shift_student_logits.view(-1, vocab_size)
