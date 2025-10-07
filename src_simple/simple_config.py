@@ -40,6 +40,10 @@ class DistillationConfig:
     # System
     seed: int = 42
     
+    # Wandb logging
+    wandb_project: str = "slm-distillation"
+    wandb_run_name: str = None  # Auto-generated if None
+    
     def __post_init__(self):
         os.makedirs(self.output_dir, exist_ok=True)
 
