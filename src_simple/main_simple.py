@@ -14,6 +14,13 @@ from simple_trainer import Trainer
 from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed
 from simple_checkpoint import SimpleCheckpointer
 
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+    print("Warning: wandb not available. Install with: pip install wandb")
+
 
 def main(args):
     """
@@ -36,6 +43,46 @@ def main(args):
     # ----------------------------------
     output_path = config.output_dir
     os.makedirs(output_path, exist_ok=True)
+    
+    # ----------------------------------
+    # Wandb Initialization
+    # ----------------------------------
+    use_wandb = config.use_wandb and WANDB_AVAILABLE
+    if use_wandb and is_main_process():
+        # Generate run name if not provided
+        run_name = config.wandb_run_name
+        if run_name is None:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            student_short = config.student_model_name.split('/')[-1]
+            teacher_short = config.teacher_model_name.split('/')[-1]
+            run_name = f"{student_short}_from_{teacher_short}_{timestamp}"
+        
+        # Initialize wandb
+        wandb.init(
+            project=config.wandb_project,
+            entity=config.wandb_entity,
+            name=run_name,
+            config={
+                "teacher_model": config.teacher_model_name,
+                "student_model": config.student_model_name,
+                "num_epochs": config.num_epochs,
+                "batch_size": config.batch_size,
+                "eval_batch_size": config.eval_batch_size,
+                "learning_rate": config.learning_rate,
+                "max_grad_norm": config.max_grad_norm,
+                "gradient_accumulation_steps": config.gradient_accumulation_steps,
+                "alpha": config.alpha,
+                "temperature": config.temperature,
+                "dataset": config.dataset_name,
+                "max_seq_length": config.max_seq_length,
+                "seed": config.seed,
+                "mixed_precision": args.mixed_precision,
+            },
+        )
+        main_print(f"Wandb initialized: {wandb.run.url}")
+    elif use_wandb and not is_main_process():
+        # Non-main processes should not initialize wandb
+        use_wandb = False
     
     # ----------------------------------
     # Dataset Loading
@@ -211,6 +258,10 @@ def main(args):
     # ----------------------------------
     total_time = time.time() - overall_start_time
     main_print(f"\nTraining completed in {total_time/3600:.2f} hours")
+    
+    # Finish wandb
+    if use_wandb and is_main_process():
+        wandb.finish()
     
     dist.barrier()
     if dist.is_initialized():
