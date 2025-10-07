@@ -11,14 +11,14 @@ class DistillationConfig:
     tokenizer_name = "allenai/OLMo-2-1124-7B-SFT" 
 
     # Dataset and Path
-    dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-tokenized"
+    dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     output_dir = "/scratch/klambert/model_log/singular"
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
     num_epochs: int = 3
     batch_size: int = 8
-    eval_batch_size: int = 16
+    eval_batch_size: int = 2
     learning_rate: float = 5e-5
     max_grad_norm: float = 1.0
     per_device_train_batch_size: int = 2
