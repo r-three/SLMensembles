@@ -71,7 +71,7 @@ def main(args):
                 "max_grad_norm": config.max_grad_norm,
                 "gradient_accumulation_steps": config.gradient_accumulation_steps,
                 "alpha": config.alpha,
-                "temperature": config.temperature,
+                "temperature": config.kl_temperature,
                 "dataset": config.dataset_name,
                 "seed": config.seed,
                 "mixed_precision": args.mixed_precision,

@@ -21,6 +21,7 @@ class DistillationConfig:
     eval_batch_size: int = 16
     learning_rate: float = 5e-5
     max_grad_norm: float = 1.0
+    per_device_train_batch_size: int = 2
     gradient_accumulation_steps: int = 4  # Number of steps to accumulate gradients
     
     # Distillation parameters
@@ -30,6 +31,7 @@ class DistillationConfig:
     # Checkpointing and logging
     save_steps: int = 500
     eval_steps: int = 100
+    resume_from_checkpoint: bool = False
     
     # System
     seed: int = 42
