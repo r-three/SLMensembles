@@ -4,7 +4,8 @@ Simplified utilities for distillation training.
 import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
-from datasets import load_dataset
+import datasets
+from datasets import load_from_disk
 from transformers import AutoTokenizer
 import random
 import numpy as np
@@ -32,97 +33,100 @@ def main_print(*args, **kwargs):
 
 
 def get_dataset():
-    """Load and tokenize the dataset."""
-    # Load dataset
-    dataset = load_dataset(config.dataset_name, split="train")
+    """Load dataset."""
+    return datasets.load_from_disk(config.dataset_path)
     
-    # Initialize tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    
-    def tokenize_function(examples):
-        # Tokenize the text
-        tokenized = tokenizer(
-            examples["text"],
-            truncation=True,
-            padding="max_length",
-            max_length=config.max_seq_length,
-            return_tensors=None,
-        )
-        
-        # Create labels (same as input_ids but with -100 for padding)
-        labels = tokenized["input_ids"].copy()
-        for i in range(len(labels)):
-            for j in range(len(labels[i])):
-                if tokenized["attention_mask"][i][j] == 0:
-                    labels[i][j] = -100
-        
-        tokenized["labels"] = labels
-        return tokenized
-    
-    # Tokenize dataset
-    tokenized_dataset = dataset.map(
-        tokenize_function,
-        batched=True,
-        num_proc=8,
-        remove_columns=dataset.column_names,
-    )
-    
-    # Split into train/test
-    split_dataset = tokenized_dataset.train_test_split(test_size=0.05, seed=config.seed)
-    
-    return split_dataset
+class CustomPadCollator:
+    def __init__(self, max_length, pad_token_id: int = -100, pad_label_id: int = -100, pad_attention_id: int = 0):
+        self.max_length = max_length
+        self.pad_token_id = pad_token_id
+        self.pad_label_id = pad_label_id
+        self.pad_attention_id = pad_attention_id
 
+    def __call__(self, batch):
+        batch_padded = {
+            "input_ids": [],
+            "attention_mask": [],
+            "labels": []
+        }
 
-def prepare_dataset(train_dataset, eval_dataset):
+        # Track other keys
+        other_keys = [k for k in batch[0].keys() if k not in batch_padded]
+
+        for item in batch:
+            length = len(item["input_ids"])
+            pad_len = self.max_length - length
+
+            batch_padded["input_ids"].append(torch.cat([
+                torch.tensor(item["input_ids"]),
+                torch.full((pad_len,), self.pad_token_id, dtype=torch.tensor(item["input_ids"]).dtype)
+            ]))
+
+            batch_padded["attention_mask"].append(torch.cat([
+                torch.tensor(item["attention_mask"]),
+                torch.full((pad_len,), self.pad_attention_id, dtype=torch.tensor(item["attention_mask"]).dtype)
+            ]))
+
+            batch_padded["labels"].append(torch.cat([
+                torch.tensor(item["labels"]),
+                torch.full((pad_len,), self.pad_label_id, dtype=torch.tensor(item["labels"]).dtype)
+            ]))
+
+        # Stack padded fields
+        for k in ["input_ids", "attention_mask", "labels"]:
+            batch_padded[k] = torch.stack(batch_padded[k])
+
+        # Add other keys without padding (just stack as-is)
+        for k in other_keys:
+            values = [item[k] for item in batch]
+            try:
+                batch_padded[k] = torch.stack(values)
+            except:
+                batch_padded[k] = values  # Leave as list if not stackable
+
+        return batch_padded
+
+def prepare_dataset(train_ds, eval_ds):
     """Prepare DataLoaders with DistributedSampler."""
-    # Create samplers
+    custom_collator = CustomPadCollator(1024, pad_token_id=100277) # pad_token_id for OLmo2
+
     train_sampler = DistributedSampler(
-        train_dataset,
-        num_replicas=dist.get_world_size() if dist.is_initialized() else 1,
-        rank=dist.get_rank() if dist.is_initialized() else 0,
+        train_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
         shuffle=True,
         seed=config.seed,
+        drop_last=True, 
     )
-    
-    eval_sampler = DistributedSampler(
-        eval_dataset,
-        num_replicas=dist.get_world_size() if dist.is_initialized() else 1,
-        rank=dist.get_rank() if dist.is_initialized() else 0,
+    test_sampler = DistributedSampler(
+        eval_ds,
+        dist.get_world_size(),
+        dist.get_rank(),
         shuffle=False,
+        drop_last=True, 
     )
-    
-    # Custom collate function to handle tensor conversion
-    def collate_fn(batch):
-        # Convert lists to tensors
-        input_ids = torch.tensor([item["input_ids"] for item in batch], dtype=torch.long)
-        attention_mask = torch.tensor([item["attention_mask"] for item in batch], dtype=torch.long)
-        labels = torch.tensor([item["labels"] for item in batch], dtype=torch.long)
-        
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "labels": labels,
-        }
-    
-    # Create dataloaders
+
+    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     train_dataloader = DataLoader(
-        train_dataset,
+        train_ds,
+        batch_size=config.per_device_train_batch_size,
         sampler=train_sampler,
-        batch_size=config.batch_size,
-        collate_fn=collate_fn,
-        num_workers=4,
-        pin_memory=True,
-    )
-    
+        shuffle=False,
+        collate_fn=custom_collator,
+        num_workers=0,
+        persistent_workers=False,
+        drop_last=True
+    )   
     eval_dataloader = DataLoader(
-        eval_dataset,
-        sampler=eval_sampler,
+        eval_ds,
         batch_size=config.eval_batch_size,
-        collate_fn=collate_fn,
-        num_workers=4,
-        pin_memory=True,
+        sampler=test_sampler,
+        shuffle=False,
+        collate_fn=custom_collator,
+        num_workers=0,
+        persistent_workers=False,
+        drop_last=True  
     )
-    
+
+    dist.barrier()
     return train_dataloader, eval_dataloader
