@@ -77,6 +77,17 @@ def contains_complete_response_template(sample):
 print("\n=== LOADING DATASET ===")
 
 tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name)
+print(f"Tokenizer loaded: {config.tokenizer_name}")
+print(f"Tokenizer vocabulary size: {len(tokenizer)}")
+
+# Verify this is OLMo tokenizer (should be ~100k tokens)
+if len(tokenizer) < 90000 or len(tokenizer) > 110000:
+    print(f"⚠️  WARNING: Tokenizer vocab size ({len(tokenizer)}) seems unusual for OLMo!")
+    print(f"   Expected ~100,278 tokens for OLMo-2 models")
+    print(f"   Are you sure you're using the right tokenizer?")
+else:
+    print(f"✓ Tokenizer vocab size looks correct for OLMo")
+
 dataset = datasets.load_dataset(config.dataset_name, split="train")
 
 print(f"Original dataset size: {len(dataset)}")
@@ -160,4 +171,29 @@ clean_dataset.save_to_disk(clean_save_path)
 print(f"Clean dataset (no chat_text) saved to: {clean_save_path}")
 # ------- End saving code ------------
 
-print("Dataset processing complete!")
+# ------ Verify token IDs are within vocabulary range ------
+print("\n=== VERIFYING TOKEN IDs ===")
+print("Checking token ID ranges in first 1000 samples...")
+
+max_token_id = 0
+min_token_id = float('inf')
+
+for i, example in enumerate(final_dataset['train'].select(range(min(1000, len(final_dataset['train']))))):
+    input_ids = example['input_ids']
+    if isinstance(input_ids, torch.Tensor):
+        input_ids = input_ids.tolist()
+    
+    max_token_id = max(max_token_id, max(input_ids))
+    min_token_id = min(min_token_id, min(input_ids))
+
+print(f"Token ID range: {min_token_id} to {max_token_id}")
+print(f"Tokenizer vocab size: {len(tokenizer)}")
+
+if max_token_id >= len(tokenizer):
+    print(f"❌ ERROR: Max token ID ({max_token_id}) >= vocab size ({len(tokenizer)})")
+    print(f"   This will cause CUDA errors during training!")
+    print(f"   Check that you're using the correct tokenizer.")
+else:
+    print(f"✓ All token IDs are within vocabulary range!")
+
+print("\nDataset processing complete!")
