@@ -6,7 +6,6 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
 import datasets
 from datasets import load_from_disk
-from transformers import AutoTokenizer
 import random
 import numpy as np
 
@@ -57,19 +56,24 @@ class CustomPadCollator:
             length = len(item["input_ids"])
             pad_len = self.max_length - length
 
+            # Convert to tensor if needed, otherwise clone
+            input_ids = item["input_ids"] if isinstance(item["input_ids"], torch.Tensor) else torch.tensor(item["input_ids"])
+            attention_mask = item["attention_mask"] if isinstance(item["attention_mask"], torch.Tensor) else torch.tensor(item["attention_mask"])
+            labels = item["labels"] if isinstance(item["labels"], torch.Tensor) else torch.tensor(item["labels"])
+
             batch_padded["input_ids"].append(torch.cat([
-                torch.tensor(item["input_ids"]),
-                torch.full((pad_len,), self.pad_token_id, dtype=torch.tensor(item["input_ids"]).dtype)
+                input_ids,
+                torch.full((pad_len,), self.pad_token_id, dtype=input_ids.dtype)
             ]))
 
             batch_padded["attention_mask"].append(torch.cat([
-                torch.tensor(item["attention_mask"]),
-                torch.full((pad_len,), self.pad_attention_id, dtype=torch.tensor(item["attention_mask"]).dtype)
+                attention_mask,
+                torch.full((pad_len,), self.pad_attention_id, dtype=attention_mask.dtype)
             ]))
 
             batch_padded["labels"].append(torch.cat([
-                torch.tensor(item["labels"]),
-                torch.full((pad_len,), self.pad_label_id, dtype=torch.tensor(item["labels"]).dtype)
+                labels,
+                torch.full((pad_len,), self.pad_label_id, dtype=labels.dtype)
             ]))
 
         # Stack padded fields
@@ -106,7 +110,6 @@ def prepare_dataset(train_ds, eval_ds):
         drop_last=True, 
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(config.student_model_name)
     train_dataloader = DataLoader(
         train_ds,
         batch_size=config.per_device_train_batch_size,

@@ -127,11 +127,11 @@ class Trainer:
         # KL Divergence Loss (sum reduction)
         if mask.sum() > 0:
             student_log_probs = F.log_softmax(
-                shift_student_logits[mask] / config.temperature, 
+                shift_student_logits[mask] / config.kl_temperature, 
                 dim=-1
             )
             teacher_probs = F.softmax(
-                shift_teacher_logits[mask] / config.temperature, 
+                shift_teacher_logits[mask] / config.kl_temperature, 
                 dim=-1
             )
             kl_loss = F.kl_div(
@@ -140,7 +140,7 @@ class Trainer:
                 reduction='sum'
             )
             # Scale KL loss by temperature squared (standard practice)
-            kl_loss = kl_loss * (config.temperature ** 2)
+            kl_loss = kl_loss * (config.kl_temperature ** 2)
         else:
             kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
         
