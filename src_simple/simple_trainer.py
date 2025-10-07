@@ -7,6 +7,12 @@ import sys
 from simple_config import config
 from simple_utils import is_main_process, main_print
 
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+
 
 def _gather(x: torch.Tensor) -> torch.Tensor:
     """Safely gather tensors across all processes with proper device and shape handling."""
@@ -49,6 +55,9 @@ class Trainer:
         self.global_step = 0
         self.epoch = 0
         self.rank = dist.get_rank() if dist.is_initialized() else 0
+        
+        # Wandb logging
+        self.use_wandb = WANDB_AVAILABLE and is_main_process()
         
         # Gradient accumulation
         self.gad = 0  # gradient accumulated steps counter
@@ -162,6 +171,7 @@ class Trainer:
         
         # Handle gradient accumulation
         is_accumulating = (self.global_step + 1) % self.gas != 0
+        grad_norm = None
         
         if is_accumulating:
             # No need to sync while accumulating gradients
@@ -197,9 +207,28 @@ class Trainer:
         # Gather losses across GPUs for logging
         loss_sum = _gather(tr_step_loss.reshape(1)).sum().item()
         valid_sum = _gather(valid_count.float().reshape(1)).sum().item()
+        ce_loss_sum = _gather(ce_loss.reshape(1)).sum().item() if ce_loss is not None else 0.0
+        kl_loss_sum = _gather(kl_loss.reshape(1)).sum().item() if kl_loss is not None else 0.0
         
         # Return average loss per token
         avg_loss = loss_sum / valid_sum if valid_sum > 0 else 0.0
+        avg_ce_loss = ce_loss_sum / valid_sum if valid_sum > 0 else 0.0
+        avg_kl_loss = kl_loss_sum / valid_sum if valid_sum > 0 else 0.0
+        
+        # Log to wandb (only on main process and when not accumulating)
+        if self.use_wandb and not is_accumulating:
+            log_dict = {
+                "train/loss": avg_loss,
+                "train/ce_loss": avg_ce_loss,
+                "train/kl_loss": avg_kl_loss,
+                "train/learning_rate": self.lr_scheduler.get_last_lr()[0],
+                "train/epoch": self.epoch,
+                "train/step": self.global_step,
+            }
+            if grad_norm is not None:
+                log_dict["train/grad_norm"] = grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm
+            
+            wandb.log(log_dict, step=self.global_step)
         
         self.global_step += 1
         
@@ -239,15 +268,30 @@ class Trainer:
         # Gather across GPUs
         gathered_loss = _gather(total_loss.reshape(1)).sum().item()
         gathered_tokens = _gather(total_valid_tokens.reshape(1)).sum().item()
+        gathered_ce_loss = _gather(total_ce_loss.reshape(1)).sum().item()
+        gathered_kl_loss = _gather(total_kl_loss.reshape(1)).sum().item()
         
         # Average loss per token
         avg_loss = gathered_loss / gathered_tokens if gathered_tokens > 0 else 0.0
+        avg_ce_loss = gathered_ce_loss / gathered_tokens if gathered_tokens > 0 else 0.0
+        avg_kl_loss = gathered_kl_loss / gathered_tokens if gathered_tokens > 0 else 0.0
         
         main_print(f"Step: {self.global_step}, Eval Loss: {avg_loss:.4f}")
         
         # Update tracking
         self.min_eval_loss = min(avg_loss, self.min_eval_loss)
         self.current_eval_loss = avg_loss
+        
+        # Log to wandb
+        if self.use_wandb:
+            wandb.log({
+                "eval/loss": avg_loss,
+                "eval/ce_loss": avg_ce_loss,
+                "eval/kl_loss": avg_kl_loss,
+                "eval/min_loss": self.min_eval_loss,
+                "eval/step": self.global_step,
+                "eval/epoch": self.epoch,
+            }, step=self.global_step)
         
         # Early stopping logic
         early_stop_patience = getattr(config, 'early_stop_patience', None)
