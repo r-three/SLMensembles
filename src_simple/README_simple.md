@@ -94,14 +94,9 @@ wandb login
 Edit `simple_config.py` to customize wandb settings:
 
 ```python
-# Enable/disable wandb
-use_wandb: bool = True
 
 # Set your project name
 wandb_project: str = "my-distillation-project"
-
-# Set your entity (username or team name)
-wandb_entity: str = "my-username"  # or None
 
 # Custom run name (auto-generated if None)
 wandb_run_name: str = None

@@ -60,7 +60,6 @@ def main(args):
         # Initialize wandb
         wandb.init(
             project=config.wandb_project,
-            entity=config.wandb_entity,
             name=run_name,
             config={
                 "teacher_model": config.teacher_model_name,
