@@ -73,7 +73,6 @@ def main(args):
                 "alpha": config.alpha,
                 "temperature": config.temperature,
                 "dataset": config.dataset_name,
-                "max_seq_length": config.max_seq_length,
                 "seed": config.seed,
                 "mixed_precision": args.mixed_precision,
             },
