@@ -47,8 +47,8 @@ def main(args):
     # ----------------------------------
     # Wandb Initialization
     # ----------------------------------
-    use_wandb = config.use_wandb and WANDB_AVAILABLE
-    if use_wandb and is_main_process():
+    use_wandb = WANDB_AVAILABLE
+    if is_main_process():
         # Generate run name if not provided
         run_name = config.wandb_run_name
         if run_name is None:
@@ -80,8 +80,7 @@ def main(args):
             },
         )
         main_print(f"Wandb initialized: {wandb.run.url}")
-    elif use_wandb and not is_main_process():
-        # Non-main processes should not initialize wandb
+    else:
         use_wandb = False
     
     # ----------------------------------
@@ -260,7 +259,7 @@ def main(args):
     main_print(f"\nTraining completed in {total_time/3600:.2f} hours")
     
     # Finish wandb
-    if use_wandb and is_main_process():
+    if is_main_process():
         wandb.finish()
     
     dist.barrier()
