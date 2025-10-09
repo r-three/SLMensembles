@@ -22,7 +22,7 @@ class DistillationConfig:
     learning_rate: float = 5e-5
     max_grad_norm: float = 1.0
     per_device_train_batch_size: int = 2
-    gradient_accumulation_steps: int = 16  # Increased from 4 (matches old code, 4x speedup)
+    gradient_accumulation_steps: int = 16 
     
     # Distillation parameters
     alpha: float = 0.5  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)

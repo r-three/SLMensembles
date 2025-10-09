@@ -314,5 +314,5 @@ class Trainer:
                 self.lr_scheduler,
                 epoch=self.epoch,
                 global_step=self.global_step,
-                loss=loss if loss is not None else self.current_eval_loss
+                loss=loss if loss is not None else 0.0
             )
