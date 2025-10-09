@@ -1,6 +1,14 @@
 #!/bin/bash
 
-# Simple single-node multi-GPU training script for teacher-student distillation
+#SBATCH --job-name=alpha0
+#SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
+#SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
+#SBATCH --partition=gpubase_l40s_b3                                                                 
+#SBATCH --gres=gpu:l40s:2
+#SBATCH --cpus-per-task=4                                                                     
+#SBATCH --mem=120GB
+#SBATCH --account=aip-craffel                                             
+#SBATCH --time=23:58:00
 
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"

@@ -29,19 +29,19 @@ class DistillationConfig:
     kl_temperature: float = 3.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 10 
-    eval_steps: int = 20
+    save_steps: int = 500 
+    eval_steps: int = 100
     resume_from_checkpoint: bool = False
     
     # System
     seed: int = 42
     
     # Debug/Testing mode
-    debug_mode: bool = True  # Set to True for quick testing
+    debug_mode: bool = False  # Set to True for quick testing
     debug_max_steps: int = 40  # Stop training after this many steps in debug mode
 
     # Wandb logging
-    wandb_project: str = "slm-distillation"
+    wandb_project: str = "slm-distillation-full-pipeline"
     wandb_run_name: str = None  # Auto-generated if None
     
     def __post_init__(self):
