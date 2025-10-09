@@ -12,6 +12,9 @@ import numpy as np
 from simple_config import config
 
 
+# ==================================================
+# Random Seed Utilities
+# ==================================================
 def fix_seed(seed: int):
     """Fix random seeds for reproducibility."""
     random.seed(seed)
@@ -20,6 +23,9 @@ def fix_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
+# ==================================================
+# Distributed Training Utilities
+# ==================================================
 def is_main_process():
     """Check if this is the main process (rank 0)."""
     return not dist.is_initialized() or dist.get_rank() == 0
@@ -30,11 +36,9 @@ def main_print(*args, **kwargs):
     if is_main_process():
         print(*args, **kwargs)
 
-
-def get_dataset():
-    """Load dataset."""
-    return datasets.load_from_disk(config.dataset_path)
-    
+# ==================================================
+# Custom Collator for Padding
+# ==================================================
 class CustomPadCollator:
     def __init__(self, max_length, pad_token_id: int = -100, pad_label_id: int = -100, pad_attention_id: int = 0):
         self.max_length = max_length
@@ -89,6 +93,15 @@ class CustomPadCollator:
                 batch_padded[k] = values  # Leave as list if not stackable
 
         return batch_padded
+
+
+# ==================================================
+# Dataset Loading
+# ==================================================
+def get_dataset():
+    """Load dataset."""
+    return datasets.load_from_disk(config.dataset_path)
+
 
 def prepare_dataset(train_ds, eval_ds):
     """Prepare DataLoaders with DistributedSampler."""

@@ -7,6 +7,9 @@ import glob
 from simple_utils import main_print
 
 
+# ==================================================
+# Checkpointer Class
+# ==================================================
 class SimpleCheckpointer:
     """Simple checkpoint manager for saving and loading model states."""
     
@@ -15,6 +18,9 @@ class SimpleCheckpointer:
         self.checkpoint_dir = os.path.join(output_dir, "checkpoints")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
     
+    # ----------------------------------
+    # Save Checkpoint
+    # ----------------------------------
     def save(self, model, optimizer, lr_scheduler, epoch, global_step, loss):
         """Save a checkpoint."""
         checkpoint_path = os.path.join(
@@ -37,6 +43,9 @@ class SimpleCheckpointer:
         # Keep only the last 3 checkpoints
         self._cleanup_old_checkpoints(keep_last=3)
     
+    # ----------------------------------
+    # Load Checkpoint
+    # ----------------------------------
     def load(self, model, optimizer, lr_scheduler):
         """Load the latest checkpoint if it exists."""
         checkpoints = glob.glob(os.path.join(self.checkpoint_dir, "checkpoint_*.pt"))
@@ -62,6 +71,9 @@ class SimpleCheckpointer:
             'loss': checkpoint['loss'],
         }
     
+    # ----------------------------------
+    # Cleanup Old Checkpoints
+    # ----------------------------------
     def _cleanup_old_checkpoints(self, keep_last=3):
         """Remove old checkpoints, keeping only the most recent ones."""
         checkpoints = glob.glob(os.path.join(self.checkpoint_dir, "checkpoint_*.pt"))

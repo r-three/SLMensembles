@@ -10,6 +10,10 @@ import os
 import argparse
 from pathlib import Path
 
+
+# ==================================================
+# Config Loading Functions
+# ==================================================
 def load_config(config_path=None):
     """
     Load config from specified path or default config.py

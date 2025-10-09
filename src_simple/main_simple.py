@@ -22,12 +22,15 @@ except ImportError:
     print("Warning: wandb not available. Install with: pip install wandb")
 
 
+# ==================================================
+# Main Training Function
+# ==================================================
 def main(args):
     """
     Simplified single teacher-student distillation pipeline.
     """
     # ----------------------------------
-    # DDP Setup
+    # DDP Setup and Initialization
     # ----------------------------------
     rank = int(os.environ["LOCAL_RANK"])
     device = torch.device(f"cuda:{rank}")
@@ -35,6 +38,9 @@ def main(args):
     torch.distributed.init_process_group(backend="nccl", device_id=device)
     fix_seed(config.seed)
 
+    # ----------------------------------
+    # Timer and Logging Start
+    # ----------------------------------
     overall_start_time = time.time()
     main_print(f"--> Starting training at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
@@ -144,11 +150,13 @@ def main(args):
     )
     
     # ----------------------------------
-    # Checkpointer
+    # Checkpointer Setup
     # ----------------------------------
     checkpointer = SimpleCheckpointer(output_path)
     
-    # Resume from checkpoint if specified
+    # ----------------------------------
+    # Resume from Checkpoint (if applicable)
+    # ----------------------------------
     start_epoch = 0
     global_step = 0
     if config.resume_from_checkpoint:
@@ -184,15 +192,20 @@ def main(args):
         trainer.epoch = epoch
         main_print(f"\nEpoch {epoch}/{config.num_epochs-1}")
         
-        # Set epoch for distributed sampler
+        # ----------------------------------
+        # Epoch Setup
+        # ----------------------------------
         if hasattr(train_dataloader.sampler, "set_epoch"):
             train_dataloader.sampler.set_epoch(epoch)
         
-        # Training
+        # Initialize tracking variables
         epoch_train_loss = 0.0
         num_train_steps = 0
         eval_count = 0
         
+        # ----------------------------------
+        # Training Iteration
+        # ----------------------------------
         progress_bar = tqdm(train_dataloader, disable=rank != 0, file=sys.stdout, desc=f"Training Epoch {epoch}")
         for batch_idx, batch in enumerate(progress_bar):
             # Debug mode: stop after max_steps
@@ -212,15 +225,16 @@ def main(args):
                     'step': trainer.global_step
                 })
             
-            # Periodic evaluation
+            # ------ Periodic Evaluation ------
             if trainer.global_step > 0 and trainer.global_step % config.eval_steps == 0:
                 dist.barrier()  # Sync before eval
                 eval_loss = trainer.eval_step(eval_dataloader)
                 main_print(f"Step {trainer.global_step}: eval_loss = {eval_loss:.4f}")
                 eval_count += 1
                 dist.barrier()  # Sync after eval
-                
-            # Periodic checkpointing (skip in debug mode to avoid NCCL timeout)
+            
+            # ------ Periodic Checkpointing ------
+            # Skip in debug mode to avoid NCCL timeout
             if not config.debug_mode and trainer.global_step > 0 and trainer.global_step % config.save_steps == 0:
                 dist.barrier()
                 trainer.save_checkpoint(loss=None)
@@ -230,16 +244,23 @@ def main(args):
         if config.debug_mode and trainer.global_step >= config.debug_max_steps:
             main_print("[DEBUG MODE] Pipeline test complete!")
             break
-            
-        # End of epoch evaluation
+        
+        # ----------------------------------
+        # End of Epoch Summary
+        # ----------------------------------
+        # Compute average training loss
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
+        
+        # Run final evaluation for the epoch
         eval_loss = trainer.eval_step(eval_dataloader)
         
         main_print(f"Epoch {epoch} Summary:")
         main_print(f"  Average Train Loss: {avg_train_loss:.4f}")
         main_print(f"  Eval Loss: {eval_loss:.4f}")
         
-        # Save checkpoint at end of epoch
+        # ----------------------------------
+        # Save Epoch Checkpoint
+        # ----------------------------------
         dist.barrier()
         trainer.save_checkpoint(loss=eval_loss)
         dist.barrier()
@@ -256,20 +277,24 @@ def main(args):
         main_print(f"\nSaved final model to {final_model_path}")
     
     # ----------------------------------
-    # Cleanup
+    # Cleanup and Finalization
     # ----------------------------------
     total_time = time.time() - overall_start_time
     main_print(f"\nTraining completed in {total_time/3600:.2f} hours")
     
-    # Finish wandb
+    # Finish wandb logging
     if is_main_process():
         wandb.finish()
     
+    # Clean up distributed processes
     dist.barrier()
     if dist.is_initialized():
         dist.destroy_process_group()
 
 
+# ==================================================
+# Script Entry Point
+# ==================================================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple Teacher-Student Distillation")
     parser.add_argument("--mixed-precision", action="store_true", default=True,

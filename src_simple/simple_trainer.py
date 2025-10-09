@@ -14,6 +14,9 @@ except ImportError:
     WANDB_AVAILABLE = False
 
 
+# ==================================================
+# Helper Functions
+# ==================================================
 def _gather(x: torch.Tensor) -> torch.Tensor:
     """Safely gather tensors across all processes with proper device and shape handling."""
     if not dist.is_initialized() or dist.get_world_size() == 1:
@@ -35,6 +38,9 @@ def _gather(x: torch.Tensor) -> torch.Tensor:
         return x
 
 
+# ==================================================
+# Trainer Class
+# ==================================================
 class Trainer:
     """Trainer for teacher-student distillation."""
     
@@ -65,6 +71,9 @@ class Trainer:
         self.gad = 0  # gradient accumulated steps counter
         self.gas = getattr(config, 'gradient_accumulation_steps', 1)
     
+    # ----------------------------------
+    # Loss Computation
+    # ----------------------------------
     def compute_loss(self, batch):
         """
         Compute hybrid distillation loss combining:
@@ -79,6 +88,7 @@ class Trainer:
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
         
+        # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
             teacher_outputs = self.teacher_model(
@@ -98,6 +108,7 @@ class Trainer:
         # Free student outputs to save memory
         del student_outputs
         
+        # ------ Prepare Logits for Next-Token Prediction ------
         # Shift for next-token prediction
         vocab_size = student_logits.size(-1)
         shift_student_logits = student_logits[..., :-1, :].contiguous()
@@ -118,7 +129,7 @@ class Trainer:
         mask = shift_labels != ignore_index
         valid_count = mask.sum()
         
-        # Cross-Entropy Loss (sum reduction)
+        # ------ Cross-Entropy Loss ------
         ce_loss = F.cross_entropy(
             shift_student_logits, 
             shift_labels, 
@@ -126,7 +137,7 @@ class Trainer:
             reduction='sum'
         )
         
-        # KL Divergence Loss (sum reduction)
+        # ------ KL Divergence Loss ------
         if mask.sum() > 0:
             student_log_probs = F.log_softmax(
                 shift_student_logits[mask] / config.kl_temperature, 
@@ -146,15 +157,19 @@ class Trainer:
         else:
             kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
         
-        # Combine losses with alpha weighting
+        # ------ Combine Losses ------
         total_loss = config.alpha * ce_loss + (1 - config.alpha) * kl_loss
         
         return total_loss, valid_count, ce_loss, kl_loss
     
+    # ----------------------------------
+    # Training Step
+    # ----------------------------------
     def train_step(self, batch):
         """Single training step with gradient accumulation support."""
         self.model.train()
         
+        # ------ Prepare Batch ------
         # Ensure batch tensors are LongTensor
         batch["input_ids"] = batch["input_ids"].type(torch.LongTensor)
         batch["attention_mask"] = batch["attention_mask"].type(torch.LongTensor)
@@ -162,6 +177,7 @@ class Trainer:
         
         self.gad += 1
         
+        # ------ Initialization and Cleanup ------
         # First batch warning
         if self.global_step == 0 and self.rank == 0:
             main_print("First batch (FSDP initialization + CUDA compilation)...")
@@ -172,10 +188,10 @@ class Trainer:
             torch.cuda.empty_cache()
             dist.barrier()
         
-        # Compute loss
+        # ------ Compute Loss ------
         tr_step_loss, valid_count, ce_loss, kl_loss = self.compute_loss(batch)
         
-        # Handle gradient accumulation
+        # ------ Gradient Accumulation ------
         is_accumulating = (self.global_step + 1) % self.gas != 0
         grad_norm = None
         
@@ -210,17 +226,18 @@ class Trainer:
             self.lr_scheduler.step()
             self.optimizer.zero_grad()
         
-        # Gather losses across GPUs for logging
+        # ------ Gather Metrics Across GPUs ------
         loss_sum = _gather(tr_step_loss.reshape(1)).sum().item()
         valid_sum = _gather(valid_count.float().reshape(1)).sum().item()
         ce_loss_sum = _gather(ce_loss.reshape(1)).sum().item() if ce_loss is not None else 0.0
         kl_loss_sum = _gather(kl_loss.reshape(1)).sum().item() if kl_loss is not None else 0.0
         
-        # Return average loss per token
+        # Compute average loss per token
         avg_loss = loss_sum / valid_sum if valid_sum > 0 else 0.0
         avg_ce_loss = ce_loss_sum / valid_sum if valid_sum > 0 else 0.0
         avg_kl_loss = kl_loss_sum / valid_sum if valid_sum > 0 else 0.0
         
+        # ------ Logging ------
         # Log to wandb (only on main process and when not accumulating)
         if self.use_wandb and not is_accumulating:
             log_dict = {
@@ -240,16 +257,21 @@ class Trainer:
         
         return avg_loss
     
+    # ----------------------------------
+    # Evaluation Step
+    # ----------------------------------
     def eval_step(self, eval_dataloader):
         """Evaluate the model."""
         main_print("Evaluating...")
         self.model.eval()
         
+        # ------ Initialize Accumulators ------
         total_loss = torch.tensor(0.0, device=torch.cuda.current_device())
         total_ce_loss = torch.tensor(0.0, device=torch.cuda.current_device())
         total_kl_loss = torch.tensor(0.0, device=torch.cuda.current_device())
         total_valid_tokens = torch.tensor(0, device=torch.cuda.current_device())
         
+        # ------ Evaluation Loop ------
         with torch.no_grad():
             for batch in tqdm(eval_dataloader, 
                             desc="Evaluating", 
@@ -264,6 +286,7 @@ class Trainer:
                 # Compute loss
                 tr_step_loss, valid_count, ce_loss, kl_loss = self.compute_loss(batch)
                 
+                # Accumulate metrics
                 total_loss += tr_step_loss
                 total_valid_tokens += valid_count
                 if ce_loss is not None:
@@ -271,23 +294,24 @@ class Trainer:
                 if kl_loss is not None:
                     total_kl_loss += kl_loss
         
-        # Gather across GPUs
+        # ------ Gather Metrics Across GPUs ------
         gathered_loss = _gather(total_loss.reshape(1)).sum().item()
         gathered_tokens = _gather(total_valid_tokens.reshape(1)).sum().item()
         gathered_ce_loss = _gather(total_ce_loss.reshape(1)).sum().item()
         gathered_kl_loss = _gather(total_kl_loss.reshape(1)).sum().item()
         
-        # Average loss per token
+        # Compute average loss per token
         avg_loss = gathered_loss / gathered_tokens if gathered_tokens > 0 else 0.0
         avg_ce_loss = gathered_ce_loss / gathered_tokens if gathered_tokens > 0 else 0.0
         avg_kl_loss = gathered_kl_loss / gathered_tokens if gathered_tokens > 0 else 0.0
         
         main_print(f"Step: {self.global_step}, Eval Loss: {avg_loss:.4f}")
         
-        # Update tracking
+        # ------ Update Tracking ------
         self.min_eval_loss = min(avg_loss, self.min_eval_loss)
         self.current_eval_loss = avg_loss
         
+        # ------ Logging ------
         # Log to wandb
         if self.use_wandb:
             wandb.log({
@@ -299,14 +323,18 @@ class Trainer:
                 "eval/epoch": self.epoch,
             }, step=self.global_step)
         
+        # ------ Cleanup ------
         self.model.train()
         
-        # Cleanup
+        # Free memory
         del total_loss, total_ce_loss, total_kl_loss, total_valid_tokens
         torch.cuda.empty_cache()
         
         return avg_loss
     
+    # ----------------------------------
+    # Checkpoint Saving
+    # ----------------------------------
     def save_checkpoint(self, loss: float = None):
         """Save checkpoint via checkpointer."""
         if self.checkpointer is not None and is_main_process():
