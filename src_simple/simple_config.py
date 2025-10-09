@@ -16,25 +16,28 @@ class DistillationConfig:
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
-    num_epochs: int = 3
+    num_epochs: int = 2
     batch_size: int = 8
     eval_batch_size: int = 2
     learning_rate: float = 5e-5
     max_grad_norm: float = 1.0
     per_device_train_batch_size: int = 2
-    gradient_accumulation_steps: int = 4  # Number of steps to accumulate gradients
+    gradient_accumulation_steps: int = 16  # Increased from 4 (matches old code, 4x speedup)
     
     # Distillation parameters
     alpha: float = 0.5  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
     kl_temperature: float = 3.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 500
-    eval_steps: int = 100
+    save_steps: int = 10 
+    eval_steps: int = 20
     resume_from_checkpoint: bool = False
     
     # System
     seed: int = 42
+    
+    # Debug mode - set to True for quick testing (stops after 2 evals)
+    debug_mode: bool = False  # Set to True to test pipeline in ~15 minutes
 
     # Wandb logging
     wandb_project: str = "slm-distillation"

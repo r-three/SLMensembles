@@ -191,6 +191,7 @@ def main(args):
         # Training
         epoch_train_loss = 0.0
         num_train_steps = 0
+        eval_count = 0
         
         progress_bar = tqdm(train_dataloader, disable=rank != 0, file=sys.stdout, desc=f"Training Epoch {epoch}")
         for batch_idx, batch in enumerate(progress_bar):
@@ -206,26 +207,22 @@ def main(args):
                     'step': trainer.global_step
                 })
             
-            # Periodic evaluation
-            if trainer.global_step % config.eval_steps == 0:
+            if trainer.global_step > 0 and trainer.global_step % config.eval_steps == 0:
                 eval_loss = trainer.eval_step(eval_dataloader)
                 main_print(f"Step {trainer.global_step}: eval_loss = {eval_loss:.4f}")
+                eval_count += 1
                 
-                # Check early stopping
-                if trainer.should_stop:
-                    main_print("Early stopping triggered, ending training.")
+                # Debug mode: stop after 2 evaluations
+                if config.debug_mode and eval_count >= 2:
+                    main_print("[DEBUG MODE] Stopping after 2 evaluations - pipeline test complete!")
                     break
                 
             # Periodic checkpointing
-            if trainer.global_step % config.save_steps == 0:
+            if trainer.global_step > 0 and trainer.global_step % config.save_steps == 0:
                 dist.barrier()
                 trainer.save_checkpoint(loss=None)
                 dist.barrier()
-        
-        # Check if early stopping was triggered
-        if trainer.should_stop:
-            break
-        
+
         # End of epoch evaluation
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
         eval_loss = trainer.eval_step(eval_dataloader)

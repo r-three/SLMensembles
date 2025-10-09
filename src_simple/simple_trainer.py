@@ -62,13 +62,6 @@ class Trainer:
         # Gradient accumulation
         self.gad = 0  # gradient accumulated steps counter
         self.gas = getattr(config, 'gradient_accumulation_steps', 1)
-        
-        # Early stopping state
-        self.best_loss = float('inf')
-        self.wait = 0
-        self.should_stop = False
-        self.min_eval_loss = float('inf')
-        self.current_eval_loss = float('inf')
     
     def compute_loss(self, batch):
         """
@@ -166,6 +159,10 @@ class Trainer:
         batch["labels"] = batch["labels"].type(torch.LongTensor)
         
         self.gad += 1
+        
+        # First batch warning
+        if self.global_step == 0 and self.rank == 0:
+            main_print("First batch (FSDP initialization + CUDA compilation)...")
         
         # Periodic memory cleanup
         if self.global_step % 100 == 0:
@@ -299,21 +296,6 @@ class Trainer:
                 "eval/step": self.global_step,
                 "eval/epoch": self.epoch,
             }, step=self.global_step)
-        
-        # Early stopping logic
-        early_stop_patience = getattr(config, 'early_stop_patience', None)
-        early_stop_min_delta = getattr(config, 'early_stop_min_delta', 0.0)
-        
-        if early_stop_patience is not None:
-            if self.best_loss - avg_loss > early_stop_min_delta:
-                self.best_loss = avg_loss
-                self.wait = 0
-            else:
-                self.wait += 1
-            
-            if self.wait >= early_stop_patience:
-                main_print(f"Early stopping triggered: no improvement for {self.wait} evaluations.")
-                self.should_stop = True
         
         self.model.train()
         
