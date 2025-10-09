@@ -36,8 +36,9 @@ class DistillationConfig:
     # System
     seed: int = 42
     
-    # Debug mode - set to True for quick testing (stops after 2 evals)
-    debug_mode: bool = False  # Set to True to test pipeline in ~15 minutes
+    # Debug/Testing mode
+    debug_mode: bool = True  # Set to True for quick testing
+    debug_max_steps: int = 40  # Stop training after this many steps in debug mode
 
     # Wandb logging
     wandb_project: str = "slm-distillation"

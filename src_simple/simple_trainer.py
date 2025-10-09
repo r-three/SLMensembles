@@ -55,6 +55,8 @@ class Trainer:
         self.global_step = 0
         self.epoch = 0
         self.rank = dist.get_rank() if dist.is_initialized() else 0
+        self.min_eval_loss = float('inf')
+        self.current_eval_loss = 0.0
         
         # Wandb logging
         self.use_wandb = WANDB_AVAILABLE and is_main_process()

@@ -195,6 +195,11 @@ def main(args):
         
         progress_bar = tqdm(train_dataloader, disable=rank != 0, file=sys.stdout, desc=f"Training Epoch {epoch}")
         for batch_idx, batch in enumerate(progress_bar):
+            # Debug mode: stop after max_steps
+            if config.debug_mode and trainer.global_step >= config.debug_max_steps:
+                main_print(f"[DEBUG MODE] Reached max steps ({config.debug_max_steps}), stopping training")
+                break
+            
             # Train step (handles gradient accumulation internally)
             loss = trainer.train_step(batch)
             epoch_train_loss += loss
@@ -207,22 +212,25 @@ def main(args):
                     'step': trainer.global_step
                 })
             
+            # Periodic evaluation
             if trainer.global_step > 0 and trainer.global_step % config.eval_steps == 0:
+                dist.barrier()  # Sync before eval
                 eval_loss = trainer.eval_step(eval_dataloader)
                 main_print(f"Step {trainer.global_step}: eval_loss = {eval_loss:.4f}")
                 eval_count += 1
+                dist.barrier()  # Sync after eval
                 
-                # Debug mode: stop after 2 evaluations
-                if config.debug_mode and eval_count >= 2:
-                    main_print("[DEBUG MODE] Stopping after 2 evaluations - pipeline test complete!")
-                    break
-                
-            # Periodic checkpointing
-            if trainer.global_step > 0 and trainer.global_step % config.save_steps == 0:
+            # Periodic checkpointing (skip in debug mode to avoid NCCL timeout)
+            if not config.debug_mode and trainer.global_step > 0 and trainer.global_step % config.save_steps == 0:
                 dist.barrier()
                 trainer.save_checkpoint(loss=None)
                 dist.barrier()
 
+        # Skip end-of-epoch processing in debug mode (already stopped)
+        if config.debug_mode and trainer.global_step >= config.debug_max_steps:
+            main_print("[DEBUG MODE] Pipeline test complete!")
+            break
+            
         # End of epoch evaluation
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
         eval_loss = trainer.eval_step(eval_dataloader)
