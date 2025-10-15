@@ -107,10 +107,7 @@ def main(args):
     ).to('cuda')
     teacher_model.eval()
     
-    # Shard teacher model for memory efficiency
-    for layer in teacher_model.model.layers:
-        fully_shard(layer)
-    fully_shard(teacher_model)
+    teacher_model.eval()
     
     # ----------------------------------
     # Load Student Model
