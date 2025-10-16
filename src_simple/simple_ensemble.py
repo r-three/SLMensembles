@@ -24,7 +24,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         self.vocab_size = vocab_size
         self.loss_fn = nn.CrossEntropyLoss()
         self.model_type = model_type
-
+ 
         modules = []
         for path in model_paths:
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
