@@ -30,7 +30,6 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
             state_dict = torch.load(os.path.join(path, "model_state_dict.pt"), weights_only=True, map_location='cpu')
             
-            # Load state dict (should be clean tensors, not DTensors, if saved properly)
             model.load_state_dict(state_dict, strict=False)
             
             model.eval()
