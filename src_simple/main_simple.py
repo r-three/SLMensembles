@@ -6,6 +6,7 @@ import torch.distributed as dist
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
+from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from tqdm.auto import tqdm
 import sys
 
@@ -268,8 +269,12 @@ def main(args):
         final_model_path = os.path.join(output_path, "final_model")
         os.makedirs(final_model_path, exist_ok=True)
         
+        # Use proper FSDP2-compatible state dict extraction
+        state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
+        model_state_dict = get_model_state_dict(model=student_model, options=state_dict_opts)
+        
         # Save just the model state dict for inference
-        torch.save(student_model.state_dict(), os.path.join(final_model_path, "model.pt"))
+        torch.save(model_state_dict, os.path.join(final_model_path, "model.pt"))
         main_print(f"\nSaved final model to {final_model_path}")
     
     # ----------------------------------

@@ -4,7 +4,8 @@ Simplified checkpointing for distillation training.
 import os
 import torch
 import glob
-from simple_utils import main_print
+from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
+from simple_utils import main_print, is_main_process
 
 
 # ==================================================
@@ -28,10 +29,13 @@ class SimpleCheckpointer:
             f"checkpoint_epoch{epoch}_step{global_step}.pt"
         )
         
+        state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
+        model_state_dict = get_model_state_dict(model=model, options=state_dict_opts)
+        
         checkpoint = {
             'epoch': epoch,
             'global_step': global_step,
-            'model_state_dict': model.state_dict(),
+            'model_state_dict': model_state_dict,
             'optimizer_state_dict': optimizer.state_dict(),
             'lr_scheduler_state_dict': lr_scheduler.state_dict(),
             'loss': loss,

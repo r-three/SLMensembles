@@ -8,7 +8,6 @@ from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, Gene
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from utils import is_main_process
 import config
-from shard_weight import load_original_weights_fsdp2
 
 
 class ModelEnsemble(PreTrainedModel, GenerationMixin):
@@ -16,13 +15,10 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         self,
         model_paths,
         model_type=config.student_model_name,
-        config=None,
         torch_dtype=torch.bfloat16,
         vocab_size=None,
     ):
-        if config is None:
-            config = AutoConfig.from_pretrained(model_type)
-        super().__init__(config)
+        super().__init__(AutoConfig.from_pretrained(model_type))
 
         self.torch_dtype = torch_dtype
         self.vocab_size = vocab_size
@@ -34,13 +30,8 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
             state_dict = torch.load(os.path.join(path, "model_state_dict.pt"), weights_only=True, map_location='cpu')
             
-            try:
-                model.load_state_dict(state_dict)
-            except RuntimeError as e:
-                if "DTensor" in str(e) or "mixed torch.Tensor and DTensor" in str(e):
-                    load_original_weights_fsdp2(model, state_dict, use_dcp_api=True, strict=False)
-                else:
-                    raise e
+            # Load state dict (should be clean tensors, not DTensors, if saved properly)
+            model.load_state_dict(state_dict, strict=False)
             
             model.eval()
             model.requires_grad_(False)
@@ -70,19 +61,10 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         """Add a new model to the ensemble from a saved checkpoint path."""
         model = AutoModelForCausalLM.from_pretrained(self.model_type, torch_dtype=self.torch_dtype)
         model_path = Path(model_dir) / "model_state_dict.pt"
+        
         if model_path.exists():
-            try:
-                state_dict = torch.load(model_path, weights_only=True, map_location='cpu')
-                try:
-                    model.load_state_dict(state_dict)
-                except RuntimeError as e:
-                    if "DTensor" in str(e) or "mixed torch.Tensor and DTensor" in str(e):
-                        load_original_weights_fsdp2(model, state_dict, use_dcp_api=True, strict=False)
-                    else:
-                        raise e
-            except Exception as e:
-                print(f"Error loading model state dict: {e}")
-                model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
+            state_dict = torch.load(model_path, weights_only=True, map_location='cpu')
+            model.load_state_dict(state_dict, strict=False)
         else:
             model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
         

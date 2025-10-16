@@ -3,8 +3,8 @@
 #SBATCH --job-name=alpha0
 #SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
-#SBATCH --partition=gpubase_l40s_b4                                                                 
-#SBATCH --gres=gpu:l40s:2
+#SBATCH --partition=gpubase_l40s_b3                                                         
+#SBATCH --gres=gpu:l40s:4
 #SBATCH --cpus-per-task=4                                                                     
 #SBATCH --mem=120GB
 #SBATCH --account=aip-craffel                                             
@@ -31,7 +31,6 @@ echo "Detected $WORLD_SIZE GPU(s) for training"
 
 # Memory optimization settings
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-# CUDA_LAUNCH_BLOCKING removed for better performance  
 
 # Load modules
 module load gcc arrow/18.1.0
