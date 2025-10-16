@@ -48,12 +48,14 @@ class Trainer:
         self,
         student_model,
         teacher_model,
+        ensemble_model,
         optimizer,
         lr_scheduler,
         checkpointer=None,
     ):
         self.student_model = student_model
         self.teacher_model = teacher_model
+        self.ensemble_model = ensemble_model
         self.model = student_model  # For compatibility with checkpoint saving
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
@@ -91,7 +93,6 @@ class Trainer:
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
-            # Move teacher model to GPU
             device = torch.cuda.current_device()
             self.teacher_model = self.teacher_model.to(device)
             
@@ -99,26 +100,39 @@ class Trainer:
                 input_ids=input_ids,
                 attention_mask=attention_mask,
             )
-            teacher_logits = teacher_outputs.logits.clone()  # Clone to keep on GPU
+            teacher_logits = teacher_outputs.logits.clone()
             
             # Move teacher back to CPU to free GPU memory
             self.teacher_model = self.teacher_model.to('cpu')
-            
-            # Free teacher outputs to save memory
             del teacher_outputs
             torch.cuda.empty_cache()
         
+        # ensemble forward pass
+        ensemble_logits = None
+        if self.ensemble_model is not None:
+            with torch.no_grad():
+                ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
+                ensemble_logits = ensemble_outputs.logits.clone()
+                del ensemble_outputs
+
         # Student forward pass
         student_outputs = self.student_model(
             input_ids=input_ids,
             attention_mask=attention_mask,
         )
         student_logits = student_outputs.logits
-        # Free student outputs to save memory
         del student_outputs
         
+        # ------ Combine Student and Ensemble Predictions ------
+        if ensemble_logits is not None:
+            num_models = len(self.ensemble_model.models)
+            # Weighted average: student gets 1/(n+1), ensemble gets n/(n+1)
+            student_logits = (student_logits / (num_models + 1) + 
+                             ensemble_logits * (num_models / (num_models + 1)))
+            del ensemble_logits
+
         # ------ Prepare Logits for Next-Token Prediction ------
-        # Shift for next-token prediction
+        # Shift for next-token prediction (align predictions with targets)
         vocab_size = student_logits.size(-1)
         shift_student_logits = student_logits[..., :-1, :].contiguous()
         shift_teacher_logits = teacher_logits[..., :-1, :].contiguous()
@@ -127,7 +141,7 @@ class Trainer:
         # Free unshifted logits to save memory
         del teacher_logits, student_logits
         
-        # Flatten
+        # Flatten for loss computation
         shift_student_logits = shift_student_logits.view(-1, vocab_size)
         shift_teacher_logits = shift_teacher_logits.view(-1, vocab_size)
         shift_labels = shift_labels.view(-1)
@@ -148,20 +162,9 @@ class Trainer:
         
         # ------ KL Divergence Loss ------
         if mask.sum() > 0:
-            student_log_probs = F.log_softmax(
-                shift_student_logits[mask] / config.kl_temperature, 
-                dim=-1
-            )
-            teacher_probs = F.softmax(
-                shift_teacher_logits[mask] / config.kl_temperature, 
-                dim=-1
-            )
-            kl_loss = F.kl_div(
-                student_log_probs, 
-                teacher_probs, 
-                reduction='sum'
-            )
-            # Scale KL loss by temperature squared (standard practice)
+            student_log_probs = F.log_softmax(shift_student_logits[mask] / config.kl_temperature, dim=-1)
+            teacher_probs = F.softmax(shift_teacher_logits[mask] / config.kl_temperature, dim=-1)
+            kl_loss = F.kl_div(student_log_probs, teacher_probs, reduction='sum')
             kl_loss = kl_loss * (config.kl_temperature ** 2)
         else:
             kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
