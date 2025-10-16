@@ -104,9 +104,8 @@ def main(args):
     teacher_model = AutoModelForCausalLM.from_pretrained(
         config.teacher_model_name,
         torch_dtype=torch.bfloat16,
-    ).to('cuda')
-    teacher_model.eval()
-    
+    )
+    teacher_model = teacher_model.to('cpu')
     teacher_model.eval()
     
     # ----------------------------------

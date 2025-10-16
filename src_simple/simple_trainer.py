@@ -91,13 +91,22 @@ class Trainer:
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
+            # Move teacher model to GPU
+            device = torch.cuda.current_device()
+            self.teacher_model = self.teacher_model.to(device)
+            
             teacher_outputs = self.teacher_model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
             )
-            teacher_logits = teacher_outputs.logits
+            teacher_logits = teacher_outputs.logits.clone()  # Clone to keep on GPU
+            
+            # Move teacher back to CPU to free GPU memory
+            self.teacher_model = self.teacher_model.to('cpu')
+            
             # Free teacher outputs to save memory
             del teacher_outputs
+            torch.cuda.empty_cache()
         
         # Student forward pass
         student_outputs = self.student_model(

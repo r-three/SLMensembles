@@ -31,7 +31,7 @@ echo "Detected $WORLD_SIZE GPU(s) for training"
 
 # Memory optimization settings
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export CUDA_LAUNCH_BLOCKING=1  
+# CUDA_LAUNCH_BLOCKING removed for better performance  
 
 # Load modules
 module load gcc arrow/18.1.0
