@@ -125,7 +125,7 @@ def prepare_dataset(train_ds, eval_ds):
 
     train_dataloader = DataLoader(
         train_ds,
-        batch_size=config.per_device_train_batch_size,
+        batch_size=config.batch_size,
         sampler=train_sampler,
         shuffle=False,
         collate_fn=custom_collator,
