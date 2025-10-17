@@ -8,6 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedul
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from tqdm.auto import tqdm
+from simple_ensemble import EnsembleLoader
 import sys
 
 from simple_config import config
@@ -108,6 +109,11 @@ def main(args):
     )
     teacher_model = teacher_model.to('cpu')
     teacher_model.eval()
+
+    # ----------------------------------
+    # Load Ensemble Model
+    # ----------------------------------
+    ensembleloader = EnsembleLoader(output_path)
     
     # ----------------------------------
     # Load Student Model
@@ -168,6 +174,7 @@ def main(args):
     # ----------------------------------
     trainer = Trainer(
         student_model=student_model,
+        ensemble_model=ensemble_model,
         teacher_model=teacher_model,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,

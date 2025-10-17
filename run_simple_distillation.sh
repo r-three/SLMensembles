@@ -10,6 +10,8 @@
 #SBATCH --account=aip-craffel                                             
 #SBATCH --time=23:58:00
 
+# srun -c 4 --gres=gpu:l40s:4 --partition=gpubase_l40s_b2 --mem=120GB --pty --time=6:00:00 --account=aip-craffel bash
+
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"

@@ -13,6 +13,7 @@ class DistillationConfig:
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     output_dir = "/scratch/klambert/model_log/singular"
+    ensemble_dirs = [""]
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters

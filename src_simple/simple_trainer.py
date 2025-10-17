@@ -1,4 +1,5 @@
 import torch
+import pdb
 import torch.nn.functional as F
 import torch.distributed as dist
 from tqdm.auto import tqdm
@@ -90,6 +91,8 @@ class Trainer:
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
         
+        breakpoint()
+
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
