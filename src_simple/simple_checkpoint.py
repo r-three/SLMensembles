@@ -42,7 +42,7 @@ class SimpleCheckpointer:
         }
         
         torch.save(checkpoint, checkpoint_path)
-        main_print(f"Saved checkpoint to {checkpoint_path}")
+        main_print(f"✓ Saved checkpoint to {checkpoint_path}")
         
         # Keep only the last 3 checkpoints
         self._cleanup_old_checkpoints(keep_last=3)

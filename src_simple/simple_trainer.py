@@ -91,7 +91,7 @@ class Trainer:
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
         
-        breakpoint()
+        # breakpoint()
 
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
@@ -361,3 +361,4 @@ class Trainer:
                 global_step=self.global_step,
                 loss=loss if loss is not None else 0.0
             )
+        dist.barrier()
