@@ -8,7 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedul
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from tqdm.auto import tqdm
-from simple_ensemble import EnsembleLoader
+from simple_ensemble import ModelEnsemble, EnsembleLoader
 import sys
 
 from simple_config import config
@@ -113,7 +113,7 @@ def main(args):
     # ----------------------------------
     # Load Ensemble Model
     # ----------------------------------
-    ensembleloader = EnsembleLoader(output_path)
+    ensemble_model = ModelEnsemble()
     
     # ----------------------------------
     # Load Student Model
