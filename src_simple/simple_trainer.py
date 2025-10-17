@@ -91,13 +91,13 @@ class Trainer:
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
         
-        # breakpoint()
+        breakpoint()
 
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
             device = torch.cuda.current_device()
-            self.teacher_model = self.teacher_model.to(device)
+            self.teacher_model = self.teacher_model.to(device) # TODO
             
             teacher_outputs = self.teacher_model(
                 input_ids=input_ids,
@@ -106,7 +106,7 @@ class Trainer:
             teacher_logits = teacher_outputs.logits.clone()
             
             # Move teacher back to CPU to free GPU memory
-            self.teacher_model = self.teacher_model.to('cpu')
+            self.teacher_model = self.teacher_model.to('cpu') # TODO
             del teacher_outputs
             torch.cuda.empty_cache()
         
