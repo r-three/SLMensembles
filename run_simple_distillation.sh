@@ -4,11 +4,13 @@
 #SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
 #SBATCH --partition=gpubase_l40s_b4                                                                 
-#SBATCH --gres=gpu:l40s:2
+#SBATCH --gres=gpu:l40s:4
 #SBATCH --cpus-per-task=4                                                                     
 #SBATCH --mem=120GB
 #SBATCH --account=aip-craffel                                             
 #SBATCH --time=23:58:00
+
+# srun -c 4 --gres=gpu:l40s:1 --partition=gpubase_l40s_b2 --mem=120GB --pty --time=6:00:00 --account=aip-craffel bash
 
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"
