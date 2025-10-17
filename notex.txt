@@ -62,7 +62,8 @@ Next Steps:
 - next important step: debug the code and figure out if logit shifting is legit
 - double check that the training run I launched worked end-to-end - check wandb metrics and if that doesn't work figure out what's wrong
 
-
+Meeting To-Dos:
+- switch to HuggingFace Trainer
 
 
 
