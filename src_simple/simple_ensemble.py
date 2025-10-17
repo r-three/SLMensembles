@@ -6,9 +6,7 @@ from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateD
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
-from utils import is_main_process
 from simple_config import DistillationConfig as config
-
 
 class ModelEnsemble(PreTrainedModel, GenerationMixin):
     def __init__(
