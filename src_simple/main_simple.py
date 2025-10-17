@@ -8,7 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedul
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from tqdm.auto import tqdm
-from simple_ensemble import ModelEnsemble, EnsembleLoader
+from simple_ensemble import ModelEnsemble
 import sys
 
 from simple_config import config
