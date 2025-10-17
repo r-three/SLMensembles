@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch.distributed as dist
 from tqdm.auto import tqdm
+import pdb
 import sys
 
 from simple_config import config
@@ -93,7 +94,7 @@ class Trainer:
         with torch.no_grad():
             # Move teacher model to GPU
             device = torch.cuda.current_device()
-            self.teacher_model = self.teacher_model.to(device)
+            self.teacher_model = self.teacher_model.to(device) # TODO
             
             teacher_outputs = self.teacher_model(
                 input_ids=input_ids,
@@ -102,9 +103,7 @@ class Trainer:
             teacher_logits = teacher_outputs.logits.clone()  # Clone to keep on GPU
             
             # Move teacher back to CPU to free GPU memory
-            self.teacher_model = self.teacher_model.to('cpu')
-            
-            # Free teacher outputs to save memory
+            self.teacher_model = self.teacher_model.to('cpu') # TODO
             del teacher_outputs
             torch.cuda.empty_cache()
         
@@ -114,7 +113,6 @@ class Trainer:
             attention_mask=attention_mask,
         )
         student_logits = student_outputs.logits
-        # Free student outputs to save memory
         del student_outputs
         
         # ------ Prepare Logits for Next-Token Prediction ------
@@ -148,20 +146,9 @@ class Trainer:
         
         # ------ KL Divergence Loss ------
         if mask.sum() > 0:
-            student_log_probs = F.log_softmax(
-                shift_student_logits[mask] / config.kl_temperature, 
-                dim=-1
-            )
-            teacher_probs = F.softmax(
-                shift_teacher_logits[mask] / config.kl_temperature, 
-                dim=-1
-            )
-            kl_loss = F.kl_div(
-                student_log_probs, 
-                teacher_probs, 
-                reduction='sum'
-            )
-            # Scale KL loss by temperature squared (standard practice)
+            student_log_probs = F.log_softmax(shift_student_logits[mask] / config.kl_temperature, dim=-1)   
+            teacher_probs = F.softmax(shift_teacher_logits[mask] / config.kl_temperature, dim=-1)
+            kl_loss = F.kl_div(student_log_probs, teacher_probs, reduction='sum')
             kl_loss = kl_loss * (config.kl_temperature ** 2)
         else:
             kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
@@ -355,3 +342,4 @@ class Trainer:
                 global_step=self.global_step,
                 loss=loss if loss is not None else 0.0
             )
+        dist.barrier()
