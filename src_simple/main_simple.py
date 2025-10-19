@@ -23,6 +23,22 @@ except ImportError:
     print("Warning: wandb not available. Install with: pip install wandb")
 
 
+# Track memory
+
+# free_b, total_b = torch.cuda.mem_get_info()
+# used_b = total_b - free_b
+# print(f"GPU {torch.cuda.current_device()} memory: {used_b/1024**3:.2f} / {total_b/1024**3:.2f} GiB")
+
+# device = torch.cuda.current_device()
+# allocated = torch.cuda.memory_allocated(device) / 1024**3
+# print(f"Allocated: {allocated:.2f} GB")
+# reserved = torch.cuda.memory_reserved(device) / 1024**3
+# print(f"Reserved: {reserved:.2f} GB")
+
+# torch.set_printoptions(profile="full")
+# from transformers import AutoTokenizer
+# tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-2-1124-7B-SFT")
+
 # ==================================================
 # Main Training Function
 # ==================================================
@@ -106,7 +122,7 @@ def main(args):
         config.teacher_model_name,
         torch_dtype=torch.bfloat16,
     )
-    teacher_model = teacher_model.to('cpu')
+    teacher_model = teacher_model.to('cuda:1')
     teacher_model.eval()
     
     # ----------------------------------
@@ -138,7 +154,7 @@ def main(args):
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=config.learning_rate)
     
     num_training_steps = len(train_dataloader) * config.num_epochs
-    num_warmup_steps = int(0.1 * num_training_steps)  # 10% warmup
+    num_warmup_steps = config.num_warmup_steps
     
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer,

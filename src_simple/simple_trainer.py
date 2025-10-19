@@ -88,23 +88,25 @@ class Trainer:
         input_ids = batch["input_ids"].to(torch.cuda.current_device())
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
-        
+
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
-            # Move teacher model to GPU
-            device = torch.cuda.current_device()
-            self.teacher_model = self.teacher_model.to(device) # TODO
+            # Move inputs to teacher's device
+            teacher_device = self.teacher_model.device
+            teacher_input_ids = input_ids.to(teacher_device)
+            teacher_attention_mask = attention_mask.to(teacher_device)
             
             teacher_outputs = self.teacher_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
+                input_ids=teacher_input_ids,
+                attention_mask=teacher_attention_mask,
             )
-            teacher_logits = teacher_outputs.logits.clone()  # Clone to keep on GPU
             
-            # Move teacher back to CPU to free GPU memory
-            self.teacher_model = self.teacher_model.to('cpu') # TODO
-            del teacher_outputs
+            # Move teacher logits back to student's device
+            teacher_logits = teacher_outputs.logits.to(input_ids.device)
+            
+            # Clean up
+            del teacher_outputs, teacher_input_ids, teacher_attention_mask
             torch.cuda.empty_cache()
         
         # Student forward pass
@@ -134,7 +136,8 @@ class Trainer:
         # Create mask for valid positions (not padding)
         ignore_index = -100
         mask = shift_labels != ignore_index
-        valid_count = mask.sum()
+        valid_count = mask.sum() 
+        # GPU 0 memory: 31.16 / 44.40 GiB
         
         # ------ Cross-Entropy Loss ------
         ce_loss = F.cross_entropy(
@@ -143,6 +146,7 @@ class Trainer:
             ignore_index=ignore_index, 
             reduction='sum'
         )
+        # tensor(99328., device='cuda:0', dtype=torch.bfloat16, grad_fn=<NllLossBackward0>)
         
         # ------ KL Divergence Loss ------
         if mask.sum() > 0:
@@ -178,6 +182,8 @@ class Trainer:
         if self.global_step == 0 and self.rank == 0:
             main_print("First batch (FSDP initialization + CUDA compilation)...")
         
+        # TODO
+
         # Periodic memory cleanup
         if self.global_step % 100 == 0:
             dist.barrier()
