@@ -20,6 +20,7 @@ class DistillationConfig:
     batch_size: int = 8
     eval_batch_size: int = 2
     learning_rate: float = 5e-5
+    num_warmup_steps: int = 100
     max_grad_norm: float = 1.0
     gradient_accumulation_steps: int = 16 
     
