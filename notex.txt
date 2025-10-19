@@ -49,7 +49,21 @@ What “good” looks like (publishable end-state):
    - ex. Specialization advantage: Ensembles trained with specialization (routing or clustered data) outperform same-size, non-specialized ensembles.
    - ex. Framework for distillation + routings.
 
+
+
 Plan:
+
+What I did:
+- was testing the full pipeline runs end to end with ensembel models;
+- added ensemble loading and class - need to now test that it runs
+
+Next Steps:
+- next important step: debug the code and figure out if logit shifting is legit
+- double check that the training run I launched worked end-to-end - check wandb metrics and if that doesn't work figure out what's wrong
+
+Meeting To-Dos:
+- switch to HuggingFace Trainer
+
 
 Week 1: Method Exploration — What Works and What Doesn’t
 
