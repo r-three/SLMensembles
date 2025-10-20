@@ -32,20 +32,22 @@ class SimpleCheckpointer:
         state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
         model_state_dict = get_model_state_dict(model=model, options=state_dict_opts)
         
-        checkpoint = {
-            'epoch': epoch,
-            'global_step': global_step,
-            'model_state_dict': model_state_dict,
-            'optimizer_state_dict': optimizer.state_dict(),
-            'lr_scheduler_state_dict': lr_scheduler.state_dict(),
-            'loss': loss,
-        }
-        
-        torch.save(checkpoint, checkpoint_path)
-        main_print(f"✓ Saved checkpoint to {checkpoint_path}")
-        
-        # Keep only the last 3 checkpoints
-        self._cleanup_old_checkpoints(keep_last=3)
+        # Only rank 0 saves to disk
+        if is_main_process():
+            checkpoint = {
+                'epoch': epoch,
+                'global_step': global_step,
+                'model_state_dict': model_state_dict,
+                'optimizer_state_dict': optimizer.state_dict(),
+                'lr_scheduler_state_dict': lr_scheduler.state_dict(),
+                'loss': loss,
+            }
+            
+            torch.save(checkpoint, checkpoint_path)
+            main_print(f"✓ Saved checkpoint to {checkpoint_path}")
+            
+            # Keep only the last 3 checkpoints
+            self._cleanup_old_checkpoints(keep_last=3)
     
     # ----------------------------------
     # Load Checkpoint
