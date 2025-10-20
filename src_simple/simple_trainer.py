@@ -90,24 +90,32 @@ class Trainer:
         input_ids = batch["input_ids"].to(torch.cuda.current_device())
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
-        
-        breakpoint()
 
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
-            device = torch.cuda.current_device()
-            self.teacher_model = self.teacher_model.to(device) # TODO
+            if self.rank == 0 and self.teacher_model is not None:
+                # Rank 0: Run teacher inference
+                teacher_outputs = self.teacher_model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                )
+                teacher_logits = teacher_outputs.logits
+                del teacher_outputs
+            else:
+                # Other ranks: Create empty tensor to receive broadcast
+                # Shape: [batch_size, seq_len, vocab_size]
+                batch_size, seq_len = input_ids.shape
+                teacher_logits = torch.empty(
+                    batch_size, seq_len, config.student_vocab_size,
+                    dtype=torch.bfloat16,
+                    device=input_ids.device
+                )
             
-            teacher_outputs = self.teacher_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-            )
-            teacher_logits = teacher_outputs.logits.clone()
+            # Broadcast teacher logits from rank 0 to all other ranks
+            if dist.is_initialized():
+                dist.broadcast(teacher_logits, src=0)
             
-            # Move teacher back to CPU to free GPU memory
-            self.teacher_model = self.teacher_model.to('cpu') # TODO
-            del teacher_outputs
             torch.cuda.empty_cache()
         
         # ensemble forward pass
@@ -117,7 +125,7 @@ class Trainer:
                 ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
                 ensemble_logits = ensemble_outputs.logits.clone()
                 del ensemble_outputs
-
+        
         # Student forward pass
         student_outputs = self.student_model(
             input_ids=input_ids,
@@ -135,7 +143,7 @@ class Trainer:
             del ensemble_logits
 
         # ------ Prepare Logits for Next-Token Prediction ------
-        # Shift for next-token prediction (align predictions with targets)
+        # Shift for next-token prediction
         vocab_size = student_logits.size(-1)
         shift_student_logits = student_logits[..., :-1, :].contiguous()
         shift_teacher_logits = teacher_logits[..., :-1, :].contiguous()
@@ -144,7 +152,7 @@ class Trainer:
         # Free unshifted logits to save memory
         del teacher_logits, student_logits
         
-        # Flatten for loss computation
+        # Flatten
         shift_student_logits = shift_student_logits.view(-1, vocab_size)
         shift_teacher_logits = shift_teacher_logits.view(-1, vocab_size)
         shift_labels = shift_labels.view(-1)
@@ -225,7 +233,6 @@ class Trainer:
             # Final accumulation step - sync gradients
             if hasattr(self.model, 'set_requires_gradient_sync'):
                 self.model.set_requires_gradient_sync(True)
-            dist.barrier()
             
             # Normalize and backward
             normalized_loss = tr_step_loss / self.gas
@@ -352,7 +359,7 @@ class Trainer:
     # ----------------------------------
     def save_checkpoint(self, loss: float = None):
         """Save checkpoint via checkpointer."""
-        if self.checkpointer is not None and is_main_process():
+        if self.checkpointer is not None:
             self.checkpointer.save(
                 self.model,
                 self.optimizer,
@@ -361,4 +368,5 @@ class Trainer:
                 global_step=self.global_step,
                 loss=loss if loss is not None else 0.0
             )
-        dist.barrier()
+        if dist.is_initialized():
+            dist.barrier()
