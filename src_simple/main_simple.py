@@ -12,7 +12,7 @@ import sys
 
 from simple_config import config
 from simple_trainer import Trainer
-from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed
+from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed, AsyncLossLogger
 from simple_checkpoint import SimpleCheckpointer
 
 try:
@@ -51,6 +51,8 @@ def main(args):
     # ----------------------------------
     rank = int(os.environ["LOCAL_RANK"])
     device = torch.device(f"cuda:{rank}")
+    logger = AsyncLossLogger(log_path=config.log_path)
+
     torch.cuda.set_device(device)
     torch.distributed.init_process_group(backend="nccl", device_id=device)
     fix_seed(config.seed)
@@ -194,6 +196,7 @@ def main(args):
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
         checkpointer=checkpointer,
+        logger=logger
     )
     
     # Sync trainer state with loaded checkpoint
@@ -258,6 +261,8 @@ def main(args):
                 dist.barrier()
                 trainer.save_checkpoint(loss=None)
                 dist.barrier()
+
+        trainer.logger.close()
 
         # Skip end-of-epoch processing in debug mode (already stopped)
         if config.debug_mode and trainer.global_step >= config.debug_max_steps:

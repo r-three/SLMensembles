@@ -51,8 +51,9 @@ class Trainer:
         teacher_model,
         optimizer,
         lr_scheduler,
-        checkpointer=None,
-    ):
+        logger,
+        checkpointer=None     
+        ):
         self.student_model = student_model
         self.teacher_model = teacher_model
         self.model = student_model  # For compatibility with checkpoint saving
@@ -64,6 +65,7 @@ class Trainer:
         self.rank = dist.get_rank() if dist.is_initialized() else 0
         self.min_eval_loss = float('inf')
         self.current_eval_loss = 0.0
+        self.logger = logger
         
         # Wandb logging
         self.use_wandb = WANDB_AVAILABLE and is_main_process()
@@ -133,41 +135,47 @@ class Trainer:
         # Free unshifted logits to save memory
         del teacher_logits, student_logits
         
-        # Flatten
-        shift_student_logits = shift_student_logits.view(-1, vocab_size)
-        shift_teacher_logits = shift_teacher_logits.view(-1, vocab_size)
-        shift_labels = shift_labels.view(-1)
-        shift_labels = shift_labels.to(shift_student_logits.device)
-        
-        # Create mask for valid positions (not padding)
+        # Mask for valid tokens (ignore padding)
         ignore_index = -100
         mask = shift_labels != ignore_index
-        valid_count = mask.sum() 
-        # GPU 0 memory: 31.16 / 44.40 GiB
-        
+        valid_count = mask.sum()
+
         # ------ Cross-Entropy Loss ------
-        ce_loss = F.cross_entropy(
-            shift_student_logits, 
-            shift_labels, 
-            ignore_index=ignore_index, 
-            reduction='sum'
-        )
-        # tensor(99328., device='cuda:0', dtype=torch.bfloat16, grad_fn=<NllLossBackward0>)
-        
+        ce_loss_all = F.cross_entropy(
+            shift_student_logits.view(-1, vocab_size),
+            shift_labels.view(-1),
+            ignore_index=ignore_index,
+            reduction='none'
+        ).view(batch_size, -1)
+        ce_loss_all = ce_loss_all * mask
+        per_text_ce_loss = ce_loss_all.sum(dim=1) / mask.sum(dim=1) 
+        ce_loss = ce_loss_all.sum()
+
         # ------ KL Divergence Loss ------
-        if mask.sum() > 0:
-            student_log_probs = F.log_softmax(shift_student_logits[mask] / config.kl_temperature, dim=-1)   
-            teacher_probs = F.softmax(shift_teacher_logits[mask] / config.kl_temperature, dim=-1)
-            kl_loss = F.kl_div(student_log_probs, teacher_probs, reduction='sum')
-            kl_loss = kl_loss * (config.kl_temperature ** 2)
-        else:
-            kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
-        
+        student_log_probs = F.log_softmax(shift_student_logits / config.kl_temperature, dim=-1)
+        teacher_probs = F.softmax(shift_teacher_logits / config.kl_temperature, dim=-1)
+
+        kl_loss_all = F.kl_div(
+            student_log_probs.view(-1, vocab_size),
+            teacher_probs.view(-1, vocab_size),
+            reduction='none' 
+        ).sum(dim=1).view(batch_size, -1) 
+
+        kl_loss_all = kl_loss_all * mask
+        per_text_kl_loss = kl_loss_all.sum(dim=1) / mask.sum(dim=1)
+        kl_loss = kl_loss_all.sum() * (config.kl_temperature ** 2)
+        per_text_kl_loss = per_text_kl_loss * (config.kl_temperature ** 2)
+
         # ------ Combine Losses ------
         total_loss = config.alpha * ce_loss + (1 - config.alpha) * kl_loss
+        per_text_total_loss = config.alpha * per_text_ce_loss + (1 - config.alpha) * per_text_kl_loss
+
+        per_text_total_loss = per_text_total_loss.detach()
+        per_text_ce_loss = per_text_ce_loss.detach()
+        per_text_kl_loss = per_text_kl_loss.detach()
+
+        return total_loss, valid_count, ce_loss, kl_loss, per_text_total_loss, per_text_ce_loss, per_text_kl_loss
         
-        return total_loss, valid_count, ce_loss, kl_loss
-    
     # ----------------------------------
     # Training Step
     # ----------------------------------
@@ -197,7 +205,16 @@ class Trainer:
             dist.barrier()
         
         # ------ Compute Loss ------
-        tr_step_loss, valid_count, ce_loss, kl_loss = self.compute_loss(batch)
+        _, valid_count, _, _, tr_step_loss, ce_loss, kl_loss = self.compute_loss(batch)
+        
+        # ------ logger ------
+        with torch.no_grad():
+            self.logger.update_and_write_many(batch["input_ids"], 
+                                              tr_step_loss,
+                                              ce_loss,
+                                              kl_loss,
+                                              valid_count)
+
         
         # ------ Gradient Accumulation ------
         is_accumulating = (self.global_step + 1) % self.gas != 0

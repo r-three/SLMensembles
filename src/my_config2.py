@@ -12,7 +12,7 @@ seed = 42 # 16, 20, 32, 36, 40 default: 42
 
 teacher_model_name = "allenai/OLMo-2-1124-7B-SFT"
 student_model_name = "allenai/OLMo-2-0425-1B-SFT"
-student_vocab_size = 100278 # 152064
+student_vocab_size = 100352 # 152064
 tokenizer_name = "allenai/OLMo-2-1124-7B-SFT"
 
 teacher_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

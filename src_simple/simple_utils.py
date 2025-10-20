@@ -1,12 +1,22 @@
 """
 Simplified utilities for distillation training.
 """
+import math
 import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
 import datasets
 from datasets import load_from_disk
 import random
+import numpy as np
+import os, csv, time, glob, sys, atexit, threading
+import torch
+from tqdm import tqdm
+import tempfile
+from pathlib import Path
+from typing import Dict, Any, List, Tuple
+import queue
+import pandas as pd
 import numpy as np
 
 from simple_config import config
@@ -146,3 +156,128 @@ def prepare_dataset(train_ds, eval_ds):
 
     dist.barrier()
     return train_dataloader, eval_dataloader
+
+
+# ==================================================
+# Top k maximum loss
+# ==================================================
+# ---------------------- Helper functions ----------------------
+
+def _to_scalar(x: Any):
+    """Convert various types to Python scalar."""
+    # Works for Python numbers, PyTorch tensors, numpy scalars
+    try:
+        import torch
+        if isinstance(x, torch.Tensor):
+            if x.numel() == 1:
+                return x.detach().float().item()
+            raise ValueError("Tensor must be scalar")
+    except Exception:
+        pass
+    try:
+        import numpy as np
+        if isinstance(x, np.number):
+            return float(x)
+    except Exception:
+        pass
+    try:
+        return float(x)
+    except Exception:
+        pass
+    # Last resort
+    return float(x)
+
+class AsyncLossLogger:
+    """
+    Append-only JSONL writer with batching and periodic atomic snapshots.
+    Designed to keep training non-blocking.
+    """
+    def __init__(self, log_path: str,
+                 flush_interval_s: float = 30.0,
+                 max_queue: int = 100_000):
+        self.log_path = log_path
+        self.flush_interval_s = flush_interval_s
+
+        # Only main process creates the directory to avoid race conditions
+        if is_main_process():
+            os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+        dist.barrier()
+            
+        self._q: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=max_queue)
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
+
+        self._writer = threading.Thread(target=self._writer_loop, daemon=True)
+        self._writer.start()
+
+    def write(self, record: Dict[str, Any]):
+        """Non-blocking enqueue; drops if queue is full to avoid stalling."""
+        try:
+            self._q.put_nowait(record)
+        except queue.Full:
+            # If you want to block instead, use self._q.put(record)
+            pass
+
+    def update_and_write_many(self, ids, tr_step_loss, next_token_loss, kl_loss, valid_count):
+        ids_list = list(ids)
+
+        # Convert elementwise (each item can be a Python number, 0-d torch tensor, numpy scalar, etc.)
+        tr_list = [_to_scalar(x) for x in tr_step_loss]
+        nt_list = [_to_scalar(x) for x in next_token_loss]
+        kl_list = [_to_scalar(x) for x in kl_loss]
+        vc_list = [int(_to_scalar(x)) for x in valid_count]
+
+        now = time.time()
+        with self._lock:
+            for id_, tr, nt, kl, vc in zip(ids_list, tr_list, nt_list, kl_list, vc_list):
+                self.write({"id": id_, "tr": tr, "nt": nt, "kl": kl, "vc": vc, "t": now})
+
+
+    def close(self, timeout: float = 10.0):
+        self._stop.set()
+        self._writer.join(timeout=timeout)
+
+    def _writer_loop(self):
+        buf = []
+        last_flush = time.time()
+
+        # Check if file exists to know if we need to write header
+        file_exists = os.path.exists(self.log_path)
+
+        # Open CSV file in append mode, line-buffered
+        f = open(self.log_path, "a", newline="", buffering=1)
+        writer = csv.DictWriter(f, fieldnames=["id", "tr", "nt", "kl", "vc", "t"])
+        if not file_exists:
+            writer.writeheader()
+
+        try:
+            while not self._stop.is_set() or not self._q.empty():
+                try:
+                    item = self._q.get(timeout=self.flush_interval_s)
+                    buf.append(item)
+                except queue.Empty:
+                    pass
+
+                now = time.time()
+
+                # Flush buffer if enough time passed or buffer is large
+                if buf and (now - last_flush >= self.flush_interval_s or len(buf) >= 2048):
+                    writer.writerows(buf)
+                    f.flush()
+                    buf.clear()
+                    last_flush = now
+
+        finally:
+            # Flush any remaining records
+            if buf:
+                writer.writerows(buf)
+                f.flush()
+            f.close()
+
+    def get_top_n_ids(self, heading, k_percent: int):
+        df = pd.read_csv(self.log_path)
+        n = len(df)
+        top_n = max(1, math.ceil(n * k_percent / 100.0))
+        top_n_df = df.nlargest(top_n, heading)
+
+        return top_n_df['id'].tolist()

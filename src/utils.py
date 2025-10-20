@@ -387,8 +387,15 @@ class AsyncLossLogger:
         last_flush = time.time()
         last_snapshot = time.time()
 
-        # Open once; let OS page cache buffer writes
-        f = open(self.log_path, "a", buffering=1)  # line-buffered
+        # Check if file exists to know if we need to write header
+        file_exists = os.path.exists(self.log_path)
+
+        # Open CSV file in append mode, line-buffered
+        f = open(self.log_path, "a", newline="", buffering=1)
+        writer = csv.DictWriter(f, fieldnames=["id", "tr", "nt", "kl", "vc", "t"])
+        if not file_exists:
+            writer.writeheader()
+
         try:
             while not self._stop.is_set() or not self._q.empty():
                 try:
@@ -398,21 +405,22 @@ class AsyncLossLogger:
                     pass
 
                 now = time.time()
+
+                # Flush buffer if enough time passed or buffer is large
                 if buf and (now - last_flush >= self.flush_interval_s or len(buf) >= 2048):
-                    for rec in buf:
-                        f.write(json.dumps(rec, separators=(",", ":")) + "\n")
-                    f.flush()  # do not fsync; keeps it fast
+                    writer.writerows(buf)
+                    f.flush()
                     buf.clear()
                     last_flush = now
 
+                # Periodic snapshot (optional)
                 if now - last_snapshot >= self.snapshot_interval_s:
-                    # atomic snapshot of in-memory dict
                     self._save_snapshot()
                     last_snapshot = now
         finally:
+            # Flush any remaining records
             if buf:
-                for rec in buf:
-                    f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+                writer.writerows(buf)
                 f.flush()
             f.close()
 

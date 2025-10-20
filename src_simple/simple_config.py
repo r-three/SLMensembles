@@ -43,6 +43,10 @@ class DistillationConfig:
     # Wandb logging
     wandb_project: str = "slm-distillation-full-pipeline"
     wandb_run_name: str = None  # Auto-generated if None
+
+    #top_k% maximum loss
+    log_path = "logger/log.csv"
+    k_percent = 10
     
     def __post_init__(self):
         os.makedirs(self.output_dir, exist_ok=True)
