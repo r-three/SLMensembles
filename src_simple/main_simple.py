@@ -24,6 +24,10 @@ except ImportError:
     print("Warning: wandb not available. Install with: pip install wandb")
 
 
+# Watch GPU usage in real-time
+# ssh kn149  # Your node
+# watch -n 1 nvidia-smi
+
 # ==================================================
 # Main Training Function
 # ==================================================
@@ -102,22 +106,20 @@ def main(args):
     # ----------------------------------
     # Load Teacher Model (frozen)
     # ----------------------------------
-    main_print("Loading teacher model...")
-    teacher_model = AutoModelForCausalLM.from_pretrained(
-        config.teacher_model_name,
-        torch_dtype=torch.bfloat16,
-    )
-    teacher_model = teacher_model.to('cpu')
-    teacher_model.eval()
-
-    # ----------------------------------
-    # Load Ensemble Model
-    # ----------------------------------
-    if config.ensemble_model_name is not None:
-        ensemble_model = ModelEnsemble()
+    if rank == 0:
+        teacher_model = AutoModelForCausalLM.from_pretrained(
+            config.teacher_model_name,
+            torch_dtype=torch.bfloat16,
+        )
+        teacher_model = teacher_model.to(device)
+        teacher_model.eval()
+        main_print(f"Teacher model loaded on {device} (rank 0 only)")
     else:
-        ensemble_model = None
+        teacher_model = None
+        main_print(f"[Rank {rank}] Skipping teacher model (will receive logits from rank 0)")
     
+    dist.barrier()
+
     # ----------------------------------
     # Load Student Model
     # ----------------------------------
