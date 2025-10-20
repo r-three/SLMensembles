@@ -123,7 +123,10 @@ def main(args):
     # ----------------------------------
     # Load Ensemble Model
     # ----------------------------------
-    ensemble_model = ModelEnsemble()
+    if config.ensemble_model_name is not None:
+        ensemble_model = ModelEnsemble()
+    else:
+        ensemble_model = None
 
     # ----------------------------------
     # Load Student Model
