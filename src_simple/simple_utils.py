@@ -107,43 +107,63 @@ def prepare_dataset(train_ds, eval_ds):
     """Prepare DataLoaders with DistributedSampler."""
     custom_collator = CustomPadCollator(1024, pad_token_id=100277) # pad_token_id for OLmo2
 
-    train_sampler = DistributedSampler(
-        train_ds,
-        dist.get_world_size(),
-        dist.get_rank(),
-        shuffle=True,
-        seed=config.seed,
-        drop_last=True, 
-    )
-    test_sampler = DistributedSampler(
-        eval_ds,
-        dist.get_world_size(),
-        dist.get_rank(),
-        shuffle=False,
-        drop_last=True, 
-    )
-
-    train_dataloader = DataLoader(
-        train_ds,
-        batch_size=config.batch_size,
-        sampler=train_sampler,
-        shuffle=False,
-        collate_fn=custom_collator,
-        num_workers=0,
-        persistent_workers=False,
-        drop_last=True
-    )   
-    eval_dataloader = DataLoader(
-        eval_ds,
-        batch_size=config.eval_batch_size,
-        sampler=test_sampler,
-        shuffle=False,
-        collate_fn=custom_collator,
-        num_workers=0,
-        persistent_workers=False,
-        drop_last=True  
-    )
-
     if dist.is_initialized():
+        # Distributed training mode
+        train_sampler = DistributedSampler(
+            train_ds,
+            dist.get_world_size(),
+            dist.get_rank(),
+            shuffle=True,
+            seed=config.seed,
+            drop_last=True, 
+        )
+        test_sampler = DistributedSampler(
+            eval_ds,
+            dist.get_world_size(),
+            dist.get_rank(),
+            shuffle=False,
+            drop_last=True, 
+        )
+
+        train_dataloader = DataLoader(
+            train_ds,
+            batch_size=config.batch_size,
+            sampler=train_sampler,
+            shuffle=True,
+            collate_fn=custom_collator,
+            num_workers=0,
+            persistent_workers=False,
+            drop_last=True
+        )   
+        eval_dataloader = DataLoader(
+            eval_ds,
+            batch_size=config.eval_batch_size,
+            sampler=test_sampler,
+            shuffle=False,
+            collate_fn=custom_collator,
+            num_workers=0,
+            persistent_workers=False,
+            drop_last=True  
+        )
+
         dist.barrier()
+    else:
+        # Standalone evaluation mode
+        train_dataloader = DataLoader(
+            train_ds,
+            batch_size=config.batch_size,
+            shuffle=True,
+            collate_fn=custom_collator,
+            num_workers=0,
+            drop_last=True
+        )   
+        eval_dataloader = DataLoader(
+            eval_ds,
+            batch_size=config.eval_batch_size,
+            shuffle=False,
+            collate_fn=custom_collator,
+            num_workers=0,
+            drop_last=False  # Don't drop last batch in eval
+        )
+
     return train_dataloader, eval_dataloader
