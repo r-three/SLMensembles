@@ -121,6 +121,11 @@ def main(args):
     dist.barrier()
 
     # ----------------------------------
+    # Load Ensemble Model
+    # ----------------------------------
+    ensemble_model = ModelEnsemble()
+
+    # ----------------------------------
     # Load Student Model
     # ----------------------------------
     main_print("Loading student model...")

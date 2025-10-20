@@ -18,7 +18,7 @@ class DistillationConfig:
     
     # Training parameters
     num_epochs: int = 2
-    batch_size: int = 8
+    batch_size: int = 2
     eval_batch_size: int = 2
     learning_rate: float = 5e-5
     max_grad_norm: float = 1.0
