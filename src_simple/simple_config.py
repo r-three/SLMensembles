@@ -7,7 +7,7 @@ class DistillationConfig:
     # Model configurations
     teacher_model_name = "allenai/OLMo-2-1124-7B-SFT"
     student_model_name = "allenai/OLMo-2-0425-1B-SFT"
-    student_vocab_size = 100278
+    student_vocab_size = 100352
     tokenizer_name = "allenai/OLMo-2-1124-7B-SFT" 
 
     # Dataset and Path
@@ -17,7 +17,7 @@ class DistillationConfig:
     
     # Training parameters
     num_epochs: int = 2
-    batch_size: int = 8
+    batch_size: int = 4
     eval_batch_size: int = 2
     learning_rate: float = 5e-5
     num_warmup_steps: int = 100

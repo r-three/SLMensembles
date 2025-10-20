@@ -90,23 +90,29 @@ class Trainer:
         labels = batch["labels"].to(torch.cuda.current_device())
 
         # ------ Forward Passes ------
-        # Teacher forward pass (no grad)
         with torch.no_grad():
-            # Move inputs to teacher's device
-            teacher_device = self.teacher_model.device
-            teacher_input_ids = input_ids.to(teacher_device)
-            teacher_attention_mask = attention_mask.to(teacher_device)
+            if self.rank == 0 and self.teacher_model is not None:
+                # Rank 0: Run teacher inference
+                teacher_outputs = self.teacher_model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                )
+                teacher_logits = teacher_outputs.logits
+                del teacher_outputs
+            else:
+                # Other ranks: Create empty tensor to receive broadcast
+                # Shape: [batch_size, seq_len, vocab_size]
+                batch_size, seq_len = input_ids.shape
+                teacher_logits = torch.empty(
+                    batch_size, seq_len, config.student_vocab_size,
+                    dtype=torch.bfloat16,
+                    device=input_ids.device
+                )
             
-            teacher_outputs = self.teacher_model(
-                input_ids=teacher_input_ids,
-                attention_mask=teacher_attention_mask,
-            )
+            # Broadcast teacher logits from rank 0 to all other ranks
+            if dist.is_initialized():
+                dist.broadcast(teacher_logits, src=0)
             
-            # Move teacher logits back to student's device
-            teacher_logits = teacher_outputs.logits.to(input_ids.device)
-            
-            # Clean up
-            del teacher_outputs, teacher_input_ids, teacher_attention_mask
             torch.cuda.empty_cache()
         
         # Student forward pass
@@ -212,7 +218,6 @@ class Trainer:
             # Final accumulation step - sync gradients
             if hasattr(self.model, 'set_requires_gradient_sync'):
                 self.model.set_requires_gradient_sync(True)
-            dist.barrier()
             
             # Normalize and backward
             normalized_loss = tr_step_loss / self.gas

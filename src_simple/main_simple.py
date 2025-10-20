@@ -117,14 +117,20 @@ def main(args):
     # ----------------------------------
     # Load Teacher Model (frozen)
     # ----------------------------------
-    main_print("Loading teacher model...")
-    teacher_model = AutoModelForCausalLM.from_pretrained(
-        config.teacher_model_name,
-        torch_dtype=torch.bfloat16,
-    )
-    teacher_model = teacher_model.to('cuda:1')
-    teacher_model.eval()
+    if rank == 0:
+        teacher_model = AutoModelForCausalLM.from_pretrained(
+            config.teacher_model_name,
+            torch_dtype=torch.bfloat16,
+        )
+        teacher_model = teacher_model.to(device)
+        teacher_model.eval()
+        main_print(f"Teacher model loaded on {device} (rank 0 only)")
+    else:
+        teacher_model = None
+        main_print(f"[Rank {rank}] Skipping teacher model (will receive logits from rank 0)")
     
+    dist.barrier()
+
     # ----------------------------------
     # Load Student Model
     # ----------------------------------
