@@ -118,7 +118,6 @@ class Trainer:
             
             torch.cuda.empty_cache()
         
-        breakpoint()
         # ensemble forward pass
         ensemble_logits = None
         if self.ensemble_model is not None:
