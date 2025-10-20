@@ -144,5 +144,6 @@ def prepare_dataset(train_ds, eval_ds):
         drop_last=True  
     )
 
-    dist.barrier()
+    if dist.is_initialized():
+        dist.barrier()
     return train_dataloader, eval_dataloader
