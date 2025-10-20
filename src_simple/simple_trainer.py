@@ -187,8 +187,6 @@ class Trainer:
         # First batch warning
         if self.global_step == 0 and self.rank == 0:
             main_print("First batch (FSDP initialization + CUDA compilation)...")
-        
-        # TODO
 
         # Periodic memory cleanup
         if self.global_step % 100 == 0:
