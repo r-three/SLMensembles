@@ -7,7 +7,7 @@ class DistillationConfig:
     # Model configurations
     teacher_model_name = "allenai/OLMo-2-1124-7B-SFT"
     student_model_name = "allenai/OLMo-2-0425-1B-SFT"
-    student_vocab_size = 100278
+    student_vocab_size = 100352
     tokenizer_name = "allenai/OLMo-2-1124-7B-SFT" 
 
     # Dataset and Path
