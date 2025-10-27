@@ -26,7 +26,8 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         for path in config.ensemble_dirs:
             model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
 
-            state_dict = torch.load(os.path.join(path, "model_state_dict.pt"), weights_only=True, map_location='cpu')
+            checkpoint = torch.load(path, weights_only=True, map_location='cpu')
+            state_dict = checkpoint['model_state_dict']
             model.load_state_dict(state_dict, strict=False)
             
             model.eval()
@@ -56,13 +57,19 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
     def add_model(self, model_dir):
         """Add a new model to the ensemble from a saved checkpoint path."""
         model = AutoModelForCausalLM.from_pretrained(self.model_type, torch_dtype=self.torch_dtype)
-        model_path = Path(model_dir) / "model_state_dict.pt"
         
-        if model_path.exists():
-            state_dict = torch.load(model_path, weights_only=True, map_location='cpu')
+        # Check if it's a checkpoint file (.pt) or a directory with saved model
+        if isinstance(model_path, str):
+            model_path = Path(model_path)
+        
+        if model_path.suffix == '.pt':
+            checkpoint = torch.load(model_path, weights_only=True, map_location='cpu')
+            state_dict = checkpoint['model_state_dict']
             model.load_state_dict(state_dict, strict=False)
+        elif model_path.is_dir():
+            model = AutoModelForCausalLM.from_pretrained(str(model_path), torch_dtype=self.torch_dtype)
         else:
-            model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype=self.torch_dtype)
+            raise ValueError(f"Cannot load model from {model_path}")
         
         model.eval()
         model.requires_grad_(False)
