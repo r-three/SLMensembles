@@ -124,7 +124,7 @@ def main(args):
     # ----------------------------------
     # Load Ensemble Model
     # ----------------------------------
-    if config.ensemble_model_name is not None:
+    if config.ensemble_dirs is not None:
         ensemble_model = ModelEnsemble()
     else:
         ensemble_model = None
