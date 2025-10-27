@@ -1,5 +1,6 @@
 import argparse
 import os
+import pdb
 import time
 import torch
 import torch.distributed as dist
@@ -127,6 +128,8 @@ def main(args):
         ensemble_model = ModelEnsemble()
     else:
         ensemble_model = None
+
+    breakpoint()
 
     # ----------------------------------
     # Load Student Model

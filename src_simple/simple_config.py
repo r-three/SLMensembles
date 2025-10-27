@@ -12,7 +12,7 @@ class DistillationConfig:
 
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
-    output_dir = "/scratch/klambert/model_log/singular"
+    output_dir = "/scratch/klambert/model_log/singular/second_ensemble_model"
     ensemble_dirs = ["/scratch/klambert/model_log/singular/checkpoints/checkpoint_epoch0_step5000.pt"]
     dataset_name = "allenai/tulu-3-sft-mixture"
     

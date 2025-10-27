@@ -200,6 +200,8 @@ class Trainer:
         
         self.gad += 1
         
+        breakpoint()
+
         # ------ Initialization and Cleanup ------
         # First batch warning
         if self.global_step == 0 and self.rank == 0:
