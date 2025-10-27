@@ -10,22 +10,29 @@ import torch.nn.functional as F
 # ----------------------------------
 # Helper Functions
 # ----------------------------------
-def create_response_labels(input_ids):
-    if not isinstance(input_ids, torch.Tensor):
-        input_ids = torch.tensor(input_ids)
+def create_response_labels(sample):
+    if not isinstance(sample["input_ids"], torch.Tensor):
+        sample["input_ids"] = torch.tensor(sample["input_ids"], dtype=torch.long)
 
+    input_ids = sample["input_ids"]
+    attn = sample["attention_mask"]
     labels = input_ids.clone()
-    response_ids = tokenizer("<|assistant|>\n")["input_ids"]        # Change according to different templates
     labels.fill_(-100)
 
+    response_ids = tokenizer("<|assistant|>\n", add_special_tokens=False)["input_ids"]        # Change according to different templates
     start_pos = -1
     for i in range(len(input_ids) - len(response_ids) + 1):
         if input_ids[i : i + len(response_ids)].tolist() == response_ids:
             start_pos = i + len(response_ids)
             break
+    
+    end_pos = len(input_ids)
+    # last token with mask==1
+    last_valid = attn.long().nonzero(as_tuple=True)[0].max().item()
+    end_pos = last_valid + 1
 
-    if start_pos != -1:
-        labels[start_pos:] = input_ids[start_pos:]
+    labels[start_pos:end_pos] = input_ids[start_pos:end_pos]
+    labels = labels.masked_fill(attn == 0, -100)
 
     return labels
 
@@ -48,7 +55,7 @@ def tokenize_text(sample):
 
 
 def add_labels(sample):
-    sample["labels"] = create_response_labels(sample["input_ids"])
+    sample["labels"] = create_response_labels(sample)
     return sample
 
 
