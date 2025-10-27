@@ -14,6 +14,9 @@ def create_response_labels(sample):
     if not isinstance(sample["input_ids"], torch.Tensor):
         sample["input_ids"] = torch.tensor(sample["input_ids"], dtype=torch.long)
 
+    if not isinstance(sample["attention_mask"], torch.Tensor):
+        sample["attention_mask"] = torch.tensor(sample["attention_mask"], dtype=torch.long)
+
     input_ids = sample["input_ids"]
     attn = sample["attention_mask"]
     labels = input_ids.clone()
@@ -28,7 +31,7 @@ def create_response_labels(sample):
     
     end_pos = len(input_ids)
     # last token with mask==1
-    last_valid = attn.long().nonzero(as_tuple=True)[0].max().item()
+    last_valid = attn.nonzero(as_tuple=True)[0].max().item()
     end_pos = last_valid + 1
 
     labels[start_pos:end_pos] = input_ids[start_pos:end_pos]
