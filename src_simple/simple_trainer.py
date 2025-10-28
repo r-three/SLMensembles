@@ -118,15 +118,43 @@ class Trainer:
             
             torch.cuda.empty_cache()
         
-        breakpoint()
-
-        # ensemble forward pass
+        # Ensemble forward pass
         ensemble_logits = None
-        if self.ensemble_model is not None:
+        if config.ensemble_dirs is not None:
             with torch.no_grad():
-                ensemble_outputs = self.ensemble_model(input_ids=input_ids, attention_mask=attention_mask)
-                ensemble_logits = ensemble_outputs.logits.clone()
-                del ensemble_outputs
+                batch_size, seq_len = input_ids.shape
+                
+                # Step 1: All ranks create accumulator (initialized to zeros)
+                ensemble_logits = torch.zeros(
+                    batch_size, seq_len, config.student_vocab_size,
+                    dtype=torch.bfloat16,
+                    device=input_ids.device
+                )
+                
+                # Step 2: Ranks with ensemble models compute their contribution
+                if self.ensemble_model is not None:
+                    ensemble_outputs = self.ensemble_model(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask
+                    )
+                    # Add this rank's model output to accumulator
+                    ensemble_logits.add_(ensemble_outputs.logits)
+                    del ensemble_outputs
+                
+                # Step 3: All-reduce SUM - aggregates contributions from all ranks
+                # Mathematical equivalence:
+                # rank0: 0 + 0           = 0
+                # rank1: 0 + model1      = model1
+                # rank2: 0 + model2      = model2
+                # After all_reduce SUM:  = model1 + model2 (same as old approach!)
+                if dist.is_initialized():
+                    dist.all_reduce(ensemble_logits, op=dist.ReduceOp.SUM)
+                
+                # Step 4: Average by number of ensemble models
+                num_ensemble_models = len(config.ensemble_dirs)
+                ensemble_logits.div_(num_ensemble_models)
+                
+                torch.cuda.empty_cache()
         
         # Student forward pass
         student_outputs = self.student_model(
@@ -139,7 +167,7 @@ class Trainer:
         # ------ Combine Student and Ensemble Predictions ------
         if ensemble_logits is not None:
             ensemble_logits = ensemble_logits.to(student_logits.device)
-            num_models = len(self.ensemble_model.models)
+            num_models = len(config.ensemble_dirs)
             # Weighted average: student gets 1/(n+1), ensemble gets n/(n+1)
             student_logits = (student_logits / (num_models + 1) + 
                              ensemble_logits * (num_models / (num_models + 1)))
