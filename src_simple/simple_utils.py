@@ -129,7 +129,7 @@ def prepare_dataset(train_ds, eval_ds):
             train_ds,
             batch_size=config.batch_size,
             sampler=train_sampler,
-            shuffle=True,
+            shuffle=False,
             collate_fn=custom_collator,
             num_workers=0,
             persistent_workers=False,
