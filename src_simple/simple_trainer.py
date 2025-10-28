@@ -117,7 +117,7 @@ class Trainer:
                 dist.broadcast(teacher_logits, src=0)
             
             torch.cuda.empty_cache()
-        
+
         # Ensemble forward pass
         ensemble_logits = None
         if config.ensemble_dirs is not None:

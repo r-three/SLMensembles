@@ -132,7 +132,7 @@ def main(args):
     else:
         teacher_model = None
         main_print(f"[Rank {rank}] Skipping teacher model (will receive logits from rank 0)")
-    
+
     # ----------------------------------
     # Load Ensemble Model
     # ----------------------------------
@@ -151,7 +151,7 @@ def main(args):
     
     if dist.is_initialized():
         dist.barrier()
-
+    
     # ----------------------------------
     # Load Student Model
     # ----------------------------------
