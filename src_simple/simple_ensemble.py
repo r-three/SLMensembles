@@ -14,6 +14,8 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         model_type=config.student_model_name,
         torch_dtype=torch.bfloat16,
         vocab_size=None,
+        rank=None,
+        starting_gpu_index=1,
     ):
         super().__init__(AutoConfig.from_pretrained(model_type))
         
@@ -21,34 +23,58 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         self.vocab_size = vocab_size
         self.loss_fn = nn.CrossEntropyLoss()
         self.model_type = model_type
- 
-        modules = []
-        for path in config.ensemble_dirs:
-            model = AutoModelForCausalLM.from_pretrained(model_type, torch_dtype=self.torch_dtype)
 
-            checkpoint = torch.load(path, weights_only=True, map_location='cpu')
-            state_dict = checkpoint['model_state_dict']
-            model.load_state_dict(state_dict, strict=False)
-            
-            model.eval()
-            model.requires_grad_(False)
-            modules.append(model)
+        modules = []
+        if rank is not None and rank > 0:
+            num_ensemble_models = len(config.ensemble_dirs)
+            if rank <= num_ensemble_models:
+                model_index = rank - 1  # rank 1 → model 0
+                checkpoint_path = config.ensemble_dirs[model_index]
+                gpu_id = rank  # rank 1 → cuda:1
+                
+                model = AutoModelForCausalLM.from_pretrained(
+                    self.model_type, 
+                    torch_dtype=self.torch_dtype,
+                )
+                
+                checkpoint = torch.load(checkpoint_path, weights_only=True, map_location='cpu')
+                state_dict = checkpoint['model_state_dict']
+                model.load_state_dict(state_dict, strict=False)
+                
+                model = model.to(f'cuda:{gpu_id}')
+                
+                model.eval()
+                model.requires_grad_(False)
+                modules.append(model)
+        
         self.models = nn.ModuleList(modules)
-        self.models.eval()
+
 
     def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
         with torch.no_grad():
-            outputs = self.models[0](input_ids=input_ids.to(self.models[0].device), attention_mask=attention_mask.to(self.models[0].device), **kwargs)
-            sum_logits = outputs.logits
+            first_model = self.models[0]
+            outputs = first_model(
+                input_ids=input_ids.to(first_model.device), 
+                attention_mask=attention_mask.to(first_model.device), 
+                **kwargs
+            )
+            sum_logits = outputs.logits.clone()
+            
             for model in self.models[1:]:
-                sum_logits += model(input_ids=input_ids.to(model.device), attention_mask=attention_mask.to(model.device), **kwargs).logits
-
+                model_outputs = model(
+                    input_ids=input_ids.to(model.device), 
+                    attention_mask=attention_mask.to(model.device), 
+                    **kwargs
+                )
+                sum_logits += model_outputs.logits.to(sum_logits.device)
+            
             logits = sum_logits / len(self.models)
+            
             loss = None
             if labels is not None:
-                loss = self.models[0].loss_function(
-                    logits=outputs.logits,
-                    labels=labels.to(outputs.logits.device),
+                loss = first_model.loss_function(
+                    logits=logits,
+                    labels=labels.to(logits.device),
                     vocab_size=config.student_vocab_size,
                     **kwargs
                 )

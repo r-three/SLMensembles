@@ -9,10 +9,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedul
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from tqdm.auto import tqdm
-from simple_ensemble import ModelEnsemble
-import sys
-
+from typing import Any
 from simple_config import config
+from simple_ensemble import ModelEnsemble
 from simple_trainer import Trainer
 from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed
 from simple_checkpoint import SimpleCheckpointer
@@ -28,6 +27,21 @@ except ImportError:
 # Watch GPU usage in real-time
 # ssh kn149  # Your node
 # watch -n 1 nvidia-smi
+
+# Track memory
+# free_b, total_b = torch.cuda.mem_get_info()
+# used_b = total_b - free_b
+# print(f"GPU {torch.cuda.current_device()} memory: {used_b/1024**3:.2f} / {total_b/1024**3:.2f} GiB")
+
+# device = torch.cuda.current_device()
+# allocated = torch.cuda.memory_allocated(device) / 1024**3
+# print(f"Allocated: {allocated:.2f} GB")
+# reserved = torch.cuda.memory_reserved(device) / 1024**3
+# print(f"Reserved: {reserved:.2f} GB")
+
+# torch.set_printoptions(profile="full")
+# from transformers import AutoTokenizer
+# tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-2-1124-7B-SFT")
 
 # ==================================================
 # Main Training Function
@@ -112,22 +126,31 @@ def main(args):
             config.teacher_model_name,
             torch_dtype=torch.bfloat16,
         )
-        teacher_model = teacher_model.to(device)
+        teacher_model = teacher_model.to('cuda:0')
         teacher_model.eval()
-        main_print(f"Teacher model loaded on {device} (rank 0 only)")
+        main_print(f"Teacher model (7B) loaded on cuda:0")
     else:
         teacher_model = None
         main_print(f"[Rank {rank}] Skipping teacher model (will receive logits from rank 0)")
     
-    dist.barrier()
-
     # ----------------------------------
     # Load Ensemble Model
     # ----------------------------------
     if config.ensemble_dirs is not None:
-        ensemble_model = ModelEnsemble()
+        main_print(f"[Rank {rank}] Loading ensemble model...")
+        ensemble_model = ModelEnsemble(rank=rank)  # Loads only this rank's model
+        
+        if len(ensemble_model.models) == 0:
+            ensemble_model = None
+            main_print(f"[Rank {rank}] No ensemble model assigned (will participate in all-reduce)")
+        else:
+            main_print(f"[Rank {rank}] ✓ Ensemble model loaded on cuda:{rank}")
     else:
         ensemble_model = None
+        main_print("No ensemble models configured")
+    
+    if dist.is_initialized():
+        dist.barrier()
 
     # ----------------------------------
     # Load Student Model
@@ -224,7 +247,7 @@ def main(args):
         # ----------------------------------
         # Training Iteration
         # ----------------------------------
-        progress_bar = tqdm(train_dataloader, disable=rank != 0, file=sys.stdout, desc=f"Training Epoch {epoch}")
+        progress_bar = tqdm(train_dataloader, disable=rank != 0, desc=f"Training Epoch {epoch}")
         for batch_idx, batch in enumerate(progress_bar):
             # Debug mode: stop after max_steps
             if config.debug_mode and trainer.global_step >= config.debug_max_steps:
