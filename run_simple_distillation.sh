@@ -3,8 +3,8 @@
 #SBATCH --job-name=ensembles_test
 #SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
-#SBATCH --partition=gpubase_l40s_b2                                                      
-#SBATCH --gres=gpu:l40s:4
+#SBATCH --partition=gpubase_l40s_b3                                                     
+#SBATCH --gres=gpu:l40s:2
 #SBATCH --cpus-per-task=4                                                                     
 #SBATCH --mem=120GB
 #SBATCH --account=aip-craffel                                             
@@ -18,7 +18,7 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "GPU resources: $CUDA_VISIBLE_DEVICES" 
 
 # DEBUG MODE: Set to 1 for single-GPU debugging with pdb
-DEBUG_MODE=1
+DEBUG_MODE=0
 
 if [ "$DEBUG_MODE" -eq 1 ]; then
     echo "DEBUG MODE: Using only 1 GPU"
