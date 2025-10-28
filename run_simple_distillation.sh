@@ -10,23 +10,32 @@
 #SBATCH --account=aip-craffel                                             
 #SBATCH --time=11:58:00
 
-# srun -c 4 --gres=gpu:l40s:2 --partition=gpubase_l40s_b3 --mem=120GB --pty --time=6:00:00 --account=aip-craffel bash
+# srun -c 4 --gres=gpu:l40s:2 --partition=gpubase_l40s_b3 --mem=120GB --pty --time=23:00:00 --account=aip-craffel bash
 
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 echo "GPU resources: $CUDA_VISIBLE_DEVICES" 
 
-# Auto-detect number of GPUs
-# Try SLURM variable first, fallback to counting CUDA_VISIBLE_DEVICES
-if [ -n "$SLURM_GPUS_ON_NODE" ]; then
-    export WORLD_SIZE=$SLURM_GPUS_ON_NODE
-elif [ -n "$CUDA_VISIBLE_DEVICES" ]; then
-    # Count GPUs from CUDA_VISIBLE_DEVICES (comma-separated)
-    export WORLD_SIZE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
+# DEBUG MODE: Set to 1 for single-GPU debugging with pdb
+DEBUG_MODE=1
+
+if [ "$DEBUG_MODE" -eq 1 ]; then
+    echo "DEBUG MODE: Using only 1 GPU"
+    export CUDA_VISIBLE_DEVICES=0
+    export WORLD_SIZE=1
 else
-    # Fallback: use nvidia-smi to count GPUs
-    export WORLD_SIZE=$(nvidia-smi --list-gpus | wc -l)
+    # Auto-detect number of GPUs
+    # Try SLURM variable first, fallback to counting CUDA_VISIBLE_DEVICES
+    if [ -n "$SLURM_GPUS_ON_NODE" ]; then
+        export WORLD_SIZE=$SLURM_GPUS_ON_NODE
+    elif [ -n "$CUDA_VISIBLE_DEVICES" ]; then
+        # Count GPUs from CUDA_VISIBLE_DEVICES (comma-separated)
+        export WORLD_SIZE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
+    else
+        # Fallback: use nvidia-smi to count GPUs
+        export WORLD_SIZE=$(nvidia-smi --list-gpus | wc -l)
+    fi
 fi
 
 echo "Detected $WORLD_SIZE GPU(s) for training"
