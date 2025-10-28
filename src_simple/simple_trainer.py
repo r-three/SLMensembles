@@ -118,6 +118,8 @@ class Trainer:
             
             torch.cuda.empty_cache()
         
+        breakpoint()
+
         # ensemble forward pass
         ensemble_logits = None
         if self.ensemble_model is not None:
@@ -136,6 +138,7 @@ class Trainer:
         
         # ------ Combine Student and Ensemble Predictions ------
         if ensemble_logits is not None:
+            ensemble_logits = ensemble_logits.to(student_logits.device)
             num_models = len(self.ensemble_model.models)
             # Weighted average: student gets 1/(n+1), ensemble gets n/(n+1)
             student_logits = (student_logits / (num_models + 1) + 
@@ -199,8 +202,6 @@ class Trainer:
         batch["labels"] = batch["labels"].type(torch.LongTensor)
         
         self.gad += 1
-        
-        breakpoint()
 
         # ------ Initialization and Cleanup ------
         # First batch warning

@@ -129,8 +129,6 @@ def main(args):
     else:
         ensemble_model = None
 
-    breakpoint()
-
     # ----------------------------------
     # Load Student Model
     # ----------------------------------

@@ -63,9 +63,6 @@ Next Steps:
 Fixes to add to main:
 - transfer over dataset preprocessing script Fixes
 - train and test loader Fixes in simple_utils.py
-- ensemble_model_name -> ensemble_dirs in main (if config.ensemble_dirs is not None:)
-- simple_ensemble.py - ensemble model loading code 
-- 
 
 
 Week 1: Method Exploration — What Works and What Doesn’t
