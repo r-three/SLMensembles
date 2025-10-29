@@ -33,7 +33,12 @@ echo "Detected $WORLD_SIZE GPU(s) for training"
 
 # Memory optimization settings
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-# CUDA_LAUNCH_BLOCKING removed for better performance  
+# CUDA_LAUNCH_BLOCKING removed for better performance
+
+# NCCL optimization settings
+export NCCL_TIMEOUT=1800  # Increase timeout to 30 minutes
+export NCCL_DEBUG=INFO    # Enable debugging
+export NCCL_IB_DISABLE=1  # Disable InfiniBand if causing issues  
 
 # Load modules
 module load gcc arrow/18.1.0
