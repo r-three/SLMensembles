@@ -10,7 +10,7 @@
 #SBATCH --account=aip-craffel                                             
 #SBATCH --time=23:58:00
 
-# srun -c 4 --gres=gpu:l40s:1 --partition=gpubase_l40s_b2 --mem=120GB --pty --time=6:00:00 --account=aip-craffel bash
+# srun -c 4 --gres=gpu:l40s:2 --partition=gpubase_l40s_b1 --mem=120GB --pty --time=3:00:00 --account=aip-craffel bash
 
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
 echo "Running on node: $(hostname)"
@@ -37,7 +37,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Load modules
 module load gcc arrow/18.1.0
-source /home/klambert/projects/aip-craffel/shared/slm_ensemble/prj/bin/activate
+source /home/yizhen1/projects/aip-craffel/shared/slm_ensemble/prj/bin/activate
 
 # Run training
 torchrun \

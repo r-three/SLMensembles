@@ -51,11 +51,12 @@ def main(args):
     # ----------------------------------
     rank = int(os.environ["LOCAL_RANK"])
     device = torch.device(f"cuda:{rank}")
-    logger = AsyncLossLogger(log_path=config.log_path)
 
     torch.cuda.set_device(device)
     torch.distributed.init_process_group(backend="nccl", device_id=device)
     fix_seed(config.seed)
+
+    logger = AsyncLossLogger(log_path=config.log_path)
 
     # ----------------------------------
     # Timer and Logging Start

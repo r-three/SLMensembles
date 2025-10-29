@@ -193,7 +193,7 @@ class AsyncLossLogger:
     Designed to keep training non-blocking.
     """
     def __init__(self, log_path: str,
-                 flush_interval_s: float = 30.0,
+                 flush_interval_s: float = 5.0,
                  max_queue: int = 100_000):
         self.log_path = log_path
         self.flush_interval_s = flush_interval_s
@@ -218,19 +218,18 @@ class AsyncLossLogger:
             # If you want to block instead, use self._q.put(record)
             pass
 
-    def update_and_write_many(self, ids, tr_step_loss, next_token_loss, kl_loss, valid_count):
+    def update_and_write_many(self, ids, at_masks, labs, tr_step_loss, next_token_loss, kl_loss):
         ids_list = list(ids)
 
         # Convert elementwise (each item can be a Python number, 0-d torch tensor, numpy scalar, etc.)
         tr_list = [_to_scalar(x) for x in tr_step_loss]
         nt_list = [_to_scalar(x) for x in next_token_loss]
         kl_list = [_to_scalar(x) for x in kl_loss]
-        vc_list = [int(_to_scalar(x)) for x in valid_count]
 
         now = time.time()
         with self._lock:
-            for id_, tr, nt, kl, vc in zip(ids_list, tr_list, nt_list, kl_list, vc_list):
-                self.write({"id": id_, "tr": tr, "nt": nt, "kl": kl, "vc": vc, "t": now})
+            for idx, [id_, a_m, lb, tr, nt, kl] in enumerate(zip(ids_list, at_masks, labs, tr_list, nt_list, kl_list)):
+                self.write({"idx": idx, "id": id_, "attention_mask": a_m, "labels": lb, "tr": tr, "nt": nt, "kl": kl, "t": now})
 
 
     def close(self, timeout: float = 10.0):
@@ -246,10 +245,16 @@ class AsyncLossLogger:
 
         # Open CSV file in append mode, line-buffered
         f = open(self.log_path, "a", newline="", buffering=1)
-        writer = csv.DictWriter(f, fieldnames=["id", "tr", "nt", "kl", "vc", "t"])
+        writer = csv.DictWriter(f, fieldnames=["idx", "attention_mask", "labels", "id", "tr", "nt", "kl", "t"])
         if not file_exists:
             writer.writeheader()
-
+        
+        '''
+        while not self._stop.is_set() or not self._q.empty():
+            if self._q and now - last_flush >= self.flush_interval_s:
+                writer.writerows(self._q)
+                last_flush = now
+        '''
         try:
             while not self._stop.is_set() or not self._q.empty():
                 try:
@@ -273,6 +278,7 @@ class AsyncLossLogger:
                 writer.writerows(buf)
                 f.flush()
             f.close()
+        
 
     def get_top_n_ids(self, heading, k_percent: int):
         df = pd.read_csv(self.log_path)

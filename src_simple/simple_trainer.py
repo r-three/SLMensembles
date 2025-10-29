@@ -38,7 +38,6 @@ def _gather(x: torch.Tensor) -> torch.Tensor:
         print(f"Warning: _gather failed with error {e}, returning original tensor")
         return x
 
-
 # ==================================================
 # Trainer Class
 # ==================================================
@@ -90,6 +89,9 @@ class Trainer:
         input_ids = batch["input_ids"].to(torch.cuda.current_device())
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
+        print(input_ids)
+        print(attention_mask)
+        print(labels)
 
         # ------ Forward Passes ------
         with torch.no_grad():
@@ -141,6 +143,8 @@ class Trainer:
         valid_count = mask.sum()
 
         # ------ Cross-Entropy Loss ------
+        batch_size = input_ids.size(0)
+        
         ce_loss_all = F.cross_entropy(
             shift_student_logits.view(-1, vocab_size),
             shift_labels.view(-1),
@@ -205,16 +209,17 @@ class Trainer:
             dist.barrier()
         
         # ------ Compute Loss ------
-        _, valid_count, _, _, tr_step_loss, ce_loss, kl_loss = self.compute_loss(batch)
+        tr_step_loss, valid_count, ce_loss, kl_loss, per_text_tl, per_text_cl, per_text_kl = self.compute_loss(batch)
         
         # ------ logger ------
+        
         with torch.no_grad():
-            self.logger.update_and_write_many(batch["input_ids"], 
-                                              tr_step_loss,
-                                              ce_loss,
-                                              kl_loss,
-                                              valid_count)
-
+            self.logger.update_and_write_many(batch["input_ids"],
+                                              batch["attention_mask"],
+                                              batch["labels"], 
+                                              per_text_tl,
+                                              per_text_cl,
+                                              per_text_kl)
         
         # ------ Gradient Accumulation ------
         is_accumulating = (self.global_step + 1) % self.gas != 0
@@ -308,7 +313,7 @@ class Trainer:
                 batch["labels"] = batch["labels"].type(torch.LongTensor)
                 
                 # Compute loss
-                tr_step_loss, valid_count, ce_loss, kl_loss = self.compute_loss(batch)
+                tr_step_loss, valid_count, ce_loss, kl_loss, _, _, _ = self.compute_loss(batch)
                 
                 # Accumulate metrics
                 total_loss += tr_step_loss
