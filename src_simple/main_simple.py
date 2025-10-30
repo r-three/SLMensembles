@@ -289,6 +289,9 @@ def main(args):
         # ----------------------------------
         # End of Epoch Summary
         # ----------------------------------
+        # Synchronize all ranks before end-of-epoch evaluation
+        dist.barrier()
+        
         # Compute average training loss
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
         
@@ -309,13 +312,12 @@ def main(args):
     # ----------------------------------
     # Final Model Save
     # ----------------------------------
+    state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
+    model_state_dict = get_model_state_dict(model=student_model, options=state_dict_opts)
+    
     if is_main_process():
         final_model_path = os.path.join(output_path, "final_model")
         os.makedirs(final_model_path, exist_ok=True)
-        
-        # Use proper FSDP2-compatible state dict extraction
-        state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
-        model_state_dict = get_model_state_dict(model=student_model, options=state_dict_opts)
         
         # Save just the model state dict for inference
         torch.save(model_state_dict, os.path.join(final_model_path, "model.pt"))
