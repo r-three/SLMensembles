@@ -51,9 +51,10 @@ import math
 # 
 #         return combined_path
 
-def cache_teacher_logprobs(self):
+def cache_teacher_logprobs():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name)
     teacher_model = AutoModelForCausalLM.from_pretrained(
         config.teacher_model_name,
         torch_dtype=torch.bfloat16,
@@ -67,7 +68,6 @@ def cache_teacher_logprobs(self):
 
     train_dataloader, test_dataloader = prepare_dataset(dataset["train"], dataset["test"])
 
-
     print("\n--> Generating Teacher Logits")
     for split in ["train", "test"]:
         save_dir = os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}")
@@ -75,12 +75,12 @@ def cache_teacher_logprobs(self):
 
         save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "id": []}
         chunk_id = 0
-
         batch_size = 6
+        batch_idx = 0
 
         with torch.no_grad():
-            tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name)
             for batch in tqdm(f'{split}_dataloader', total=math.ceil(len(f'{split}_dataloader')/batch_size)):
+                batch_idx += 1
                 outputs = teacher_model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"])
                 logits = outputs.logits  # [batch, seq_len, vocab_size]
                 breakpoint()
@@ -91,28 +91,21 @@ def cache_teacher_logprobs(self):
                 indices = indices.to(torch.int32).to('cpu')
 
                 for b in range(values.size(0)):
-                    target_positions = torch.where(batch_data["labels"][b] != -100)[0]
-                    if len(target_positions) == 0:
+                    if not (batch["labels"][b] != -100).any():
                         continue
 
-                    # Trim at padding boundary
-                    pad_positions = torch.where(batch_data["input_ids"][b] == tokenizer.pad_token_id)[0]
-                    end_idx = pad_positions[0].item() if len(pad_positions) != 0 else len(batch_data["input_ids"][b])
+                    pad_positions = torch.where(batch["input_ids"][b] == tokenizer.pad_token_id)[0]
+                    end_idx = pad_positions[0].item() if len(pad_positions) else len(batch["input_ids"][b])
 
-                    save_ds["id"].append(batch_data["id"][b])
-                    save_ds["input_ids"].append(batch_data["input_ids"][b][target_positions:end_idx].tolist())
-                    save_ds["attention_mask"].append(batch_data["attention_mask"][b][:end_idx].tolist())
-                    save_ds["labels"].append(batch_data["labels"][b][:end_idx].tolist())
+                    save_ds["id"].append(batch["id"][b])
+                    save_ds["input_ids"].append(batch["input_ids"][b].tolist())
+                    save_ds["attention_mask"].append(batch["attention_mask"][b].tolist())
+                    save_ds["labels"].append(batch["labels"][b].tolist())
                     save_ds["logprob_values"].append(values[b][:end_idx].tolist())
                     save_ds["logprob_indices"].append(indices[b][:end_idx].tolist())
 
-                    save_ds["logprob_values"].append(values[b][:end_idx].tolist())
-                    save_ds["logprob_indices"].append(indices[b][:end_idx].tolist())
-
-                batch_data = {"input_ids": [], "attention_mask": [], "labels": [], "id": []}
-
-                if (batch_idx + 1) % 3200 < batch_size or batch_idx == len(shard) - 1:
-                    main_print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
+                if (batch_idx + 1) % 3200 < batch_size or batch_idx == len(f'{split}_dataloader') - 1:
+                    print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
 
                     save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
                     if os.path.exists(save_path):
@@ -130,9 +123,7 @@ def cache_teacher_logprobs(self):
                         "id": [],
                     }
                     chunk_id += 1
-
-                # if (batch_idx + 1) % 3200 == 0:
-                #     break
+                    batch_idx = 0
 
         if save_ds["input_ids"]:
             print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
@@ -141,14 +132,10 @@ def cache_teacher_logprobs(self):
                 shutil.rmtree(save_path)
             Dataset.from_dict(save_ds).save_to_disk(save_path)
     
-    self.build_teacher_logprobs_dataset()
-    
-    main_print("\n--> Generation Done")
-
-
-
+    print("\n--> Generation Done")
+    print("\n--> Building Teacher Logits Dataset")
+    build_teacher_logprobs_dataset()
+    print("\n--> Building Done")
 
 if __name__ == "__main__":
-    dataClass = DistillDataset()
-    dataset = dataClass.get_dataset()
-    teacher_logits = dataClass.cache_teacher_logprobs()
+    cache_teacher_logprobs()
