@@ -87,10 +87,7 @@ class SimpleCheckpointer:
         if len(checkpoints) <= keep_last:
             return
         
-        # Sort by modification time
-        checkpoints.sort(key=os.path.getmtime)
-        
-        # Remove older checkpoints
-        for checkpoint in checkpoints[:-keep_last]:
-            os.remove(checkpoint)
-            main_print(f"Removed old checkpoint: {checkpoint}")
+        # Identify the oldest checkpoint by creation time (when it was saved)
+        oldest_checkpoint = min(checkpoints, key=os.path.getctime)
+        os.remove(oldest_checkpoint)
+        main_print(f"Removed oldest checkpoint: {oldest_checkpoint}")
