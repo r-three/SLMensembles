@@ -45,7 +45,8 @@ class SimpleCheckpointer:
         main_print(f"✓ Saved checkpoint to {checkpoint_path}")
         
         # Keep only the last 3 checkpoints
-        self._cleanup_old_checkpoints(keep_last=3)
+        if is_main_process():
+            self._cleanup_old_checkpoints(keep_last=3)
     
     # ----------------------------------
     # Load Checkpoint
