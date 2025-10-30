@@ -1,15 +1,15 @@
 import argparse
 import os
+import pdb
 import time
 import torch
 import torch.distributed as dist
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
-from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
+from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from tqdm.auto import tqdm
-import sys
-
+from typing import Any
 from simple_config import config
 from simple_trainer import Trainer
 from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed
@@ -23,8 +23,11 @@ except ImportError:
     print("Warning: wandb not available. Install with: pip install wandb")
 
 
-# Track memory
+# Watch GPU usage in real-time
+# ssh kn149  # Your node
+# watch -n 1 nvidia-smi
 
+# Track memory
 # free_b, total_b = torch.cuda.mem_get_info()
 # used_b = total_b - free_b
 # print(f"GPU {torch.cuda.current_device()} memory: {used_b/1024**3:.2f} / {total_b/1024**3:.2f} GiB")
@@ -122,15 +125,14 @@ def main(args):
             config.teacher_model_name,
             torch_dtype=torch.bfloat16,
         )
-        teacher_model = teacher_model.to(device)
+        teacher_model = teacher_model.to('cuda:0')
         teacher_model.eval()
-        main_print(f"Teacher model loaded on {device} (rank 0 only)")
+        main_print(f"Teacher model (7B) loaded on cuda:0")
     else:
         teacher_model = None
         main_print(f"[Rank {rank}] Skipping teacher model (will receive logits from rank 0)")
-    
-    dist.barrier()
 
+    
     # ----------------------------------
     # Load Student Model
     # ----------------------------------
@@ -160,7 +162,7 @@ def main(args):
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=config.learning_rate)
     
     num_training_steps = len(train_dataloader) * config.num_epochs
-    num_warmup_steps = config.num_warmup_steps
+    num_warmup_steps = int(0.1 * num_training_steps)  # 10% warmup
     
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer,
@@ -225,7 +227,7 @@ def main(args):
         # ----------------------------------
         # Training Iteration
         # ----------------------------------
-        progress_bar = tqdm(train_dataloader, disable=rank != 0, file=sys.stdout, desc=f"Training Epoch {epoch}")
+        progress_bar = tqdm(train_dataloader, disable=rank != 0, desc=f"Training Epoch {epoch}")
         for batch_idx, batch in enumerate(progress_bar):
             # Debug mode: stop after max_steps
             if config.debug_mode and trainer.global_step >= config.debug_max_steps:
