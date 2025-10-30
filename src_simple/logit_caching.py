@@ -68,8 +68,8 @@ def cache_teacher_logprobs():
     print(f"Teacher model (7B) loaded")
 
     dataset = get_dataset()
-
     train_dataloader, test_dataloader = prepare_dataset(dataset["train"], dataset["test"])
+    breakpoint()
 
     print("\n--> Generating Teacher Logits")
     for split, dataloader in [("train", train_dataloader), ("test", test_dataloader)]:
