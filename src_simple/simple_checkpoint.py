@@ -3,8 +3,15 @@ Simplified checkpointing for distillation training.
 """
 import os
 import torch
+import torch.distributed as dist
 import glob
-from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
+from torch.distributed.checkpoint.state_dict import (
+    get_model_state_dict,
+    get_optimizer_state_dict,
+    set_model_state_dict,
+    set_optimizer_state_dict,
+    StateDictOptions,
+)
 from simple_utils import main_print, is_main_process
 
 
@@ -29,24 +36,28 @@ class SimpleCheckpointer:
             f"checkpoint_epoch{epoch}_step{global_step}.pt"
         )
         
+        # Gather full state dicts from all ranks
         state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
         model_state_dict = get_model_state_dict(model=model, options=state_dict_opts)
+        optimizer_state_dict = get_optimizer_state_dict(model=model, optimizers=optimizer, options=state_dict_opts)
         
-        checkpoint = {
-            'epoch': epoch,
-            'global_step': global_step,
-            'model_state_dict': model_state_dict,
-            'optimizer_state_dict': optimizer.state_dict(),
-            'lr_scheduler_state_dict': lr_scheduler.state_dict(),
-            'loss': loss,
-        }
-        
-        torch.save(checkpoint, checkpoint_path)
-        main_print(f"✓ Saved checkpoint to {checkpoint_path}")
-        
-        # Keep only the last 3 checkpoints
+        # Only the main process should save to avoid corruption
         if is_main_process():
+            checkpoint = {
+                'epoch': epoch,
+                'global_step': global_step,
+                'model_state_dict': model_state_dict,
+                'optimizer_state_dict': optimizer_state_dict,
+                'lr_scheduler_state_dict': lr_scheduler.state_dict(),
+                'loss': loss,
+            }
+            
+            torch.save(checkpoint, checkpoint_path)
+            main_print(f"✓ Saved checkpoint to {checkpoint_path}")
+                    
+            # Keep only the last 3 checkpoints
             self._cleanup_old_checkpoints(keep_last=3)
+
     
     # ----------------------------------
     # Load Checkpoint
@@ -63,11 +74,30 @@ class SimpleCheckpointer:
         latest_checkpoint = max(checkpoints, key=os.path.getmtime)
         main_print(f"Loading checkpoint from {latest_checkpoint}")
         
-        checkpoint = torch.load(latest_checkpoint, map_location='cpu')
+        checkpoint = None
+        if is_main_process():
+            checkpoint = torch.load(latest_checkpoint, map_location='cpu')
         
-        # Load state dicts
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        # Broadcast checkpoint metadata to all ranks
+        if dist.is_initialized():
+            checkpoint = dist.broadcast_object_list([checkpoint], src=0)[0]
+        
+        # Load state dicts using FSDP-aware functions
+        state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
+        
+        set_model_state_dict(
+            model=model,
+            model_state_dict=checkpoint['model_state_dict'],
+            options=state_dict_opts
+        )
+        
+        set_optimizer_state_dict(
+            model=model,
+            optimizers=optimizer,
+            optim_state_dict=checkpoint['optimizer_state_dict'],
+            options=state_dict_opts
+        )
+        
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
         
         return {
