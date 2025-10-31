@@ -19,3 +19,8 @@ Test examples: 1948
 Batches processed: 974
 Cross-Entropy Loss: 12.2730
 Perplexity: 213841.8750
+
+
+
+
+
