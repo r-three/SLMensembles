@@ -162,7 +162,7 @@ def main(args):
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=config.learning_rate)
     
     num_training_steps = (len(train_dataloader) * config.num_epochs) // config.gradient_accumulation_steps
-    num_warmup_steps = int(0.05 * num_training_steps)  # 5% warmup (shorter for distillation/fine-tuning)
+    num_warmup_steps = int(0.05 * num_training_steps)
     
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer,
