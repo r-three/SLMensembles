@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import glob
 import shutil
@@ -11,47 +12,34 @@ from tqdm import tqdm
 import math
 
 
-
 def get_teacher_logprobs():
     """Load or generate teacher logits dataset."""
     if not os.path.exists(os.path.join(config.logprob_cache_path, "teacher_logprobs")):
-        cache_teacher_logprobs()
-
+        print("--> Teacher logprobs not found")
+        sys.exit(1)
+    
     print("--> Loading Teacher Logits")
     dataset = load_from_disk(os.path.join(config.logprob_cache_path, "teacher_logprobs"))
-    
     return dataset
 
 
-def concatenate_logprobs_chunks(split_dirs: list[str]):
-    """Concatenate logit chunks into a single dataset."""
-    datasets_list = []
-    for split_dir in split_dirs:
-        chunk_paths = sorted(
-            [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
-            key=lambda p: int(os.path.basename(p).split("_")[-1].split(".")[0]),
-        )
-        print(f"--> Loading {len(chunk_paths)} chunks for '{os.path.basename(split_dir)}' split")
-        datasets_list.extend(load_from_disk(p) for p in chunk_paths)
-    return concatenate_datasets(datasets_list) if datasets_list else None
-
-
 def build_teacher_logprobs_dataset():
-    """Build the final teacher logits dataset from chunks."""
+    """Build and save the final `DatasetDict(train=..., test=...)` from chunks."""
     data_dict = {}
-
     for split in ["train", "test"]:
-        split_dirs = sorted(
-            [d for d in glob.glob(os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}_*")) if os.path.isdir(d)]
-        )
-        split_ds = concatenate_logprobs_chunks(split_dirs)
-        data_dict[split] = split_ds
+        split_dirs = sorted(glob.glob(os.path.join(config.logprob_cache_path, f"teacher_logprobs_{split}*")))
+        chunk_paths = []
+        for split_dir in split_dirs:
+            chunk_paths += sorted(
+                [p for p in glob.glob(os.path.join(split_dir, "chunk_*")) if os.path.isdir(p)],
+                key=lambda p: int(os.path.basename(p).split("_")[-1])
+            )
+        print(f"--> Concatenating {len(chunk_paths)} chunks for {split}")
+        split_dataset = concatenate_datasets([load_from_disk(p) for p in chunk_paths])
+        data_dict[split] = split_dataset
 
-    dataset = DatasetDict(data_dict)
-    combined_path = os.path.join(config.logprob_cache_path, "teacher_logprobs")
-    dataset.save_to_disk(combined_path)
-
-    return combined_path
+    final_path = os.path.join(config.logprob_cache_path, "teacher_logprobs")
+    DatasetDict(data_dict).save_to_disk(final_path)
 
 
 def cache_teacher_logprobs():
@@ -61,15 +49,12 @@ def cache_teacher_logprobs():
     teacher_model = AutoModelForCausalLM.from_pretrained(
         config.teacher_model_name,
         torch_dtype=torch.bfloat16,
-    )
-    teacher_model = teacher_model.to(device)
+    ).to(device).eval()
     teacher_model.requires_grad_(False)
-    teacher_model.eval()
-    print(f"Teacher model (7B) loaded")
+    print(f"✓ Teacher model loaded on {device}")
 
     dataset = get_dataset()
     train_dataloader, test_dataloader = prepare_dataset(dataset["train"], dataset["test"])
-    breakpoint()
 
     print("\n--> Generating Teacher Logits")
     for split, dataloader in [("train", train_dataloader), ("test", test_dataloader)]:
@@ -77,73 +62,54 @@ def cache_teacher_logprobs():
         os.makedirs(save_dir, exist_ok=True)
 
         save_ds = {"input_ids": [], "attention_mask": [], "labels": [], "logprob_values": [], "logprob_indices": [], "id": []}
-        chunk_id = 0
-        samples_in_chunk = 0
+        chunk_id, samples_in_chunk = 0, 0
 
         with torch.no_grad():
-            for batch_idx, batch in enumerate(tqdm(dataloader, desc=f"Processing {split}")):
-                # Move batch to device
+            for batch in tqdm(dataloader, desc=f"[{split}] Caching teacher logprobs"):
                 input_ids = batch["input_ids"].to(device)
                 attention_mask = batch["attention_mask"].to(device)
-                labels = batch["labels"]  # Keep labels on CPU for now
+                labels = batch["labels"]  # remain on CPU
                 
-                outputs = teacher_model(input_ids=input_ids, attention_mask=attention_mask)
-                logits = outputs.logits  # [batch, seq_len, vocab_size]
-                
+                logits = teacher_model(input_ids=input_ids, attention_mask=attention_mask).logits # [batch, seq_len, vocab_size]
                 logprobs = F.log_softmax(logits, dim=-1)
-                values, indices = torch.topk(logprobs, k=100, dim=-1)
-                values = values.to('cpu')
-                indices = indices.to(torch.int32).to('cpu')
+                values, indices = torch.topk(logprobs, k=100, dim=-1)  # [B, T, K]
+                values = values.to('cpu')                           # BF16
+                indices = indices.to(torch.int32).to('cpu')         # INT32
 
                 for b in range(values.size(0)):
                     if not (labels[b] != -100).any():
                         continue
-
-                    pad_positions = torch.where(batch["input_ids"][b] == tokenizer.pad_token_id)[0]
-                    end_idx = pad_positions[0].item() if len(pad_positions) > 0 else len(batch["input_ids"][b])
-
+                    
                     save_ds["id"].append(batch["id"][b])
                     save_ds["input_ids"].append(batch["input_ids"][b].tolist())
                     save_ds["attention_mask"].append(batch["attention_mask"][b].tolist())
                     save_ds["labels"].append(batch["labels"][b].tolist())
-                    save_ds["logprob_values"].append(values[b][:end_idx].tolist())
-                    save_ds["logprob_indices"].append(indices[b][:end_idx].tolist())
-                    
+                    save_ds["logprob_values"].append(values[b].tolist())     # shape [T, K]
+                    save_ds["logprob_indices"].append(indices[b].tolist())   # shape [T, K]
+
                     samples_in_chunk += 1
 
-                # Save chunk periodically (every 3200 samples)
+                # Save in chunks
                 if samples_in_chunk >= 3200:
-                    print(f"--> [{split}] Saving chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
+                    chunk_path = os.path.join(save_dir, f"chunk_{chunk_id}")
+                    if os.path.exists(chunk_path):
+                        shutil.rmtree(chunk_path)
+                    Dataset.from_dict(save_ds).save_to_disk(chunk_path)
 
-                    save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
-                    if os.path.exists(save_path):
-                        shutil.rmtree(save_path)
-                    Dataset.from_dict(save_ds).save_to_disk(save_path)
-
-                    save_ds = {
-                        "input_ids": [],
-                        "attention_mask": [],
-                        "labels": [],
-                        "logprob_values": [],
-                        "logprob_indices": [],
-                        "id": [],
-                    }
+                    save_ds = {k: [] for k in save_ds}  # Reset buffer
                     chunk_id += 1
                     samples_in_chunk = 0
 
-        # Save any remaining data
+        # Save final chunk if any
         if save_ds["input_ids"]:
-            print(f"--> [{split}] Saving final chunk {chunk_id} with {len(save_ds['input_ids'])} samples")
-            save_path = os.path.join(save_dir, f"chunk_{chunk_id}.arrow")
-            if os.path.exists(save_path):
-                shutil.rmtree(save_path)
-            Dataset.from_dict(save_ds).save_to_disk(save_path)
-    
-    print("\n--> Generation Done")
-    print("\n--> Building Teacher Logits Dataset")
-    build_teacher_logprobs_dataset()
-    print("\n--> Building Done")
+            chunk_path = os.path.join(save_dir, f"chunk_{chunk_id}")
+            if os.path.exists(chunk_path):
+                shutil.rmtree(chunk_path)
+            Dataset.from_dict(save_ds).save_to_disk(chunk_path)
 
+    print("✓ Logits saved. Now building full dataset...")
+    build_teacher_logprobs_dataset()
+    print("✓ All teacher logprobs cached.")
 
 if __name__ == "__main__":
     cache_teacher_logprobs()
