@@ -54,15 +54,17 @@ What “good” looks like (publishable end-state):
 Plan:
 
 What I did:
-- was testing the full pipeline runs end to end with ensembel models;
-- added ensemble loading and class - need to now test that it runs
+- left off fixing checkpointing
+- stopped distillation run - ready to train the next model ensemble - ensure that the model paths are
 
 Next Steps:
-- next important step: debug the code and figure out if logit shifting is legit
-- double check that the training run I launched worked end-to-end - check wandb metrics and if that doesn't work figure out what's wrong
+- plan life
+- integrate logit caching into the scipt and push the code
+- see how to streamline changes across code
 
-Meeting To-Dos:
-- switch to HuggingFace Trainer
+
+
+
 
 
 Week 1: Method Exploration — What Works and What Doesn’t
