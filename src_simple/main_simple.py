@@ -268,8 +268,9 @@ def main(args):
         # End of Epoch Summary
         # ----------------------------------
         # Synchronize all ranks before end-of-epoch evaluation
-        dist.barrier()
-        
+        if dist.is_initialized():
+            dist.barrier()
+
         # Compute average training loss
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
         
@@ -283,9 +284,7 @@ def main(args):
         # ----------------------------------
         # Save Epoch Checkpoint
         # ----------------------------------
-        dist.barrier()
         trainer.save_checkpoint(loss=eval_loss)
-        dist.barrier()
     
     # ----------------------------------
     # Final Model Save
