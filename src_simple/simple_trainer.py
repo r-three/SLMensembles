@@ -342,9 +342,6 @@ class Trainer:
     # ----------------------------------
     def save_checkpoint(self, loss: float = None):
         """Save checkpoint via checkpointer."""
-        # Synchronize all ranks before saving
-        if dist.is_initialized():
-            dist.barrier()
         
         if self.checkpointer is not None:
             self.checkpointer.save(
@@ -355,7 +352,3 @@ class Trainer:
                 global_step=self.global_step,
                 loss=loss if loss is not None else 0.0
             )
-        
-        # Synchronize all ranks after saving (checkpointer also has barriers, but extra safety)
-        if dist.is_initialized():
-            dist.barrier()

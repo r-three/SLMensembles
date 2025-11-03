@@ -261,9 +261,7 @@ def main(args):
             # ------ Periodic Checkpointing ------
             # Skip in debug mode to avoid NCCL timeout
             if not config.debug_mode and trainer.global_step > 0 and trainer.global_step % config.save_steps == 0:
-                dist.barrier()
-                trainer.save_checkpoint(loss=None)
-                dist.barrier() 
+                trainer.save_checkpoint(loss=None) 
                 
         # Skip end-of-epoch processing in debug mode (already stopped)
         if config.debug_mode and trainer.global_step >= config.debug_max_steps:
@@ -273,10 +271,6 @@ def main(args):
         # ----------------------------------
         # End of Epoch Summary
         # ----------------------------------
-        # Synchronize all ranks before end-of-epoch evaluation
-        if dist.is_initialized():
-            dist.barrier()
-
         # Compute average training loss
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
         

@@ -116,18 +116,20 @@ class SimpleCheckpointer:
             loss=loss
         )
         
-        # Use dcp.save for distributed checkpoint saving
         # All ranks participate in this operation
         state_dict = {"app": app_state}
         dcp.save(state_dict, checkpoint_id=checkpoint_path)
         
-        # Only main process prints and cleans up
+        # Synchronize after save to ensure all ranks finished
+        if dist.is_initialized():
+            dist.barrier()
+
         if is_main_process():
             main_print(f"✓ Saved checkpoint to {checkpoint_path}")
             # Keep only the last 3 checkpoints
             self._cleanup_old_checkpoints(keep_last=3)
         
-        # Synchronize after checkpoint save to ensure all ranks wait
+        # Synchronize after cleanup
         if dist.is_initialized():
             dist.barrier()
 
@@ -165,6 +167,10 @@ class SimpleCheckpointer:
             state_dict=state_dict,
             checkpoint_id=latest_checkpoint
         )
+        
+        # Synchronize after load to ensure all ranks have loaded
+        if dist.is_initialized():
+            dist.barrier()
         
         # Return metadata for training resumption
         return {
