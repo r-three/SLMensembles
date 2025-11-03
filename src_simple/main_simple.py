@@ -7,7 +7,7 @@ import torch.distributed as dist
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
-from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
+from torch.distributed.checkpoint.state_dict import get_state_dict
 from tqdm.auto import tqdm
 from typing import Any
 from simple_config import config
@@ -299,8 +299,7 @@ def main(args):
     if dist.is_initialized():
         dist.barrier()
     
-    state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
-    model_state_dict = get_model_state_dict(model=student_model, options=state_dict_opts)
+    model_state_dict, _ = get_state_dict(student_model, optimizers=None)
     
     if is_main_process():
         final_model_path = os.path.join(output_path, "final_model")

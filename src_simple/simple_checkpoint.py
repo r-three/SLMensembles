@@ -11,6 +11,15 @@ from torch.distributed.checkpoint.state_dict import get_state_dict, set_state_di
 from torch.distributed.checkpoint.stateful import Stateful
 from simple_utils import main_print, is_main_process
 
+# How it works:
+# Each rank saves only its shard to separate files in the directory.
+# Creates a directory structure like:
+#   checkpoint_epoch0_step100/
+#   ├── __0_0.distcp          # Rank 0's shard
+#   ├── __1_0.distcp          # Rank 1's shard
+#   ├── __2_0.distcp          # Rank 2's shard
+#   ├── __3_0.distcp          # Rank 3's shard
+#   └── .metadata             # Metadata about the checkpoint
 
 # ==================================================
 # AppState Wrapper
