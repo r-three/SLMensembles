@@ -140,7 +140,7 @@ def main(args):
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to('cuda')
+    )
     
     # ----------------------------------
     # FSDP Setup for Student
@@ -152,6 +152,9 @@ def main(args):
             reduce_dtype=torch.float32,
         )
     
+    # Move to device and wrap with FSDP
+    # FSDP will handle efficient sharding during wrapping
+    student_model = student_model.to(device)
     for layer in student_model.model.layers:
         fully_shard(layer, **fsdp_kwargs)
     fully_shard(student_model, **fsdp_kwargs)
@@ -291,6 +294,10 @@ def main(args):
     # ----------------------------------
     # Final Model Save
     # ----------------------------------
+    # Synchronize before final save
+    if dist.is_initialized():
+        dist.barrier()
+    
     state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
     model_state_dict = get_model_state_dict(model=student_model, options=state_dict_opts)
     
@@ -301,6 +308,10 @@ def main(args):
         # Save just the model state dict for inference
         torch.save(model_state_dict, os.path.join(final_model_path, "model.pt"))
         main_print(f"\nSaved final model to {final_model_path}")
+    
+    # Synchronize after final save
+    if dist.is_initialized():
+        dist.barrier()
     
     # ----------------------------------
     # Cleanup and Finalization

@@ -31,20 +31,20 @@ class SimpleCheckpointer:
     # ----------------------------------
     def save(self, model, optimizer, lr_scheduler, epoch, global_step, loss):
         """Save a checkpoint."""
+        # Synchronize before checkpoint save
+        if dist.is_initialized():
+            dist.barrier()
+        
         checkpoint_path = os.path.join(
             self.checkpoint_dir, 
             f"checkpoint_epoch{epoch}_step{global_step}.pt"
         )
         
-        # Synchronize before checkpoint save
-        if dist.is_initialized():
-            dist.barrier()
-        
         # Gather full state dicts from all ranks (collective operations)
         state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
         model_state_dict = get_model_state_dict(model=model, options=state_dict_opts)
         optimizer_state_dict = get_optimizer_state_dict(model=model, optimizers=optimizer, options=state_dict_opts)
-        
+
         # Only the main process should save to avoid corruption
         if is_main_process():
             checkpoint = {

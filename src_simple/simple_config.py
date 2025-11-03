@@ -29,7 +29,7 @@ class DistillationConfig:
     kl_temperature: float = 3.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 3
+    save_steps: int = 7
     eval_steps: int = 100
     resume_from_checkpoint: bool = False
     
