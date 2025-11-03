@@ -36,7 +36,11 @@ class SimpleCheckpointer:
             f"checkpoint_epoch{epoch}_step{global_step}.pt"
         )
         
-        # Gather full state dicts from all ranks
+        # Synchronize before checkpoint save
+        if dist.is_initialized():
+            dist.barrier()
+        
+        # Gather full state dicts from all ranks (collective operations)
         state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
         model_state_dict = get_model_state_dict(model=model, options=state_dict_opts)
         optimizer_state_dict = get_optimizer_state_dict(model=model, optimizers=optimizer, options=state_dict_opts)
@@ -57,6 +61,10 @@ class SimpleCheckpointer:
                     
             # Keep only the last 3 checkpoints
             self._cleanup_old_checkpoints(keep_last=3)
+        
+        # Synchronize after checkpoint save to ensure all ranks wait
+        if dist.is_initialized():
+            dist.barrier()
 
     
     # ----------------------------------

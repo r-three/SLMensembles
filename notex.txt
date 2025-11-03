@@ -55,10 +55,9 @@ Plan:
 
 What I did:
 - left off fixing checkpointing
-- stopped distillation run - ready to train the next model ensemble - ensure that the model paths are
+- stopped distillation run - ready to train the next model ensemble - ensure that the model paths are correct
 
 Next Steps:
-- plan life
 - integrate logit caching into the scipt and push the code
 - see how to streamline changes across code
 
@@ -69,7 +68,7 @@ Next Steps:
 
 Week 1: Method Exploration — What Works and What Doesn’t
 
-Goal: Identify which distillation + ensembling methods actually improve performance. Prioritize method-level comparisons over fine-tuning.
+Goal: Identify which distillation + ensembling methods ac tually improve performance. Prioritize method-level comparisons over fine-tuning.
 
 🔹1.1 – Setup for Apples-to-Apples Comparison
    [X] Fix dataset splits and logging
