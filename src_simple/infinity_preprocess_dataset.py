@@ -4,19 +4,20 @@ import os
 import shutil
 import datasets
 from transformers import AutoTokenizer
-import config
+import simple_config as config
 import torch.nn.functional as F
 
 # ----------------------------------
 # Helper Functions
 # ----------------------------------
 def convert_conversations_to_messages(sample):
-    """Convert Infinity-Instruct format to Tulu format."""
+    """Convert Infinity-Instruct format to standard messages format."""
+    role_map = {"human": "user", "gpt": "assistant", "system": "system"}
     messages = []
     for turn in sample["conversations"]:
-        # Map "human" -> "user", "gpt" -> "assistant"
-        role = "user" if turn["from"] == "human" else "assistant"
-        messages.append({"role": role, "content": turn["value"]})
+        # Map "human" -> "user", "gpt" -> "assistant", handle others gracefully
+        role = role_map.get(turn.get("from", ""), turn.get("from", "user"))
+        messages.append({"role": role, "content": turn.get("value", "")})
     sample["messages"] = messages
     return sample
 
@@ -99,15 +100,15 @@ if len(tokenizer) < 90000 or len(tokenizer) > 110000:
 else:
     print(f"✓ Tokenizer vocab size looks correct for OLMo")
 
-dataset = datasets.load_dataset(config.dataset_name, split="train")
+dataset = datasets.load_dataset(config.dataset_name, "Gen", split="train")
 
 print(f"Original dataset size: {len(dataset)}")
 print(f"Original dataset features: {dataset.features}")
 
-print(f"Example raw message format:")
-print(dataset[random.randint(0, len(dataset) - 1)]["messages"])
-print(f"Another example raw message format:")
-print(dataset[random.randint(0, len(dataset) - 1)]["messages"])
+print(f"Example raw conversation format:")
+print(dataset[random.randint(0, len(dataset) - 1)]["conversations"])
+print(f"Another example raw conversation format:")
+print(dataset[random.randint(0, len(dataset) - 1)]["conversations"])
 
 # ----------------------------------
 # Shuffle and Sample Dataset
@@ -116,6 +117,9 @@ dataset = dataset.shuffle(config.seed)
 dataset = dataset.select(range(200_000))
 dataset = dataset.train_test_split(test_size=2000)
 print(f"\nAfter sampling - Train size: {len(dataset['train'])}, Test size: {len(dataset['test'])}")
+
+print("\n=== CONVERTING CONVERSATIONS TO MESSAGES ===")
+dataset = dataset.map(convert_conversations_to_messages, num_proc=32)
 
 # ------------------------------------------
 # Apply preprocessing to format chat data
@@ -131,7 +135,7 @@ print(f"Test example chat_text (first 300 chars):\n{processed_dataset['test'][0]
 # Tokenize the text
 # --------------------------
 print("\n=== TOKENIZING TEXT ===")
-tokenized_dataset = processed_dataset.map(tokenize_text, remove_columns=["messages", "source"], num_proc=32)
+tokenized_dataset = processed_dataset.map(tokenize_text, remove_columns=["messages", "conversations", "label", "langdetect", "source"], num_proc=32)
 print(f"Dataset features after tokenization: {tokenized_dataset['train'].features}")
 
 print(f"Train example input_ids shape: {torch.tensor(tokenized_dataset['train'][0]['input_ids']).shape}")
