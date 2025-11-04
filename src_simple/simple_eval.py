@@ -6,9 +6,7 @@ import torch.nn.functional as F
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM
 import torch.distributed.checkpoint as dcp
-from torch.distributed.checkpoint.state_dict import set_state_dict
 from simple_checkpoint import AppState
-
 from simple_utils import prepare_dataset, get_dataset, fix_seed
 from simple_config import config
 
@@ -18,15 +16,23 @@ def load_distributed_checkpoint(checkpoint_dir, model):
     
     This handles checkpoints saved with dcp.save() which are stored as
     directories with multiple shard files.
+    
+    For evaluation, we load the model weights directly without using AppState.
     """
     
     print(f"Loading distributed checkpoint from: {checkpoint_dir}")
     
-    # Create AppState wrapper (no optimizer/scheduler needed for eval)
-    app_state = AppState(model=model, optimizer=None, lr_scheduler=None)
+    # Create a matching optimizer for loading (must match training optimizer type)
+    # Training uses AdamW, so we must use AdamW here too
+    dummy_optim = torch.optim.AdamW(model.parameters(), lr=0.001)
+    app_state = AppState(model=model, optimizer=dummy_optim, lr_scheduler=None)
     
+    # Load using dcp.load with AppState
     state_dict = {"app": app_state}
     dcp.load(state_dict=state_dict, checkpoint_id=checkpoint_dir)
+    
+    # Clean up optimizer (we only needed it for loading)
+    del dummy_optim
     
     print(f"✓ Loaded checkpoint - Epoch: {app_state.epoch}, Step: {app_state.global_step}")
     return app_state.epoch, app_state.global_step, app_state.loss
@@ -197,16 +203,21 @@ if __name__ == "__main__":
         description="Evaluate a model on the test dataset",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-    Examples:
-    # Evaluate distributed checkpoint (directory):
-    python simple_eval.py --model_path outputs/checkpoints/checkpoint_epoch0_step5000
-    
-    # Evaluate final model (.pt file):
-    python simple_eval.py --model_path outputs/final_model/model.pt
-    
-    # Evaluate HuggingFace model:
-    python simple_eval.py --model_name allenai/OLMo-2-1B
-            """
+Examples:
+  # Distributed checkpoint (directory):
+  python simple_eval.py --model_path /scratch/klambert/model_log/singular/checkpoints/checkpoint_epoch0_step5000
+  
+  # Final model (.pt file):
+  python simple_eval.py --model_path /scratch/klambert/model_log/singular/final_model/model.pt
+  
+  # Student baseline:
+  python simple_eval.py --model_name allenai/OLMo-2-0425-1B-SFT
+  
+  # Teacher model:
+  python simple_eval.py --model_name allenai/OLMo-2-1124-7B-SFT
+
+Recommended: Use ./run_eval.sh instead for easier usage
+        """
     )
     
     # Model loading

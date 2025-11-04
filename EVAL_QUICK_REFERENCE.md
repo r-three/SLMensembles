@@ -1,70 +1,74 @@
 # Quick Reference: Evaluating Checkpoints
 
-## Three Commands You Need
+## Basic Usage
 
 ```bash
-# 1. Evaluate training checkpoint (directory)
-python src_simple/simple_eval.py \
-    --model_path outputs/checkpoints/checkpoint_epoch0_step5000
+# Show help
+./run_eval.sh
 
-# 2. Evaluate final model (.pt file)
-python src_simple/simple_eval.py \
-    --model_path outputs/final_model/model.pt
+# Checkpoint directory
+./run_eval.sh --model_path outputs/checkpoints/checkpoint_epoch0_step5000
 
-# 3. Evaluate HuggingFace model
-python src_simple/simple_eval.py \
-    --model_name allenai/OLMo-2-1B
+# Final model file  
+./run_eval.sh --model_path outputs/final_model/model.pt
+
+# HuggingFace model
+./run_eval.sh --model_name allenai/OLMo-2-0425-1B-SFT
 ```
 
 ## Quick Examples
 
-### Find latest checkpoint and evaluate
+### Evaluate latest checkpoint
 ```bash
 LATEST=$(ls -t outputs/checkpoints/ | head -1)
-python src_simple/simple_eval.py --model_path outputs/checkpoints/$LATEST
+./run_eval.sh --model_path outputs/checkpoints/$LATEST
 ```
 
 ### Evaluate all checkpoints
 ```bash
 for ckpt in outputs/checkpoints/checkpoint_*; do
-    python src_simple/simple_eval.py --model_path $ckpt
+    ./run_eval.sh --model_path $ckpt
 done
 ```
 
-### Compare baseline vs final
+### Compare baseline vs trained
 ```bash
-echo "=== Baseline ===" && \
-python src_simple/simple_eval.py --model_name allenai/OLMo-2-1B && \
-echo "=== Trained ===" && \
+./run_eval.sh --model_name allenai/OLMo-2-0425-1B-SFT
+./run_eval.sh --model_path outputs/final_model/model.pt
+```
+
+## Supported Formats
+
+✅ **Distributed Checkpoint** (directory) - `checkpoint_epoch0_step5000/`
+✅ **Single .pt File** - `final_model/model.pt`  
+✅ **HuggingFace Model** - `allenai/OLMo-2-0425-1B-SFT`
+
+## Direct Python (Alternative)
+
+```bash
+python src_simple/simple_eval.py --model_path outputs/checkpoints/checkpoint_epoch0_step5000
 python src_simple/simple_eval.py --model_path outputs/final_model/model.pt
+python src_simple/simple_eval.py --model_name allenai/OLMo-2-0425-1B-SFT
 ```
 
-## What Gets Printed
+## Expected Output
 
 ```
-Loading from checkpoint: outputs/checkpoints/checkpoint_epoch0_step5000
+======================================================================
+MODEL EVALUATION
+======================================================================
+Loading test dataset...
 Detected distributed checkpoint format
+Loading distributed checkpoint from: outputs/checkpoints/checkpoint_epoch0_step5000
 ✓ Loaded checkpoint - Epoch: 0, Step: 5000
 Checkpoint info: Epoch 0, Step 5000, Loss 2.3456
 
 Evaluating model...
+Evaluating: 100%|████████████████| 125/125 [00:15<00:00,  8.12it/s]
+
 Model: outputs/checkpoints/checkpoint_epoch0_step5000
 Dataset: allenai/tulu-v2-sft-mixture
-Test examples: 1000
-Batches processed: 125
 Cross-Entropy Loss: 2.3456
 Perplexity: 10.44
+======================================================================
 ```
-
-## Key Points
-
-✅ Works on **single GPU** (no torchrun needed)
-✅ **Auto-detects** format (directory vs file)
-✅ **No changes** needed to your training code
-✅ Shows **training metadata** (epoch, step, loss)
-
-## See Also
-
-- Full guide: `CHECKPOINT_EVALUATION_GUIDE.md`
-- Checkpoint format details: `simple_checkpoint.py`
-
