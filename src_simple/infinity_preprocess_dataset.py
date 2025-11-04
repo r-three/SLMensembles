@@ -4,7 +4,7 @@ import os
 import shutil
 import datasets
 from transformers import AutoTokenizer
-import simple_config as config
+from simple_config import config
 import torch.nn.functional as F
 
 # ----------------------------------
@@ -59,7 +59,7 @@ def is_single_turn_qa(sample):
     """
     conv = sample.get("conversations", [])
     if len(conv) != 2:
-        print("WARNING: conversation is not a single-turn Q&A")
+        # print("WARNING: conversation is not a single-turn Q&A")
         return False
     return conv[0].get("from") == "human" and conv[1].get("from") == "gpt"
 
@@ -304,6 +304,7 @@ print(f"\nAfter sampling - Train size: {len(dataset['train'])}, Test size: {len(
 # ----------------------------------
 print("\n=== FILTERING TO SINGLE-TURN Q&A ===")
 print("This keeps only [human, gpt] two-turn conversations for cleaner training...")
+print(f"Before single-turn filter - Train: {len(dataset['train'])}, Test: {len(dataset['test'])}")
 dataset['train'] = dataset['train'].filter(is_single_turn_qa, num_proc=32)
 dataset['test'] = dataset['test'].filter(is_single_turn_qa, num_proc=32)
 print(f"After single-turn filter - Train: {len(dataset['train'])}, Test: {len(dataset['test'])}")
@@ -406,7 +407,7 @@ final_dataset.save_to_disk(save_path)
 print(f"Dataset saved to: {save_path}")
 
 # ------ Save a clean version with only required columns for training ------
-clean_dataset = final_dataset.remove_columns(['chat_text'])  # Keep id for potential future use
+clean_dataset = final_dataset.remove_columns(['chat_text', 'reward'])  # Keep id for potential future use
 clean_save_path = save_path + "_clean"
 if os.path.exists(clean_save_path):
     shutil.rmtree(clean_save_path)
