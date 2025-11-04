@@ -182,7 +182,7 @@ class SimpleCheckpointer:
     # ----------------------------------
     # Cleanup Old Checkpoints
     # ----------------------------------
-    def _cleanup_old_checkpoints(self, keep_last=3):
+    def _cleanup_old_checkpoints(self, keep_last=7):
         """Remove old checkpoints, keeping only the most recent ones."""
         # Find all checkpoint directories
         checkpoints = [

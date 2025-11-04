@@ -1,27 +1,78 @@
 import argparse
 import sys
+import os
 import torch
 import torch.nn.functional as F
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM
+import torch.distributed.checkpoint as dcp
+from torch.distributed.checkpoint.state_dict import set_state_dict
+from simple_checkpoint import AppState
 
 from simple_utils import prepare_dataset, get_dataset, fix_seed
 from simple_config import config
 
+
+def load_distributed_checkpoint(checkpoint_dir, model):
+    """Load a distributed checkpoint (directory format) into a model.
+    
+    This handles checkpoints saved with dcp.save() which are stored as
+    directories with multiple shard files.
+    """
+    
+    print(f"Loading distributed checkpoint from: {checkpoint_dir}")
+    
+    # Create AppState wrapper (no optimizer/scheduler needed for eval)
+    app_state = AppState(model=model, optimizer=None, lr_scheduler=None)
+    
+    state_dict = {"app": app_state}
+    dcp.load(state_dict=state_dict, checkpoint_id=checkpoint_dir)
+    
+    print(f"✓ Loaded checkpoint - Epoch: {app_state.epoch}, Step: {app_state.global_step}")
+    return app_state.epoch, app_state.global_step, app_state.loss
+
+
 def load_model(model_path=None, model_name=None, device='cuda'):
-    """Load model from either local checkpoint or HuggingFace."""
-    if model_path: 
-        # Load from local checkpoint
-        print(f"Loading from checkpoint: {model_path}") 
-        checkpoint = torch.load(model_path, map_location='cpu')
-        
+    """Load model from checkpoint, distributed checkpoint, or HuggingFace.
+    
+    Supports three formats:
+    1. Single .pt file: final_model/model.pt
+    2. Distributed checkpoint directory: checkpoint_epoch0_step5000/
+    3. HuggingFace model name: allenai/OLMo-2-0425-1B-SFT
+    """
+    if model_path:
+        # Initialize model structure first
         model = AutoModelForCausalLM.from_pretrained(
             config.student_model_name,
             torch_dtype=torch.bfloat16,
         )
         
-        # Load trained weights
-        model.load_state_dict(checkpoint['model_state_dict'])
+        # Check if path is a directory (distributed checkpoint) or file (single .pt)
+        if os.path.isdir(model_path):
+            # Distributed checkpoint (directory with shards)
+            print(f"Detected distributed checkpoint format")
+            epoch, step, loss = load_distributed_checkpoint(model_path, model)
+            print(f"Checkpoint info: Epoch {epoch}, Step {step}, Loss {loss:.4f}")
+            
+        elif os.path.isfile(model_path):
+            # Old format: Single .pt file
+            print(f"Detected single file checkpoint format")
+            print(f"Loading from: {model_path}")
+            checkpoint = torch.load(model_path, map_location='cpu')
+            
+            # Handle different checkpoint formats
+            if 'model_state_dict' in checkpoint:
+                # Training checkpoint format
+                model.load_state_dict(checkpoint['model_state_dict'])
+                if 'epoch' in checkpoint:
+                    print(f"Checkpoint info: Epoch {checkpoint['epoch']}, "
+                          f"Step {checkpoint.get('global_step', 'N/A')}")
+            else:
+                # Direct state dict (final model format)
+                model.load_state_dict(checkpoint)
+                print("Loaded final model state dict")
+        else:
+            raise ValueError(f"Path {model_path} is neither a file nor a directory!")
         
     elif model_name:
         # Load from HuggingFace
@@ -142,12 +193,36 @@ def eval_main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate a model on the test dataset")
+    parser = argparse.ArgumentParser(
+        description="Evaluate a model on the test dataset",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+    Examples:
+    # Evaluate distributed checkpoint (directory):
+    python simple_eval.py --model_path outputs/checkpoints/checkpoint_epoch0_step5000
+    
+    # Evaluate final model (.pt file):
+    python simple_eval.py --model_path outputs/final_model/model.pt
+    
+    # Evaluate HuggingFace model:
+    python simple_eval.py --model_name allenai/OLMo-2-1B
+            """
+    )
     
     # Model loading
     model_group = parser.add_mutually_exclusive_group(required=True)
-    model_group.add_argument("--model_path", type=str, help="Path to local checkpoint (e.g., /scratch/klambert/model_log/singular/checkpoints/checkpoint_epoch0_step5000.pt)")
-    model_group.add_argument("--model_name", type=str, help="HuggingFace model name (e.g., allenai/OLMo-2-0425-1B-SFT)")
+    model_group.add_argument(
+        "--model_path", 
+        type=str, 
+        help="Path to checkpoint (directory or .pt file). "
+             "Supports: (1) Distributed checkpoint dir (checkpoint_epoch0_step5000/), "
+             "(2) Single .pt file (model.pt)"
+    )
+    model_group.add_argument(
+        "--model_name", 
+        type=str, 
+        help="HuggingFace model name (e.g., allenai/OLMo-2-1B)"
+    )
     
     args = parser.parse_args()
     eval_main(args)
