@@ -1,25 +1,4 @@
 
-Model: /scratch/klambert/model_log/singular/checkpoints/checkpoint_epoch0_step5000.pt
-Dataset: allenai/tulu-3-sft-mixture
-Test examples: 1948
-Batches processed: 974
-Cross-Entropy Loss: 0.3377
-Perplexity: 1.4018
-
-Model: allenai/OLMo-2-0425-1B-SFT
-Dataset: allenai/tulu-3-sft-mixture
-Test examples: 1948 
-Batches processed: 974
-Cross-Entropy Loss: 12.5552
-Perplexity: 283558.8125
-
-Model: allenai/OLMo-2-1124-7B-SFT
-Dataset: allenai/tulu-3-sft-mixture
-Test examples: 1948
-Batches processed: 974
-Cross-Entropy Loss: 12.2730
-Perplexity: 213841.8750
-
 Model: /scratch/klambert/model_log/singular/new_round/checkpoints/checkpoint_epoch0_step105
 Dataset: allenai/tulu-3-sft-mixture
 Test examples: 1959
@@ -34,3 +13,9 @@ Batches processed: 980
 Cross-Entropy Loss: 0.6700
 Perplexity: 1.9541
 
+Model: allenai/OLMo-2-1124-7B-SFT
+Dataset: allenai/tulu-3-sft-mixture
+Test examples: 1959
+Batches processed: 980
+Cross-Entropy Loss: 0.4464
+Perplexity: 1.5626
