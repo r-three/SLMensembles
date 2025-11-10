@@ -342,6 +342,7 @@ class Trainer:
     # ----------------------------------
     def save_checkpoint(self, loss: float = None):
         """Save checkpoint via checkpointer."""
+        
         if self.checkpointer is not None:
             self.checkpointer.save(
                 self.model,
@@ -351,6 +352,3 @@ class Trainer:
                 global_step=self.global_step,
                 loss=loss if loss is not None else 0.0
             )
-        
-        if dist.is_initialized():
-            dist.barrier()

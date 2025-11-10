@@ -7,7 +7,7 @@ import torch.distributed as dist
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
-from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
+from torch.distributed.checkpoint.state_dict import get_state_dict
 from tqdm.auto import tqdm
 from typing import Any
 from simple_config import config
@@ -124,7 +124,7 @@ def main(args):
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to('cuda')
+    )
     
     # ----------------------------------
     # FSDP Setup for Student
@@ -136,6 +136,9 @@ def main(args):
             reduce_dtype=torch.float32,
         )
     
+    # Move to device and wrap with FSDP
+    # FSDP will handle efficient sharding during wrapping
+    student_model = student_model.to(device)
     for layer in student_model.model.layers:
         fully_shard(layer, **fsdp_kwargs)
     fully_shard(student_model, **fsdp_kwargs)
@@ -146,7 +149,7 @@ def main(args):
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=config.learning_rate)
     
     num_training_steps = len(train_dataloader) * config.num_epochs
-    num_warmup_steps = int(0.1 * num_training_steps)  # 10% warmup
+    num_warmup_steps = config.num_warmup_steps
     
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer,
@@ -240,10 +243,8 @@ def main(args):
             # ------ Periodic Checkpointing ------
             # Skip in debug mode to avoid NCCL timeout
             if not config.debug_mode and trainer.global_step > 0 and trainer.global_step % config.save_steps == 0:
-                dist.barrier()
-                trainer.save_checkpoint(loss=None)
-                dist.barrier()
-
+                trainer.save_checkpoint(loss=None) 
+                
         # Skip end-of-epoch processing in debug mode (already stopped)
         if config.debug_mode and trainer.global_step >= config.debug_max_steps:
             main_print("[DEBUG MODE] Pipeline test complete!")
@@ -252,9 +253,6 @@ def main(args):
         # ----------------------------------
         # End of Epoch Summary
         # ----------------------------------
-        # Synchronize all ranks before end-of-epoch evaluation
-        dist.barrier()
-        
         # Compute average training loss
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
         
@@ -268,15 +266,16 @@ def main(args):
         # ----------------------------------
         # Save Epoch Checkpoint
         # ----------------------------------
-        dist.barrier()
         trainer.save_checkpoint(loss=eval_loss)
-        dist.barrier()
     
     # ----------------------------------
     # Final Model Save
     # ----------------------------------
-    state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
-    model_state_dict = get_model_state_dict(model=student_model, options=state_dict_opts)
+    # Synchronize before final save
+    if dist.is_initialized():
+        dist.barrier()
+    
+    model_state_dict, _ = get_state_dict(student_model, optimizers=None)
     
     if is_main_process():
         final_model_path = os.path.join(output_path, "final_model")
@@ -285,6 +284,10 @@ def main(args):
         # Save just the model state dict for inference
         torch.save(model_state_dict, os.path.join(final_model_path, "model.pt"))
         main_print(f"\nSaved final model to {final_model_path}")
+    
+    # Synchronize after final save
+    if dist.is_initialized():
+        dist.barrier()
     
     # ----------------------------------
     # Cleanup and Finalization
