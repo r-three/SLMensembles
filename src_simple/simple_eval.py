@@ -41,10 +41,11 @@ def load_distributed_checkpoint(checkpoint_dir, model):
 def load_model(model_path=None, model_name=None, device='cuda'):
     """Load model from checkpoint, distributed checkpoint, or HuggingFace.
     
-    Supports three formats:
-    1. Single .pt file: final_model/model.pt
-    2. Distributed checkpoint directory: checkpoint_epoch0_step5000/
-    3. HuggingFace model name: allenai/OLMo-2-0425-1B-SFT
+    Supports four formats:
+    1. HuggingFace format directory: final_model/hf_format/ (has config.json)
+    2. Single .pt file: final_model/model.pt
+    3. Distributed checkpoint directory: checkpoint_epoch0_step5000/
+    4. HuggingFace model name: allenai/OLMo-2-0425-1B-SFT
     """
     if model_path:
         # Initialize model structure first
@@ -55,10 +56,19 @@ def load_model(model_path=None, model_name=None, device='cuda'):
         
         # Check if path is a directory (distributed checkpoint) or file (single .pt)
         if os.path.isdir(model_path):
-            # Distributed checkpoint (directory with shards)
-            print(f"Detected distributed checkpoint format")
-            epoch, step, loss = load_distributed_checkpoint(model_path, model)
-            print(f"Checkpoint info: Epoch {epoch}, Step {step}, Loss {loss:.4f}")
+            # Check if it's a HuggingFace format directory (has config.json)
+            if os.path.exists(os.path.join(model_path, "config.json")):
+                print(f"Detected HuggingFace format directory")
+                print(f"Loading from: {model_path}")
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.bfloat16,
+                )
+            else:
+                # Distributed checkpoint (directory with shards)
+                print(f"Detected distributed checkpoint format")
+                epoch, step, loss = load_distributed_checkpoint(model_path, model)
+                print(f"Checkpoint info: Epoch {epoch}, Step {step}, Loss {loss:.4f}")
             
         elif os.path.isfile(model_path):
             # Old format: Single .pt file
@@ -204,6 +214,9 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # HuggingFace format (directory):
+  python simple_eval.py --model_path /scratch/klambert/model_log/singular/final_model/hf_format
+  
   # Distributed checkpoint (directory):
   python simple_eval.py --model_path /scratch/klambert/model_log/singular/checkpoints/checkpoint_epoch0_step5000
   
@@ -226,8 +239,9 @@ Recommended: Use ./run_eval.sh instead for easier usage
         "--model_path", 
         type=str, 
         help="Path to checkpoint (directory or .pt file). "
-             "Supports: (1) Distributed checkpoint dir (checkpoint_epoch0_step5000/), "
-             "(2) Single .pt file (model.pt)"
+             "Supports: (1) HuggingFace format dir (hf_format/), "
+             "(2) Distributed checkpoint dir (checkpoint_epoch0_step5000/), "
+             "(3) Single .pt file (model.pt)"
     )
     model_group.add_argument(
         "--model_name", 
