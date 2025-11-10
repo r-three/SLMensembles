@@ -187,7 +187,7 @@ class Trainer:
             main_print("First batch (FSDP initialization + CUDA compilation)...")
 
         # Periodic memory cleanup
-        if self.global_step % 100 == 0:
+        if self.global_step > 0 and self.global_step % 500:
             dist.barrier()
             torch.cuda.empty_cache()
             dist.barrier()
