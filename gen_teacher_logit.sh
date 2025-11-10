@@ -1,48 +1,32 @@
 #!/bin/bash
-#SBATCH --job-name=olmo2_teacher_logit
-#SBATCH --nodes=4
-#SBATCH --mem=256G
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:l40s:4
-#SBATCH --output=logs/olmo2_teacher_logit.%j.out
-#SBATCH --error=logs/olmo2_teacher_logit.%j.err
-#SBATCH --open-mode=append
-#SBATCH --wait-all-nodes=1
-#SBATCH --account=aip-craffel
-#SBATCH --time=1-00:00:00
 
-deactivate
+#SBATCH --job-name=gen_teacher_logit
+#SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
+#SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
+#SBATCH --partition=gpubase_l40s_b3                                                             
+#SBATCH --gres=gpu:l40s:2
+#SBATCH --cpus-per-task=4                                                                     
+#SBATCH --mem=120GB
+#SBATCH --account=aip-craffel                                             
+#SBATCH --time=23:58:00
+
+echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) started at $(date)"
+echo "Running on node: $(hostname)"
+echo "Job ID: $SLURM_JOB_ID"
+echo "GPU resources: $CUDA_VISIBLE_DEVICES" 
+
+# Memory optimization settings
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# CUDA_LAUNCH_BLOCKING removed for better performance
+
+# NCCL optimization settings
+export NCCL_TIMEOUT=1800  # Increase timeout to 30 minutes
+export NCCL_DEBUG=INFO    # Enable debugging
+export NCCL_IB_DISABLE=1  # Disable InfiniBand if causing issues  
+
+# Load modules
 module load gcc arrow/18.1.0
-source /home/lfy/projects/aip-craffel/lfy/venvs/prj/bin/activate
-export TORCH_HOME=/scratch/lfy/cache/prj/torch
-export HF_HOME=/scratch/lfy/cache/prj/huggingface
+source /home/klambert/projects/aip-craffel/shared/slm_ensemble/prj/bin/activate
 
-
-export MASTER_ADDR="$(hostname --fqdn)"
-export MASTER_PORT="$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1])')"
-export RDVZ_ID=$RANDOM
-echo "RDZV Endpoint $MASTER_ADDR:$MASTER_PORT"
-
-export NCCL_IB_DISABLE=1  # Our cluster does not have InfiniBand. We need to disable usage using this flag.
-export NCCL_DEBUG=WARN
-export NCCL_DEBUG_SUBSYS=WARN
-
-# export TORCH_DISTRIBUTED_DEBUG=DETAIL  # Uncomment these flags for debugging communication
-# export TORCH_CPP_LOG_LEVEL=INFO
-export LOGLEVEL=INFO
-export PYTHONFAULTHANDLER=1
-# export CUDA_LAUNCH_BLOCKING=0
-
-srun -p $SLURM_JOB_PARTITION \
-    -c $SLURM_CPUS_ON_NODE \
-    -N $SLURM_JOB_NUM_NODES \
-    --mem=256G \
-    --gres=gpu:l40s:$SLURM_GPUS_ON_NODE \
-    bash -c 'torchrun \
-    --nproc-per-node=$SLURM_GPUS_ON_NODE \
-    --nnodes=$SLURM_JOB_NUM_NODES \
-    --rdzv-endpoint $MASTER_ADDR:$MASTER_PORT \
-    --rdzv-id $RDVZ_ID \
-    --rdzv-backend c10d \
-    src/main.py --mixed-precision'
+# Run training
+python -u /home/klambert/projects/aip-craffel/klambert/SLMensembles/src_simple/logit_caching.py
