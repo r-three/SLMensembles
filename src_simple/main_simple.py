@@ -310,7 +310,7 @@ def main(args):
     if dist.is_initialized():
         dist.barrier()
     
-    model_state_dict, _ = get_state_dict(student_model)
+    model_state_dict, _ = get_state_dict(student_model, optimizers=optimizer)
     
     if is_main_process():
         final_model_path = os.path.join(output_path, "final_model")
