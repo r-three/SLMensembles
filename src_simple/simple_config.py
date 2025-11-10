@@ -12,7 +12,7 @@ class DistillationConfig:
 
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
-    output_dir = "/scratch/klambert/model_log/singular/new_ensemble_model"
+    output_dir = "/scratch/klambert/model_log/singular/ensemble_boosting_runs"
     ensemble_dirs = []  # Use [] for no ensembles
     dataset_name = "allenai/tulu-3-sft-mixture"
     
@@ -30,7 +30,7 @@ class DistillationConfig:
     kl_temperature: float = 1.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 600 
+    save_steps: int = 600
     eval_steps: int = 100
     resume_from_checkpoint: bool = False
     
