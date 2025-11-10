@@ -136,7 +136,7 @@ def main(args):
     # ----------------------------------
     # Load Ensemble Model
     # ----------------------------------
-    if config.ensemble_dirs is not None:
+    if config.ensemble_dirs is not None and len(config.ensemble_dirs) > 0:
         main_print(f"[Rank {rank}] Loading ensemble model...")
         ensemble_model = ModelEnsemble(rank=rank)  # Loads only this rank's model
         

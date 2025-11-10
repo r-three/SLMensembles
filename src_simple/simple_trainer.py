@@ -90,7 +90,7 @@ class Trainer:
         input_ids = batch["input_ids"].to(torch.cuda.current_device())
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
-
+        
         # ------ Forward Passes ------
         # Teacher forward pass (no grad)
         with torch.no_grad():
@@ -103,10 +103,8 @@ class Trainer:
                 teacher_logits = teacher_outputs.logits
                 del teacher_outputs
             else:
-                # Other ranks: Create empty tensor to receive broadcast
-                # Shape: [batch_size, seq_len, vocab_size]
                 batch_size, seq_len = input_ids.shape
-                teacher_logits = torch.empty(
+                teacher_logits = torch.zeros(
                     batch_size, seq_len, config.student_vocab_size,
                     dtype=torch.bfloat16,
                     device=input_ids.device
@@ -120,7 +118,7 @@ class Trainer:
 
         # Ensemble forward pass
         ensemble_logits = None
-        if config.ensemble_dirs is not None:
+        if config.ensemble_dirs is not None and len(config.ensemble_dirs) > 0:
             with torch.no_grad():
                 batch_size, seq_len = input_ids.shape
                 
@@ -213,7 +211,6 @@ class Trainer:
         
         # ------ Combine Losses ------
         total_loss = config.alpha * ce_loss + (1 - config.alpha) * kl_loss
-        
         return total_loss, valid_count, ce_loss, kl_loss
     
     # ----------------------------------

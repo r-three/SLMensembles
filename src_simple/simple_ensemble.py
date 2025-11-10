@@ -25,7 +25,7 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         self.model_type = model_type
 
         modules = []
-        if rank is not None and rank > 0:
+        if rank is not None and rank > 0 and config.ensemble_dirs:
             num_ensemble_models = len(config.ensemble_dirs)
             if rank <= num_ensemble_models:
                 model_index = rank - 1  # rank 1 → model 0

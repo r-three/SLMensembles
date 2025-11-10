@@ -13,7 +13,7 @@ class DistillationConfig:
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     output_dir = "/scratch/klambert/model_log/singular/new_ensemble_model"
-    ensemble_dirs = []
+    ensemble_dirs = []  # Use [] for no ensembles
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
@@ -27,7 +27,7 @@ class DistillationConfig:
     
     # Distillation parameters
     alpha: float = 0.5  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
-    kl_temperature: float = 3.0  # Temperature for distillation
+    kl_temperature: float = 1.0  # Temperature for distillation
     
     # Checkpointing and logging
     save_steps: int = 600 
