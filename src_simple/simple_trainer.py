@@ -48,14 +48,12 @@ class Trainer:
     def __init__(
         self,
         student_model,
-        teacher_model,
         ensemble_model,
         optimizer,
         lr_scheduler,
         checkpointer=None,
     ):
         self.student_model = student_model
-        self.teacher_model = teacher_model
         self.ensemble_model = ensemble_model
         self.model = student_model
         self.optimizer = optimizer
