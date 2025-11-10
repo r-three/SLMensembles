@@ -12,8 +12,8 @@ class DistillationConfig:
 
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
-    output_dir = "/scratch/klambert/model_log/singular/second_ensemble_model"
-    ensemble_dirs = ["/scratch/klambert/model_log/singular/checkpoints/checkpoint_epoch0_step5000.pt"]
+    output_dir = "/scratch/klambert/model_log/singular/new_ensemble_model"
+    ensemble_dirs = []
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
@@ -21,6 +21,7 @@ class DistillationConfig:
     batch_size: int = 2
     eval_batch_size: int = 2
     learning_rate: float = 5e-5
+    num_warmup_steps: int = 100
     max_grad_norm: float = 1.0
     gradient_accumulation_steps: int = 16 
     
@@ -29,7 +30,7 @@ class DistillationConfig:
     kl_temperature: float = 3.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 500 
+    save_steps: int = 600 
     eval_steps: int = 100
     resume_from_checkpoint: bool = False
     
