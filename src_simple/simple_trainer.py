@@ -35,7 +35,7 @@ def _gather(x: torch.Tensor) -> torch.Tensor:
         output_tensors = [t.reshape(original_shape) for t in output_tensors]
         return torch.cat(output_tensors, dim=0)
     except Exception as e:
-        print(f"Warning: _gather failed with error {e}, returning original tensor")
+        main_print(f"Warning: _gather failed with error {e}, returning original tensor")
         return x
 
 
@@ -43,17 +43,19 @@ def _gather(x: torch.Tensor) -> torch.Tensor:
 # Trainer Class
 # ==================================================
 class Trainer:
-    """Trainer for teacher-student distillation using cached teacher logits."""
+    """Trainer for teacher-student distillation."""
     
     def __init__(
         self,
         student_model,
+        ensemble_model,
         optimizer,
         lr_scheduler,
         checkpointer=None,
     ):
         self.student_model = student_model
-        self.model = student_model  # For compatibility with checkpoint saving
+        self.ensemble_model = ensemble_model
+        self.model = student_model
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.checkpointer = checkpointer
@@ -87,6 +89,44 @@ class Trainer:
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
         labels = batch["labels"].to(device)
+
+        # Ensemble forward pass
+        ensemble_logits = None
+        if config.ensemble_dirs is not None and len(config.ensemble_dirs) > 0:
+            with torch.no_grad():
+                batch_size, seq_len = input_ids.shape
+                
+                # Step 1: All ranks create accumulator (initialized to zeros)
+                ensemble_logits = torch.zeros(
+                    batch_size, seq_len, config.student_vocab_size,
+                    dtype=torch.bfloat16,
+                    device=input_ids.device
+                )
+                
+                # Step 2: Ranks with ensemble models compute their contribution
+                if self.ensemble_model is not None:
+                    ensemble_outputs = self.ensemble_model(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask
+                    )
+                    # Add this rank's model output to accumulator
+                    ensemble_logits.add_(ensemble_outputs.logits)
+                    del ensemble_outputs
+                
+                # Step 3: All-reduce SUM - aggregates contributions from all ranks
+                # Mathematical equivalence:
+                # rank0: 0 + 0           = 0
+                # rank1: 0 + model1      = model1
+                # rank2: 0 + model2      = model2
+                # After all_reduce SUM:  = model1 + model2 (same as old approach!)
+                if dist.is_initialized():
+                    dist.all_reduce(ensemble_logits, op=dist.ReduceOp.SUM)
+                
+                # Step 4: Average by number of ensemble models
+                num_ensemble_models = len(config.ensemble_dirs)
+                ensemble_logits.div_(num_ensemble_models)
+                
+                torch.cuda.empty_cache()
         
         # ------ Student Forward Pass ------
         student_outputs = self.student_model(
@@ -96,6 +136,15 @@ class Trainer:
         student_logits = student_outputs.logits
         del student_outputs
         
+        # ------ Combine Student and Ensemble Predictions ------
+        if ensemble_logits is not None:
+            ensemble_logits = ensemble_logits.to(student_logits.device)
+            num_models = len(config.ensemble_dirs)
+            # Weighted average: student gets 1/(n+1), ensemble gets n/(n+1)
+            student_logits = (student_logits / (num_models + 1) + 
+                             ensemble_logits * (num_models / (num_models + 1)))
+            del ensemble_logits
+
         # ------ Prepare Logits for Next-Token Prediction ------
         # Shift for next-token prediction
         vocab_size = student_logits.size(-1)
@@ -160,6 +209,8 @@ class Trainer:
             )
             
             kl_loss = kl_loss * (config.kl_temperature ** 2)
+        else:
+            kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
         
         # ------ Combine Losses ------
         total_loss = config.alpha * ce_loss + (1 - config.alpha) * kl_loss
@@ -180,14 +231,14 @@ class Trainer:
         batch["labels"] = batch["labels"].type(torch.LongTensor)
         
         self.gad += 1
-        
+
         # ------ Initialization and Cleanup ------
         # First batch warning
         if self.global_step == 0 and self.rank == 0:
             main_print("First batch (FSDP initialization + CUDA compilation)...")
-
-        # Periodic memory cleanup
-        if self.global_step % 100 == 0:
+        
+        # Periodic memory cleanup (reduced frequency to avoid hangs)
+        if self.global_step > 0 and self.global_step % 500 == 0:
             dist.barrier()
             torch.cuda.empty_cache()
             dist.barrier()
@@ -340,7 +391,6 @@ class Trainer:
     # ----------------------------------
     def save_checkpoint(self, loss: float = None):
         """Save checkpoint via checkpointer."""
-        
         if self.checkpointer is not None:
             self.checkpointer.save(
                 self.model,
