@@ -11,9 +11,9 @@ class DistillationConfig:
     tokenizer_name = "allenai/OLMo-2-1124-7B-SFT" 
 
     # Dataset and Path
-    dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
+    # dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     logprob_cache_path = "/scratch/klambert/dataset/logprob_cache"
-    logit_dataset_path = "/scratch/klambert/dataset/logprob_cache/teacher_logprobs"
+    dataset_path = "/scratch/klambert/dataset/logprob_cache/teacher_logprobs" # with teacher logits
     output_dir = "/scratch/klambert/model_log/singular/new_round"
     dataset_name = "allenai/tulu-3-sft-mixture"
     

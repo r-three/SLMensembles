@@ -100,7 +100,7 @@ class CustomPadCollator:
 # ==================================================
 def get_dataset():
     """Load dataset."""
-    return datasets.load_from_disk(config.logit_dataset_path)
+    return datasets.load_from_disk(config.dataset_path)
 
 
 def prepare_dataset(train_ds, eval_ds):
