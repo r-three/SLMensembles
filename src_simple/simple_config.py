@@ -27,10 +27,10 @@ class DistillationConfig:
     
     # Distillation parameters
     alpha: float = 0.5  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
-    kl_temperature: float = 1.0  # Temperature for distillation
+    kl_temperature: float = 2.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 600
+    save_steps: int = 1000  # Increased to avoid early checkpointing
     eval_steps: int = 100
     resume_from_checkpoint: bool = False
     

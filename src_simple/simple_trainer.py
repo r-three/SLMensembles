@@ -96,12 +96,16 @@ class Trainer:
         with torch.no_grad():
             if self.rank == 0 and self.teacher_model is not None:
                 # Rank 0: Run teacher inference
+                if self.global_step % 10 == 0:
+                    print(f"[Rank {self.rank}] Starting teacher inference...")
                 teacher_outputs = self.teacher_model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
                 )
                 teacher_logits = teacher_outputs.logits
                 del teacher_outputs
+                if self.global_step % 10 == 0:
+                    print(f"[Rank {self.rank}] Teacher inference done")
             else:
                 batch_size, seq_len = input_ids.shape
                 teacher_logits = torch.zeros(
@@ -109,10 +113,14 @@ class Trainer:
                     dtype=torch.bfloat16,
                     device=input_ids.device
                 )
+                if self.global_step % 10 == 0:
+                    print(f"[Rank {self.rank}] Waiting for broadcast...")
             
             # Broadcast teacher logits from rank 0 to all other ranks
             if dist.is_initialized():
                 dist.broadcast(teacher_logits, src=0)
+                if self.global_step % 10 == 0:
+                    print(f"[Rank {self.rank}] Broadcast complete")
             
             torch.cuda.empty_cache()
 
@@ -233,14 +241,20 @@ class Trainer:
         if self.global_step == 0 and self.rank == 0:
             main_print("First batch (FSDP initialization + CUDA compilation)...")
         
-        # Periodic memory cleanup
-        if self.global_step % 100 == 0:
+        # Periodic memory cleanup (reduced frequency to avoid hangs)
+        if self.global_step > 0 and self.global_step % 500 == 0:
+            if self.rank == 0:
+                print(f"[Step {self.global_step}] Memory cleanup...")
             dist.barrier()
             torch.cuda.empty_cache()
             dist.barrier()
+            if self.rank == 0:
+                print(f"[Step {self.global_step}] Memory cleanup done")
         
         # ------ Compute Loss ------
+        print(f"[Rank {self.rank}] Step {self.global_step}: Starting compute_loss", flush=True)
         tr_step_loss, valid_count, ce_loss, kl_loss = self.compute_loss(batch)
+        print(f"[Rank {self.rank}] Step {self.global_step}: Finished compute_loss", flush=True)
         
         # ------ Gradient Accumulation ------
         is_accumulating = (self.global_step + 1) % self.gas != 0
@@ -252,6 +266,7 @@ class Trainer:
                 self.model.set_requires_gradient_sync(False)
             
             # Normalize and backward
+            print(f"[Rank {self.rank}] Step {self.global_step}: Backward (accum)", flush=True)
             normalized_loss = tr_step_loss / self.gas
             normalized_loss.backward()
             
@@ -263,10 +278,12 @@ class Trainer:
                 self.model.set_requires_gradient_sync(True)
             
             # Normalize and backward
+            print(f"[Rank {self.rank}] Step {self.global_step}: Backward (sync)", flush=True)
             normalized_loss = tr_step_loss / self.gas
             normalized_loss.backward()
             
             # Gradient clipping and optimizer step
+            print(f"[Rank {self.rank}] Step {self.global_step}: Optimizer step", flush=True)
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(), 
                 max_norm=config.max_grad_norm
@@ -275,12 +292,16 @@ class Trainer:
             self.optimizer.step()
             self.lr_scheduler.step()
             self.optimizer.zero_grad()
+            print(f"[Rank {self.rank}] Step {self.global_step}: Optimizer done", flush=True)
         
         # ------ Gather Metrics Across GPUs ------
+        # Print every step during debug to catch intermittent hangs
+        print(f"[Rank {self.rank}] Step {self.global_step}: Pre-gather", flush=True)
         loss_sum = _gather(tr_step_loss.reshape(1)).sum().item()
         valid_sum = _gather(valid_count.float().reshape(1)).sum().item()
         ce_loss_sum = _gather(ce_loss.reshape(1)).sum().item() if ce_loss is not None else 0.0
         kl_loss_sum = _gather(kl_loss.reshape(1)).sum().item() if kl_loss is not None else 0.0
+        print(f"[Rank {self.rank}] Step {self.global_step}: Post-gather", flush=True)
         
         # Compute average loss per token
         avg_loss = loss_sum / valid_sum if valid_sum > 0 else 0.0

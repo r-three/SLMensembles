@@ -278,7 +278,7 @@ def main(args):
             # ------ Periodic Checkpointing ------
             # Skip in debug mode to avoid NCCL timeout
             if not config.debug_mode and trainer.global_step > 0 and trainer.global_step % config.save_steps == 0:
-                trainer.save_checkpoint(loss=None)
+                trainer.save_checkpoint(loss=0.0)
 
         # Skip end-of-epoch processing in debug mode (already stopped)
         if config.debug_mode and trainer.global_step >= config.debug_max_steps:
@@ -310,7 +310,7 @@ def main(args):
     if dist.is_initialized():
         dist.barrier()
     
-    model_state_dict, _ = get_state_dict(student_model, optimizers=None)
+    model_state_dict, _ = get_state_dict(student_model)
     
     if is_main_process():
         final_model_path = os.path.join(output_path, "final_model")
