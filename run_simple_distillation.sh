@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=ensembles_1
+#SBATCH --job-name=ensembles_logits
 #SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
 #SBATCH --partition=gpubase_l40s_b3                                                     
