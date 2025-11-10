@@ -84,13 +84,44 @@ class CustomPadCollator:
         for k in ["input_ids", "attention_mask", "labels"]:
             batch_padded[k] = torch.stack(batch_padded[k])
 
-        # Add other keys without padding (just stack as-is)
+        # Add other keys without padding
         for k in other_keys:
             values = [item[k] for item in batch]
-            try:
-                batch_padded[k] = torch.stack(values)
-            except:
-                batch_padded[k] = values  # Leave as list if not stackable
+            
+            # Special handling for logprob_values and logprob_indices (shape [T, K] per sample)
+            if k in ["logprob_values", "logprob_indices"]:
+                tensor_list = []
+                for i, val in enumerate(values):
+                    # Convert list to tensor
+                    if isinstance(val, list):
+                        # Use bfloat16 for logprob_values, int64 for indices (required by gather())
+                        val_tensor = torch.tensor(val, dtype=torch.bfloat16 if k == "logprob_values" else torch.int64)
+                    else:
+                        val_tensor = val if isinstance(val, torch.Tensor) else torch.tensor(val)
+                    
+                    # Pad to max_length if needed (pad along sequence dimension)
+                    seq_len = val_tensor.shape[0]
+                    if seq_len < self.max_length:
+                        pad_len = self.max_length - seq_len
+                        if k == "logprob_values":
+                            # Pad with -inf or 0 for logprobs
+                            pad_value = torch.full((pad_len, val_tensor.shape[1]), -10000.0, dtype=val_tensor.dtype)
+                        else:  # logprob_indices
+                            # Pad with 0 for indices
+                            pad_value = torch.zeros((pad_len, val_tensor.shape[1]), dtype=val_tensor.dtype)
+                        val_tensor = torch.cat([val_tensor, pad_value], dim=0)
+                    elif seq_len > self.max_length:
+                        # Truncate if longer
+                        val_tensor = val_tensor[:self.max_length]
+                    
+                    tensor_list.append(val_tensor)
+                
+                batch_padded[k] = torch.stack(tensor_list)
+            else:
+                try:
+                    batch_padded[k] = torch.stack(values)
+                except:
+                    batch_padded[k] = values  # Leave as list if not stackable
 
         return batch_padded
 
