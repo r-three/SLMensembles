@@ -49,22 +49,6 @@ What “good” looks like (publishable end-state):
    - ex. Specialization advantage: Ensembles trained with specialization (routing or clustered data) outperform same-size, non-specialized ensembles.
    - ex. Framework for distillation + routings.
 
-
-
-
-Plan:
-
-What I did:
-- 
-
-Next Steps:
-- 
-
-Fixes to add to main:
-- transfer over dataset preprocessing script Fixes
-- train and test loader Fixes in simple_utils.py
-
-
 Week 1: Method Exploration — What Works and What Doesn’t
 
 Goal: Identify which distillation + ensembling methods actually improve performance. Prioritize method-level comparisons over fine-tuning.

@@ -1,8 +1,8 @@
 import torch
-import pdb
 import torch.nn.functional as F
 import torch.distributed as dist
 from tqdm.auto import tqdm
+import pdb
 import sys
 
 from simple_config import config
@@ -57,7 +57,7 @@ class Trainer:
         self.student_model = student_model
         self.teacher_model = teacher_model
         self.ensemble_model = ensemble_model
-        self.model = student_model  # For compatibility with checkpoint saving
+        self.model = student_model
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.checkpointer = checkpointer
@@ -81,40 +81,16 @@ class Trainer:
         """
         Compute hybrid distillation loss combining:
         1. Cross-entropy loss on true labels
-        2. KL divergence between student and teacher distributions
+        2. KL divergence between student and cached teacher distributions
         
         Returns: (total_loss, valid_count, ce_loss, kl_loss)
         All losses use reduction='sum' for proper gradient accumulation.
         """
         # Move batch to GPU
-        input_ids = batch["input_ids"].to(torch.cuda.current_device())
-        attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
-        labels = batch["labels"].to(torch.cuda.current_device())
-        
-        # ------ Forward Passes ------
-        # Teacher forward pass (no grad)
-        with torch.no_grad():
-            if self.rank == 0 and self.teacher_model is not None:
-                # Rank 0: Run teacher inference
-                teacher_outputs = self.teacher_model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                )
-                teacher_logits = teacher_outputs.logits
-                del teacher_outputs
-            else:
-                batch_size, seq_len = input_ids.shape
-                teacher_logits = torch.zeros(
-                    batch_size, seq_len, config.student_vocab_size,
-                    dtype=torch.bfloat16,
-                    device=input_ids.device
-                )
-            
-            # Broadcast teacher logits from rank 0 to all other ranks
-            if dist.is_initialized():
-                dist.broadcast(teacher_logits, src=0)
-            
-            torch.cuda.empty_cache()
+        device = torch.cuda.current_device()
+        input_ids = batch["input_ids"].to(device)
+        attention_mask = batch["attention_mask"].to(device)
+        labels = batch["labels"].to(device)
 
         # Ensemble forward pass
         ensemble_logits = None
@@ -154,7 +130,7 @@ class Trainer:
                 
                 torch.cuda.empty_cache()
         
-        # Student forward pass
+        # ------ Student Forward Pass ------
         student_outputs = self.student_model(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -175,15 +151,13 @@ class Trainer:
         # Shift for next-token prediction
         vocab_size = student_logits.size(-1)
         shift_student_logits = student_logits[..., :-1, :].contiguous()
-        shift_teacher_logits = teacher_logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
         
         # Free unshifted logits to save memory
-        del teacher_logits, student_logits
+        del student_logits
         
         # Flatten
         shift_student_logits = shift_student_logits.view(-1, vocab_size)
-        shift_teacher_logits = shift_teacher_logits.view(-1, vocab_size)
         shift_labels = shift_labels.view(-1)
         shift_labels = shift_labels.to(shift_student_logits.device)
         
@@ -200,17 +174,49 @@ class Trainer:
             reduction='sum'
         )
         
-        # ------ KL Divergence Loss ------
-        if mask.sum() > 0:
-            student_log_probs = F.log_softmax(shift_student_logits[mask] / config.kl_temperature, dim=-1)
-            teacher_probs = F.softmax(shift_teacher_logits[mask] / config.kl_temperature, dim=-1)
-            kl_loss = F.kl_div(student_log_probs, teacher_probs, reduction='sum')
+        # ------ KL Divergence Loss (Sparse) ------
+        kl_loss = torch.tensor(0.0, device=device)
+        
+        if mask.sum() > 0 and 'logprob_values' in batch and 'logprob_indices' in batch:
+            # Get cached teacher logits (sparse)
+            teacher_logprob_values = batch['logprob_values'].to(device)  # [B, T, K]
+            teacher_logprob_indices = batch['logprob_indices'].to(device)  # [B, T, K]
+            
+            # Shift teacher logits to align with next-token prediction
+            shift_teacher_logprob_values = teacher_logprob_values[..., :-1, :].contiguous()
+            shift_teacher_logprob_indices = teacher_logprob_indices[..., :-1, :].contiguous()
+            
+            # Flatten: [B, T-1, K] -> [(B*(T-1)), K]
+            shift_teacher_logprob_values = shift_teacher_logprob_values.view(-1, shift_teacher_logprob_values.size(-1))
+            shift_teacher_logprob_indices = shift_teacher_logprob_indices.view(-1, shift_teacher_logprob_indices.size(-1))
+            
+            # Only compute KL on valid (non-masked) positions
+            masked_student_logits = shift_student_logits[mask]  # [valid_tokens, V]
+            masked_teacher_values = shift_teacher_logprob_values[mask]  # [valid_tokens, K]
+            masked_teacher_indices = shift_teacher_logprob_indices[mask]  # [valid_tokens, K]
+            
+            # Compute student log probabilities with temperature
+            student_log_probs = F.log_softmax(masked_student_logits / config.kl_temperature, dim=-1)
+            
+            # Gather student log probs at teacher's cached indices
+            student_selected_log_probs = student_log_probs.gather(dim=-1, index=masked_teacher_indices)
+            
+            # Compute KL divergence (both distributions use same temperature)
+            # KL(teacher || student) = sum(teacher_prob * (teacher_logprob - student_logprob))
+            kl_loss = F.kl_div(
+                student_selected_log_probs, 
+                masked_teacher_values, 
+                log_target=True, 
+                reduction='sum'
+            )
+            
             kl_loss = kl_loss * (config.kl_temperature ** 2)
         else:
             kl_loss = torch.tensor(0.0, device=shift_student_logits.device)
         
         # ------ Combine Losses ------
         total_loss = config.alpha * ce_loss + (1 - config.alpha) * kl_loss
+        
         return total_loss, valid_count, ce_loss, kl_loss
     
     # ----------------------------------
@@ -277,7 +283,6 @@ class Trainer:
             self.optimizer.zero_grad()
         
         # ------ Gather Metrics Across GPUs ------
-        # Print every step during debug to catch intermittent hangs
         loss_sum = _gather(tr_step_loss.reshape(1)).sum().item()
         valid_sum = _gather(valid_count.float().reshape(1)).sum().item()
         ce_loss_sum = _gather(ce_loss.reshape(1)).sum().item() if ce_loss is not None else 0.0

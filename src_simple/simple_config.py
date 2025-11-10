@@ -13,7 +13,7 @@ class DistillationConfig:
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     output_dir = "/scratch/klambert/model_log/singular/ensemble_boosting_runs"
-    ensemble_dirs = []  # Use [] for no ensembles
+    ensemble_dirs = []  # Use [] for no ensembles; Note for n ensembles, we need n+1 gpus
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
