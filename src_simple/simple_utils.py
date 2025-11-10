@@ -229,7 +229,7 @@ class AsyncLossLogger:
         now = time.time()
         with self._lock:
             for idx, [id_, a_m, lb, tr, nt, kl] in enumerate(zip(ids_list, at_masks, labs, tr_list, nt_list, kl_list)):
-                self.write({"idx": idx, "id": id_, "attention_mask": a_m, "labels": lb, "tr": tr, "nt": nt, "kl": kl, "t": now})
+                self.write({"idx": idx, "id": id_.tolist(), "attention_mask": a_m.tolist(), "labels": lb.tolist(), "tr": tr, "nt": nt, "kl": kl, "t": now})
 
 
     def close(self, timeout: float = 10.0):
@@ -245,16 +245,10 @@ class AsyncLossLogger:
 
         # Open CSV file in append mode, line-buffered
         f = open(self.log_path, "a", newline="", buffering=1)
-        writer = csv.DictWriter(f, fieldnames=["idx", "attention_mask", "labels", "id", "tr", "nt", "kl", "t"])
+        writer = csv.DictWriter(f, fieldnames=["idx", "id" , "attention_mask", "labels", "tr", "nt", "kl", "t"])
         if not file_exists:
             writer.writeheader()
-        
-        '''
-        while not self._stop.is_set() or not self._q.empty():
-            if self._q and now - last_flush >= self.flush_interval_s:
-                writer.writerows(self._q)
-                last_flush = now
-        '''
+
         try:
             while not self._stop.is_set() or not self._q.empty():
                 try:
@@ -280,10 +274,11 @@ class AsyncLossLogger:
             f.close()
         
 
-    def get_top_n_ids(self, heading, k_percent: int):
-        df = pd.read_csv(self.log_path)
-        n = len(df)
-        top_n = max(1, math.ceil(n * k_percent / 100.0))
-        top_n_df = df.nlargest(top_n, heading)
 
-        return top_n_df['id'].tolist()
+def get_top_n(dataset, heading, k_percent: int):
+    n = len(dataset)
+    dataset[heading] = pd.to_numeric(dataset[heading], errors='coerce')
+    top_n = max(1, math.ceil(n * k_percent / 100.0))
+    top_n_df = dataset.nlargest(top_n, heading)
+
+    return top_n_df

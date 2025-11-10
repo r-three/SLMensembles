@@ -16,7 +16,7 @@ class DistillationConfig:
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
-    num_epochs: int = 2
+    num_epochs: int = 1
     batch_size: int = 4
     eval_batch_size: int = 2
     learning_rate: float = 5e-5
@@ -25,11 +25,11 @@ class DistillationConfig:
     gradient_accumulation_steps: int = 16 
     
     # Distillation parameters
-    alpha: float = 0.5  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
-    kl_temperature: float = 3.0  # Temperature for distillation
+    alpha: float = 0.7  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
+    kl_temperature: float = 2.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 500 
+    save_steps: int = 100 
     eval_steps: int = 100
     resume_from_checkpoint: bool = False
     
@@ -44,9 +44,14 @@ class DistillationConfig:
     wandb_project: str = "slm-distillation-full-pipeline"
     wandb_run_name: str = None  # Auto-generated if None
 
-    #top_k% maximum loss
-    log_path = "logger/log.csv"
-    k_percent = 10
+    #Top_k%
+    k_percent = 50
+
+    #change the following through iterations 
+    num_gpu = 2
+    student_num = 2
+    log_path = "logger/log2.csv"
+    input_path = "logger/log1.csv"
     
     def __post_init__(self):
         os.makedirs(self.output_dir, exist_ok=True)

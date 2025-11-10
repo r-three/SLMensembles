@@ -89,9 +89,6 @@ class Trainer:
         input_ids = batch["input_ids"].to(torch.cuda.current_device())
         attention_mask = batch["attention_mask"].to(torch.cuda.current_device())
         labels = batch["labels"].to(torch.cuda.current_device())
-        print(input_ids)
-        print(attention_mask)
-        print(labels)
 
         # ------ Forward Passes ------
         with torch.no_grad():
@@ -199,8 +196,6 @@ class Trainer:
         # First batch warning
         if self.global_step == 0 and self.rank == 0:
             main_print("First batch (FSDP initialization + CUDA compilation)...")
-        
-        # TODO
 
         # Periodic memory cleanup
         if self.global_step % 100 == 0:
@@ -213,13 +208,14 @@ class Trainer:
         
         # ------ logger ------
         
-        with torch.no_grad():
-            self.logger.update_and_write_many(batch["input_ids"],
-                                              batch["attention_mask"],
-                                              batch["labels"], 
-                                              per_text_tl,
-                                              per_text_cl,
-                                              per_text_kl)
+        if self.epoch == config.num_epochs -1:
+            with torch.no_grad():
+                self.logger.update_and_write_many(batch["input_ids"],
+                                                batch["attention_mask"],
+                                                batch["labels"], 
+                                                per_text_tl,
+                                                per_text_cl,
+                                                per_text_kl)
         
         # ------ Gradient Accumulation ------
         is_accumulating = (self.global_step + 1) % self.gas != 0

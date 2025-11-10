@@ -1,18 +1,22 @@
 import argparse
 import os
+import pdb
 import time
 import torch
 import torch.distributed as dist
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
-from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
+from torch.distributed.checkpoint.state_dict import get_state_dict, StateDictOptions
+from torch.utils.data import TensorDataset
 from tqdm.auto import tqdm
 import sys
+import ast
+import pandas as pd
 
 from simple_config import config
 from simple_trainer import Trainer
-from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed, AsyncLossLogger
+from simple_utils import prepare_dataset, get_dataset, is_main_process, main_print, fix_seed, AsyncLossLogger, get_top_n
 from simple_checkpoint import SimpleCheckpointer
 
 try:
@@ -110,12 +114,41 @@ def main(args):
     # ----------------------------------
     # Dataset Loading
     # ----------------------------------
+
     main_print("Loading dataset...")
-    dataset = get_dataset()
-    train_dataloader, eval_dataloader = prepare_dataset(
-        dataset['train'],
-        dataset['test'],
-    )
+
+    if config.student_num == 1:
+        dataset = get_dataset()
+        train_dataloader, eval_dataloader = prepare_dataset(
+            dataset['train'],
+            dataset['test'],
+        )
+
+        del dataset
+
+    else:
+        dataset = get_dataset()
+        df = pd.read_csv(config.input_path).iloc[config.num_gpu-1:,:]
+        df = get_top_n(df, 'nt', config.k_percent)
+
+        dataset_train = []
+        for _, row in df.iterrows():
+            sample = {
+                "input_ids": torch.tensor(ast.literal_eval(row["id"]), dtype=torch.long),
+                "attention_mask": torch.tensor(ast.literal_eval(row["attention_mask"]), dtype=torch.long),
+                "labels": torch.tensor(ast.literal_eval(row["labels"]), dtype=torch.float32)
+            }
+            dataset_train.append(sample)
+
+
+        dataset_train = list(dataset_train) 
+        train_dataloader, eval_dataloader = prepare_dataset(
+            dataset_train,
+            dataset['test'],
+        )
+
+        del dataset, dataset_train, df
+
     
     # ----------------------------------
     # Load Teacher Model (frozen)
@@ -141,7 +174,7 @@ def main(args):
     student_model = AutoModelForCausalLM.from_pretrained(
         config.student_model_name,
         torch_dtype=torch.bfloat16,
-    ).to('cuda')
+    )
     
     # ----------------------------------
     # FSDP Setup for Student
@@ -153,6 +186,9 @@ def main(args):
             reduce_dtype=torch.float32,
         )
     
+    # Move to device and wrap with FSDP
+    # FSDP will handle efficient sharding during wrapping
+    student_model = student_model.to(device)
     for layer in student_model.model.layers:
         fully_shard(layer, **fsdp_kwargs)
     fully_shard(student_model, **fsdp_kwargs)
@@ -263,8 +299,6 @@ def main(args):
                 trainer.save_checkpoint(loss=None)
                 dist.barrier()
 
-        trainer.logger.close()
-
         # Skip end-of-epoch processing in debug mode (already stopped)
         if config.debug_mode and trainer.global_step >= config.debug_max_steps:
             main_print("[DEBUG MODE] Pipeline test complete!")
@@ -289,21 +323,30 @@ def main(args):
         dist.barrier()
         trainer.save_checkpoint(loss=eval_loss)
         dist.barrier()
+
+        
+    trainer.logger.close()
     
     # ----------------------------------
     # Final Model Save
     # ----------------------------------
+    # Synchronize before final save
+    if dist.is_initialized():
+        dist.barrier()
+    
+    model_state_dict, _ = get_state_dict(student_model, optimizers=None)
+    
     if is_main_process():
-        final_model_path = os.path.join(output_path, "final_model")
+        final_model_path = os.path.join(output_path, f"final_model_{config.student_num}")
         os.makedirs(final_model_path, exist_ok=True)
-
-        # Use proper FSDP2-compatible state dict extraction
-        state_dict_opts = StateDictOptions(full_state_dict=True, cpu_offload=True)
-        model_state_dict = get_model_state_dict(model=student_model, options=state_dict_opts)
         
         # Save just the model state dict for inference
         torch.save(model_state_dict, os.path.join(final_model_path, "model.pt"))
         main_print(f"\nSaved final model to {final_model_path}")
+    
+    # Synchronize after final save
+    if dist.is_initialized():
+        dist.barrier()
     
     # ----------------------------------
     # Cleanup and Finalization
