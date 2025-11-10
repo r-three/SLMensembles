@@ -7,7 +7,7 @@ import torch.distributed as dist
 from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
-from torch.distributed.checkpoint.state_dict import get_state_dict
+from torch.distributed.checkpoint.state_dict import get_state_dict, StateDictOptions
 from tqdm.auto import tqdm
 from typing import Any
 from simple_config import config
@@ -275,7 +275,11 @@ def main(args):
     if dist.is_initialized():
         dist.barrier()
     
-    model_state_dict, _ = get_state_dict(student_model, optimizers=None)
+    options = StateDictOptions(
+        full_state_dict=True,
+        cpu_offload=True,
+    )
+    model_state_dict, _ = get_state_dict(student_model, optimizers=optimizer, options=options)
     
     if is_main_process():
         final_model_path = os.path.join(output_path, "final_model")
@@ -284,8 +288,18 @@ def main(args):
         # Save just the model state dict for inference
         torch.save(model_state_dict, os.path.join(final_model_path, "model.pt"))
         main_print(f"\nSaved final model to {final_model_path}")
-    
-    # Synchronize after final save
+        
+        try:
+            hf_model = AutoModelForCausalLM.from_pretrained(
+                config.student_model_name,
+                torch_dtype=torch.bfloat16,
+            )
+            hf_model.load_state_dict(model_state_dict)
+            hf_model.save_pretrained(os.path.join(final_model_path, "hf_format"))
+            main_print(f"Also saved in HuggingFace format: {final_model_path}/hf_format")
+        except Exception as e:
+            main_print(f"Note: Could not save HuggingFace format ({e}), but .pt file is valid")
+
     if dist.is_initialized():
         dist.barrier()
     

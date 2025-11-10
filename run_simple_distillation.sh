@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=distill_run
+#SBATCH --job-name=cached_logit_run
 #SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
 #SBATCH --partition=gpubase_l40s_b4                                                     
