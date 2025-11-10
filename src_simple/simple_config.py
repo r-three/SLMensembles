@@ -11,9 +11,9 @@ class DistillationConfig:
     tokenizer_name = "allenai/OLMo-2-1124-7B-SFT" 
 
     # Dataset and Path
-    dataset_path = "/scratch/klambert/dataset/infinity-instruct-gen-olmo-preprocessed"
+    dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     output_dir = "/scratch/klambert/model_log/singular/new_round"
-    dataset_name = "BAAI/Infinity-Instruct"
+    dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
     num_epochs: int = 2
