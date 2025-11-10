@@ -71,7 +71,7 @@ def cache_teacher_logprobs():
                 labels = batch["labels"]  # remain on CPU
                 
                 logits = teacher_model(input_ids=input_ids, attention_mask=attention_mask).logits # [batch, seq_len, vocab_size]
-                logprobs = F.log_softmax(logits, dim=-1)
+                logprobs = F.log_softmax(logits / config.kl_temperature, dim=-1)
                 values, indices = torch.topk(logprobs, k=100, dim=-1)  # [B, T, K]
                 values = values.to('cpu')                           # BF16
                 indices = indices.to(torch.int32).to('cpu')         # INT32

@@ -150,16 +150,16 @@ class Trainer:
             # Gather student log probs at teacher's cached indices
             student_selected_log_probs = student_log_probs.gather(dim=-1, index=masked_teacher_indices)
             
-            # Compute KL divergence (teacher logprobs are already in log space)
+            # Compute KL divergence (both distributions use same temperature)
             # KL(teacher || student) = sum(teacher_prob * (teacher_logprob - student_logprob))
-            #                        = sum(exp(teacher_logprob) * (teacher_logprob - student_logprob))
             kl_loss = F.kl_div(
                 student_selected_log_probs, 
                 masked_teacher_values, 
                 log_target=True, 
                 reduction='sum'
             )
-            kl_loss = kl_loss * (config.kl_temperature)
+            
+            kl_loss = kl_loss * (config.kl_temperature ** 2)
         
         # ------ Combine Losses ------
         total_loss = config.alpha * ce_loss + (1 - config.alpha) * kl_loss
