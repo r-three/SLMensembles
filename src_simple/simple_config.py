@@ -14,7 +14,7 @@ class DistillationConfig:
     # dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     logprob_cache_path = "/scratch/klambert/dataset/logprob_cache"
     dataset_path = "/scratch/klambert/dataset/logprob_cache/teacher_logprobs" # with teacher logits
-    output_dir = "/scratch/klambert/model_log/singular/cached_teacher_logit"
+    output_dir = "/scratch/klambert/model_log/singular"
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
