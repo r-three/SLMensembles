@@ -25,8 +25,8 @@ class DistillationConfig:
     gradient_accumulation_steps: int = 16 
     
     # Distillation parameters
-    alpha: float = 0.5  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
-    kl_temperature: float = 3.0  # Temperature for distillation
+    alpha: float = 0.6  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
+    kl_temperature: float = 1.0  # Temperature for distillation
     
     # Checkpointing and logging
     save_steps: int = 600
