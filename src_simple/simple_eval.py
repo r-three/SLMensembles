@@ -13,13 +13,11 @@ from simple_config import config
 
 def load_distributed_checkpoint(checkpoint_dir, model):
     """Load a distributed checkpoint (directory format) into a model.
-    
     This handles checkpoints saved with dcp.save() which are stored as
     directories with multiple shard files.
     
     For evaluation, we load the model weights directly without using AppState.
     """
-    
     print(f"Loading distributed checkpoint from: {checkpoint_dir}")
     
     # Create a matching optimizer for loading (must match training optimizer type)
