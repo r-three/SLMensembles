@@ -12,7 +12,7 @@ class DistillationConfig:
 
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
-    output_dir = "/scratch/klambert/model_log/singular/ensemble_boosting_runs"
+    output_dir = "/scratch/klambert/model_log/singular/ensemble_boosting_runs/second_run"
     ensemble_dirs = []  # Use [] for no ensembles; Note for n ensembles, we need n+1 gpus
     dataset_name = "allenai/tulu-3-sft-mixture"
     
@@ -26,8 +26,8 @@ class DistillationConfig:
     gradient_accumulation_steps: int = 16 
     
     # Distillation parameters
-    alpha: float = 0.7  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
-    kl_temperature: float = 2.0  # Temperature for distillation
+    alpha: float = 0.6  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
+    kl_temperature: float = 1.0  # Temperature for distillation
     
     # Checkpointing and logging
     save_steps: int = 700  # Increased to avoid early checkpointing
