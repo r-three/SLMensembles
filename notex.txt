@@ -1,3 +1,21 @@
+What I did:
+- launched logit_caching with temperature = 1.0, and alpha = 0.6
+- teacher logit caching code done
+- terminated model training script for 'test_run' run - model checkpoints saved
+
+Next:
+- fix the checkpoint model loading to be able to load from a distributed checkpoint directory, just like in simple_eval
+- test usage of cached logits in ensembling code
+- launch next ensembling run using the boosting branch and cached ensemble logits
+- check yizhen's progress
+
+
+
+
+
+
+
+
 Core bet: Instead of distilling a big teacher into a single small student, distill into an ensemble of small students that can be run in parallel with minimal inter-device communication.
 
 This is different from “just ensembling small models”: you’re proposing teacher-guided specialization and training schemes so the ensemble approximates a much larger model’s distribution, not merely averaging a bunch of off-the-shelf small LMs.
@@ -48,23 +66,6 @@ What “good” looks like (publishable end-state):
    - ex. Latency/throughput on commodity hardware: Parallel ensemble on K devices achieves competitive latency and higher accuracy than a single small model.
    - ex. Specialization advantage: Ensembles trained with specialization (routing or clustered data) outperform same-size, non-specialized ensembles.
    - ex. Framework for distillation + routings.
-
-
-
-Plan:
-
-What I did:
-- left off fixing checkpointing
-- stopped distillation run - ready to train the next model ensemble - ensure that the model paths are correct
-
-Next Steps:
-- integrate logit caching into the scipt and push the code
-- see how to streamline changes across code
-
-
-
-
-
 
 Week 1: Method Exploration — What Works and What Doesn’t
 
