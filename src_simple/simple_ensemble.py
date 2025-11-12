@@ -2,11 +2,13 @@ import torch
 import os
 from pathlib import Path
 import torch.distributed as dist
+import torch.distributed.checkpoint as dcp
 from torch.distributed.checkpoint.state_dict import get_model_state_dict, StateDictOptions
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel, GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from simple_config import DistillationConfig as config
+from simple_checkpoint import AppState
 
 class ModelEnsemble(PreTrainedModel, GenerationMixin):
     def __init__(
@@ -25,28 +27,58 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
         self.model_type = model_type
 
         modules = []
-        if rank is not None and rank > 0 and config.ensemble_dirs:
+        if rank is not None and config.ensemble_dirs:
             num_ensemble_models = len(config.ensemble_dirs)
-            if rank <= num_ensemble_models:
-                model_index = rank - 1  # rank 1 → model 0
+            has_model = rank < num_ensemble_models
+            app = None 
+
+            # only ranks that map to an ensemble model load one
+            if has_model:
+                model_index = rank  # rank 0 → model 0
                 checkpoint_path = config.ensemble_dirs[model_index]
-                gpu_id = rank  # rank 1 → cuda:1
+                gpu_id = rank  # rank 0 → cuda:0
                 
                 model = AutoModelForCausalLM.from_pretrained(
                     self.model_type, 
                     torch_dtype=self.torch_dtype,
                 )
                 
-                checkpoint = torch.load(checkpoint_path, weights_only=True, map_location='cpu')
-                state_dict = checkpoint['model_state_dict']
-                model.load_state_dict(state_dict, strict=False)
-                
-                model = model.to(f'cuda:{gpu_id}')
-                
+                # Load weights
+                if os.path.isdir(checkpoint_path):
+                    # Distributed checkpoint directory (DCP shards like __0_0.distcp)
+                    dummy_optim = torch.optim.AdamW(model.parameters(), lr=5e-5)
+                    app = AppState(model=model, optimizer=dummy_optim, lr_scheduler=None)
+                elif os.path.isfile(checkpoint_path):
+                    # Single-file checkpoint (.pt)
+                    checkpoint = torch.load(str(checkpoint_path), weights_only=True,map_location="cpu")
+                    state_dict = checkpoint['model_state_dict']
+                    model.load_state_dict(state_dict, strict=False)
+                else:
+                    raise ValueError(f"Path {checkpoint_path} is neither an existing directory nor a file")
+
+            # ---- DCP LOAD (collective): every rank must enter ----
+            if os.path.isdir(config.ensemble_dirs[0]):  # any DCP dir in the list implies DCP loads
+                if dist.is_initialized():
+                    dist.barrier()
+
+                for i, cp in enumerate(config.ensemble_dirs):
+                    # Owner rank i provides {"app": app}; others pass {}
+                    state = {"app": app} if (has_model and i == rank) else {}
+                    dcp.load(state_dict=state, checkpoint_id=str(cp))
+
+                if dist.is_initialized():
+                    dist.barrier()
+
+            # Finalize only on owner ranks
+            if has_model:
+                if os.path.isdir(checkpoint_path):
+                    del dummy_optim
+
+                model = model.to(f"cuda:{gpu_id}")
                 model.eval()
                 model.requires_grad_(False)
                 modules.append(model)
-        
+
         self.models = nn.ModuleList(modules)
 
 
