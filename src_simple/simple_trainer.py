@@ -248,7 +248,6 @@ class Trainer:
                 "train/ce_loss": avg_ce_loss,
                 "train/kl_loss": avg_kl_loss,
                 "train/learning_rate": self.lr_scheduler.get_last_lr()[0],
-                "train/epoch": self.epoch,
                 "train/step": self.global_step,
             }
             if grad_norm is not None:
