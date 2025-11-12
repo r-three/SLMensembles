@@ -13,7 +13,7 @@ class DistillationConfig:
     # Dataset and Path
     dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     output_dir = "/scratch/klambert/model_log/singular/ensemble_boosting_runs/second_run"
-    ensemble_dirs = ["/scratch/klambert/model_log/singular/new_models/checkpoints/checkpoint_epoch0_step3000"]  # Use [] for no ensembles; Note for n ensembles, we need n+1 gpus
+    ensemble_dirs = ["/scratch/klambert/model_log/singular/ensemble_boosting_runs/first_run/model_full.pt"]  # Use [] for no ensembles; Note for n ensembles, we need n+1 gpus
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
@@ -38,7 +38,7 @@ class DistillationConfig:
     seed: int = 42
     
     # Debug/Testing mode
-    debug_mode: bool = True  # Set to True for quick testing
+    debug_mode: bool = False  # Set to True for quick testing
     debug_max_steps: int = 40  # Stop training after this many steps in debug mode
 
     # Wandb logging

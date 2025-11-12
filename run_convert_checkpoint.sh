@@ -22,9 +22,13 @@ WORLD_SIZE="${SLURM_GPUS_ON_NODE:-1}"
 echo "Job ${SLURM_JOB_NAME} (${SLURM_JOB_ID}) on $(hostname)"
 echo "WORLD_SIZE=$WORLD_SIZE OWNER_RANK=$OWNER_RANK"
 
+# ---- env ----
+module load gcc arrow/18.1.0
+source /home/klambert/projects/aip-craffel/shared/slm_ensemble/prj/bin/activate
+
 # Single-process path (fastest if you only need one rank)
 if [ "$WORLD_SIZE" -eq 1 ]; then
-  python dcp_to_pt.py \
+  python src_simple/convert_checkpoint.py \
     --checkpoint-dir "$CHECKPOINT_DIR" \
     --student-model-name "$MODEL_NAME" \
     --out "$OUT_PATH" \
@@ -32,15 +36,11 @@ if [ "$WORLD_SIZE" -eq 1 ]; then
   exit $?
 fi
 
-# ---- env ----
-module load gcc arrow/18.1.0
-source /home/klambert/projects/aip-craffel/shared/slm_ensemble/prj/bin/activate
-
 # Multi-GPU: spawn ranks, only OWNER_RANK actually loads+saves (subgroup inside script)
 torchrun \
   --nproc_per_node="$WORLD_SIZE" \
   --master_port="$MASTER_PORT" \
-  dcp_to_pt.py \
+  src_simple/convert_checkpoint.py \
     --checkpoint-dir "$CHECKPOINT_DIR" \
     --student-model-name "$MODEL_NAME" \
     --out "$OUT_PATH" \
