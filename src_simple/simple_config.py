@@ -23,6 +23,7 @@ class DistillationConfig:
     eval_batch_size: int = 2
     learning_rate: float = 5e-5
     num_warmup_steps: int = 100
+    num_training_steps: int = 1200
     max_grad_norm: float = 1.0
     gradient_accumulation_steps: int = 16 
     
@@ -31,7 +32,7 @@ class DistillationConfig:
     kl_temperature: float = 1.0  # Temperature for distillation
     
     # Checkpointing and logging
-    save_steps: int = 700
+    save_steps: int = 200
     eval_steps: int = 100
     resume_from_checkpoint: bool = False
     
