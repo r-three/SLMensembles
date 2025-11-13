@@ -37,8 +37,12 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # CUDA_LAUNCH_BLOCKING removed for better performance
 
 # NCCL optimization settings
-export NCCL_TIMEOUT=1800  # Increase timeout to 30 minutes
 export NCCL_DEBUG=INFO    # Enable debugging
+export NCCL_DEBUG_SUBSYS=INIT,COLL
+export NCCL_ASYNC_ERROR_HANDLING=1
+export TORCH_NCCL_TRACE_BUFFER_SIZE=1048576   # enable FlightRecorder so you get stack traces
+export TORCH_NCCL_BLOCKING_WAIT=1  
+export NCCL_TIMEOUT=1800  # Increase timeout to 30 minutes
 export NCCL_IB_DISABLE=1  # Disable InfiniBand if causing issues  
 
 # Load modules
