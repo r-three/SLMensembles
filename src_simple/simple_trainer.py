@@ -65,6 +65,9 @@ class Trainer:
         self.min_eval_loss = float('inf')
         self.current_eval_loss = 0.0
         
+        # Early stopping: track last 2 eval losses
+        self.recent_eval_losses = []
+        
         # Wandb logging
         self.use_wandb = WANDB_AVAILABLE and is_main_process()
         
@@ -364,6 +367,22 @@ class Trainer:
         self.min_eval_loss = min(avg_loss, self.min_eval_loss)
         self.current_eval_loss = avg_loss
         
+        # ------ Early Stopping Check ------
+        # Track last 3 eval losses to detect overfitting
+        self.recent_eval_losses.append(avg_loss)
+        if len(self.recent_eval_losses) > 3:
+            self.recent_eval_losses.pop(0)  # Keep only last 3
+        
+        # Check if current loss is worse than both of the previous 2 (overfitting detected)
+        should_stop = False
+        if len(self.recent_eval_losses) >= 3:
+            # Current loss is the last one, previous 2 are the ones before
+            current = self.recent_eval_losses[-1]
+            prev_two = self.recent_eval_losses[-3:-1]  # Get the 2 values before current
+            if current > prev_two[0] and current > prev_two[1]:
+                should_stop = True
+                main_print(f"Early stopping triggered: eval loss {current:.4f} > previous two values {prev_two[0]:.4f}, {prev_two[1]:.4f}")
+        
         # ------ Logging ------
         # Log to wandb
         if self.use_wandb:
@@ -383,13 +402,14 @@ class Trainer:
         del total_loss, total_ce_loss, total_kl_loss, total_valid_tokens
         torch.cuda.empty_cache()
         
-        return avg_loss
+        return avg_loss, should_stop
     
     # ----------------------------------
     # Checkpoint Saving
     # ----------------------------------
     def save_checkpoint(self, loss: float = None):
         """Save checkpoint via checkpointer."""
+        
         if self.checkpointer is not None:
             self.checkpointer.save(
                 self.model,
