@@ -91,6 +91,7 @@ def main(args):
                 "teacher_model": config.teacher_model_name,
                 "student_model": config.student_model_name,
                 "num_epochs": config.num_epochs,
+                "num_training_steps": config.num_training_steps,
                 "batch_size": config.batch_size,
                 "eval_batch_size": config.eval_batch_size,
                 "learning_rate": config.learning_rate,
@@ -148,7 +149,7 @@ def main(args):
     # ----------------------------------
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=config.learning_rate)
     
-    num_training_steps = len(train_dataloader) * config.num_epochs
+    num_training_steps = len(train_dataloader) * config.num_epochs if config.num_training_steps == 0 else config.num_training_steps
     num_warmup_steps = config.num_warmup_steps
     
     lr_scheduler = get_cosine_schedule_with_warmup(
@@ -235,10 +236,15 @@ def main(args):
             # ------ Periodic Evaluation ------
             if trainer.global_step > 0 and trainer.global_step % config.eval_steps == 0:
                 dist.barrier()  # Sync before eval
-                eval_loss = trainer.eval_step(eval_dataloader)
+                eval_loss, should_stop = trainer.eval_step(eval_dataloader)
                 main_print(f"Step {trainer.global_step}: eval_loss = {eval_loss:.4f}")
                 eval_count += 1
                 dist.barrier()  # Sync after eval
+                
+                # Check for early stopping
+                if should_stop:
+                    main_print("Early stopping: training terminated")
+                    break
             
             # ------ Periodic Checkpointing ------
             # Skip in debug mode to avoid NCCL timeout
@@ -257,12 +263,16 @@ def main(args):
         avg_train_loss = epoch_train_loss / num_train_steps if num_train_steps > 0 else 0.0
         
         # Run final evaluation for the epoch
-        eval_loss = trainer.eval_step(eval_dataloader)
+        eval_loss, should_stop = trainer.eval_step(eval_dataloader)
         
         main_print(f"Epoch {epoch} Summary:")
         main_print(f"  Average Train Loss: {avg_train_loss:.4f}")
         main_print(f"  Eval Loss: {eval_loss:.4f}")
         
+        if should_stop:
+            main_print("Early stopping: training terminated")
+            break
+
         # ----------------------------------
         # Save Epoch Checkpoint
         # ----------------------------------
