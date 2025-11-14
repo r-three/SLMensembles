@@ -14,7 +14,7 @@ class DistillationConfig:
     # dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     logprob_cache_path = "/scratch/klambert/dataset/logprob_cache"
     dataset_path = "/scratch/klambert/dataset/logprob_cache/teacher_logprobs" # with teacher logits
-    output_dir = "/scratch/klambert/model_log/singular/test_runs/alpha08"
+    output_dir = "/scratch/klambert/model_log/singular/test_runs/alpha1"
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters
@@ -28,7 +28,7 @@ class DistillationConfig:
     gradient_accumulation_steps: int = 16 
     
     # Distillation parameters
-    alpha: float = 0.8  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
+    alpha: float = 1  # Weight for CE loss vs KL loss (0 = pure KL, 1 = pure CE)
     kl_temperature: float = 1.0  # Temperature for distillation
     
     # Checkpointing and logging
