@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --job-name=ensembles_logits_second_run
+#SBATCH --job-name=ensembles_logits_third_run
 #SBATCH --output=/scratch/klambert/run_logs/%x_%j.out                
 #SBATCH --error=/scratch/klambert/run_logs/%x_%j.err 
 #SBATCH --partition=gpubase_l40s_b2                                                 
-#SBATCH --gres=gpu:l40s:2
+#SBATCH --gres=gpu:l40s:3
 #SBATCH --cpus-per-task=4                                                                     
 #SBATCH --mem=120GB
 #SBATCH --account=aip-craffel                                             

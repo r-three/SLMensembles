@@ -10,9 +10,9 @@
 #SBATCH --time=01:00:00
 
 # ---- user vars (edit these) ----
-CHECKPOINT_DIR="/scratch/klambert/model_log/singular/new_models/checkpoints/checkpoint_epoch0_step3000"
+CHECKPOINT_DIR="/scratch/klambert/model_log/singular/ensemble_boosting_runs/second_run/checkpoints/checkpoint_epoch0_step1600"  
 MODEL_NAME="allenai/OLMo-2-0425-1B-SFT"   # e.g. "allenai/OLMo-2-0425-1B-SFT" or local cfg dir
-OUT_PATH="/scratch/klambert/model_log/singular/ensemble_boosting_runs/first_run/model_full.pt"
+OUT_PATH="/scratch/klambert/model_log/singular/ensemble_boosting_runs/second_run/model_full.pt"
 OWNER_RANK=0
 MASTER_PORT="${MASTER_PORT:-29500}"
 
