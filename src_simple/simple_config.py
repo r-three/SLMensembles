@@ -13,8 +13,10 @@ class DistillationConfig:
     # Dataset and Path
     # dataset_path = "/scratch/klambert/dataset/tulu-3-sft-mixture-olmo-preprocessed"
     dataset_path = "/scratch/klambert/dataset/logprob_cache/teacher_logprobs" # with teacher logits
-    output_dir = "/scratch/klambert/model_log/singular/ensemble_boosting_runs/third_run"
-    ensemble_dirs = ["/scratch/klambert/model_log/singular/ensemble_boosting_runs/first_run/model_full.pt", "/scratch/klambert/model_log/singular/ensemble_boosting_runs/second_run/final_model/model.pt"]  # Use [] for no ensembles; Note for n ensembles, we need n+1 gpus
+    # output_dir = "/scratch/klambert/model_log/singular/ensemble_boosting_runs/third_run"
+    # ensemble_dirs = ["/scratch/klambert/model_log/singular/ensemble_boosting_runs/first_run/model_full.pt", "/scratch/klambert/model_log/singular/ensemble_boosting_runs/second_run/model_full.pt"]  # Use [] for no ensembles; Note for n ensembles, we need n+1 gpus
+    output_dir = "/scratch/klambert/model_log/singular/test_runs/alpha1/second_run"
+    ensemble_dirs = ["/scratch/klambert/model_log/singular/test_runs/alpha1/final_model/model.pt"]
     dataset_name = "allenai/tulu-3-sft-mixture"
     
     # Training parameters

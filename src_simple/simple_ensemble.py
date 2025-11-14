@@ -50,11 +50,18 @@ class ModelEnsemble(PreTrainedModel, GenerationMixin):
                     app = AppState(model=model, optimizer=dummy_optim, lr_scheduler=None)
                 elif os.path.isfile(checkpoint_path):
                     # Single-file checkpoint (.pt)
-                    checkpoint = torch.load(str(checkpoint_path), weights_only=True,map_location="cpu")
-                    state_dict = checkpoint['model_state_dict']
+                    checkpoint = torch.load(str(checkpoint_path), map_location="cpu")
+
+                    # Handle different saving formats:
+                    # 1) checkpoint is already a pure state dict (your final_model/model.pt)
+                    # 2) checkpoint is a dict containing "model_state_dict"
+                    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+                        state_dict = checkpoint["model_state_dict"]
+                    else:
+                        # Assume it's already a state dict
+                        state_dict = checkpoint
+
                     model.load_state_dict(state_dict, strict=False)
-                else:
-                    raise ValueError(f"Path {checkpoint_path} is neither an existing directory nor a file")
 
             # ---- DCP LOAD (collective): every rank must enter ----
             if os.path.isdir(config.ensemble_dirs[0]):  # any DCP dir in the list implies DCP loads

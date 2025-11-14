@@ -12,6 +12,11 @@ from simple_checkpoint import AppState
 def maybe_init_dist():
     if dist.is_available() and "RANK" in os.environ and "WORLD_SIZE" in os.environ:
         if not dist.is_initialized():
+            # Set CUDA device before initializing process group
+            rank = int(os.environ["RANK"])
+            local_rank = int(os.environ.get("LOCAL_RANK", rank))
+            if torch.cuda.is_available():
+                torch.cuda.set_device(local_rank)
             dist.init_process_group(backend=os.environ.get("DIST_BACKEND", "nccl"),
                                     timeout=timedelta(minutes=30))
         return True, dist.get_rank(), dist.get_world_size()
@@ -54,7 +59,12 @@ def main():
         print(f"[Rank {rank}] wrote {args.out}")
 
     if is_dist:
-        dist.barrier()
+        # Set device before barrier to avoid NCCL warning
+        if torch.cuda.is_available():
+            device = torch.cuda.current_device()
+            dist.barrier(device_ids=[device])
+        else:
+            dist.barrier()
         dist.destroy_process_group()
 
 if __name__ == "__main__":
